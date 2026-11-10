@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ticket details</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:1380px;box-sizing:border-box;background:#17151B;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;padding:48px 16px 28px">
+<div style="display:flex;align-items:center;gap:8px;color:#FFFFFF">
+<a href="Events.dc.html" aria-label="Back" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#FFFFFF"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<h1 style="margin:0;flex:1;font-size:17px;font-weight:600">Your ticket</h1>
+<span style="font-size:13px;color:rgba(255,255,255,0.72)">1 of 2</span>
+</div>
+
+<article style="margin-top:14px;background:#FFFFFF;border-radius:26px;overflow:hidden;display:flex;flex-direction:column">
+<div style="height:150px;position:relative;background-color:#17151B;background-image:radial-gradient(circle at 75% 30%,rgba(232,0,105,0.55),rgba(232,0,105,0) 60%);border:1px solid #FFFFFF">
+<span style="position:absolute;left:16px;top:16px;padding:5px 10px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.06em">VIP</span>
+<div style="position:absolute;left:16px;bottom:14px;display:flex;flex-direction:column;gap:2px;color:#FFFFFF">
+<span style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.75)">LIVE MUSIC</span>
+<strong style="font-family:Sora,sans-serif;font-size:22px">Sunset Rooftop Jazz</strong>
+</div>
+</div>
+<div style="padding:18px 20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px">
+<sc-for list="{{facts}}" as="f" hint-placeholder-count="6">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#69646E">{{f.k}}</span><strong style="font-size:14px">{{f.v}}</strong></div>
+</sc-for>
+</div>
+<div style="position:relative;height:24px" aria-hidden="true">
+<span style="position:absolute;left:-12px;top:0;width:24px;height:24px;border-radius:50%;background:#17151B"></span>
+<span style="position:absolute;right:-12px;top:0;width:24px;height:24px;border-radius:50%;background:#17151B"></span>
+<span style="position:absolute;left:20px;right:20px;top:11px;border-top:2px dashed #E9E6EC"></span>
+</div>
+<div style="padding:16px 20px 22px;display:flex;flex-direction:column;align-items:center;gap:12px">
+<div role="img" aria-label="Sample admission QR code for demonstration" style="width:210px;height:210px;padding:12px;box-sizing:content-box;border-radius:18px;border:1px solid #E9E6EC;display:grid;grid-template-columns:repeat(21,minmax(0,1fr))">
+<sc-for list="{{qr}}" as="c" hint-placeholder-count="441">
+<span style="background:{{c}}"></span>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+<span style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:#69646E">ADMISSION CODE</span>
+<strong style="font-family:Sora,sans-serif;font-size:24px;letter-spacing:0.14em">7KQ-42M</strong>
+</div>
+<span style="display:inline-flex;gap:6px;align-items:center;padding:7px 12px;border-radius:999px;background:#E7F3ED;color:#177A4C;font-size:12px;font-weight:700"><span style="width:7px;height:7px;border-radius:50%;background:#177A4C"></span>Valid · not checked in</span>
+<span style="font-size:12px;line-height:17px;color:#69646E;text-align:center">Show this at the gate. Each ticket admits one person and can be scanned only once.</span>
+</div>
+</article>
+
+<div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+<a href="#calendar" style="height:50px;border-radius:999px;background:#221F27;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5h12a2.5 2.5 0 0 1 2.5 2.5v10.5a2.5 2.5 0 0 1-2.5 2.5H6a2.5 2.5 0 0 1-2.5-2.5V7.5A2.5 2.5 0 0 1 6 5zM3.5 10h17M8 3v4M16 3v4"></path></svg>Add to calendar</a>
+<a href="#directions" style="height:50px;border-radius:999px;background:#221F27;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"></path></svg>Directions</a>
+</div>
+
+<section style="margin-top:14px;background:#221F27;color:#FFFFFF;border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+<h2 style="margin:0;font-size:15px;font-weight:600">Booking</h2>
+<sc-for list="{{booking}}" as="b" hint-placeholder-count="5">
+<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:rgba(255,255,255,0.7)">{{b.k}}</span><span style="font-weight:600">{{b.v}}</span></div>
+</sc-for>
+</section>
+
+<div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+<a href="#refund" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-radius:16px;background:#221F27;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:600">Cancellation &amp; refund policy<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+<a href="#help" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-radius:16px;background:#221F27;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:600">Help with this booking<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1380}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const facts = [
+      { k: 'DATE', v: 'Sat, 21 Nov 2026' },
+      { k: 'TIME', v: '7:00 PM · gates 6:30' },
+      { k: 'VENUE', v: 'Skyline Terrace' },
+      { k: 'AREA', v: 'Hitech City' },
+      { k: 'TICKET', v: 'VIP · 1 of 2' },
+      { k: 'ATTENDEE', v: 'Aarav Reddy' }
+    ];
+    // Illustrative QR pattern only (finder squares + deterministic fill). Real tickets carry a signed token.
+    const N = 21, dark = '#17151B', light = '#FFFFFF';
+    const finder = (r, c) => {
+      const spots = [[0, 0], [0, N - 7], [N - 7, 0]];
+      for (const [r0, c0] of spots) {
+        const y = r - r0, x = c - c0;
+        if (y >= 0 && y < 7 && x >= 0 && x < 7) {
+          const edge = y === 0 || y === 6 || x === 0 || x === 6;
+          const core = y >= 2 && y <= 4 && x >= 2 && x <= 4;
+          return edge || core ? 1 : 0;
+        }
+        if (y >= -1 && y <= 7 && x >= -1 && x <= 7) return 0;
+      }
+      return -1;
+    };
+    const qr = [];
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const f = finder(r, c);
+        const on = f === -1 ? ((r * 7 + c * 13 + r * c * 3) % 5 < 2) : f === 1;
+        qr.push(on ? dark : light);
+      }
+    }
+    const booking = [
+      { k: 'Booking ID', v: 'VBT-91X3-77AQ' },
+      { k: 'Tickets', v: '2 × VIP' },
+      { k: 'Second attendee', v: 'Meera S.' },
+      { k: 'Paid', v: '₹2,998.00 · UPI' },
+      { k: 'Payment', v: 'Verified' }
+    ];
+    return { facts, qr, booking };
+  }
+}
+</script>
+</body>
+</html>

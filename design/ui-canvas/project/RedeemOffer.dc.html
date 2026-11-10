@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Redeem offer — review and pay</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:1300px;box-sizing:border-box;background:#F8F6F9;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:24px">
+
+<header style="padding:48px 16px 12px;display:flex;align-items:center;gap:8px;background:#FFFFFF;border-bottom:1px solid #E9E6EC">
+<a href="OfferDetails.dc.html" aria-label="Back" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#17151B"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="flex:1;display:flex;flex-direction:column"><h1 style="margin:0;font-size:17px;font-weight:600">Redeem offer</h1><span style="font-size:12px;color:#69646E">Saffron Courtyard · Jubilee Hills</span></div>
+<span style="padding:6px 10px;border-radius:999px;background:#FBF0E0;color:#9A5B00;font-size:12px;font-weight:700">Expires 9:42</span>
+</header>
+
+<ol aria-label="Progress" style="list-style:none;margin:0;padding:18px 20px 4px;display:flex;align-items:center;gap:8px">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+<li style="display:flex;align-items:center;gap:8px;flex:{{s.flex}}">
+<span style="width:26px;height:26px;flex:none;border-radius:50%;background:{{s.bg}};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">{{s.mark}}</span>
+<span style="font-size:12px;font-weight:600;color:{{s.color}};white-space:nowrap">{{s.label}}</span>
+<span style="flex:1;height:2px;background:{{s.line}}"></span>
+</li>
+</sc-for>
+</ol>
+
+<div style="margin:14px 16px 0;padding:14px 16px;border-radius:18px;background:#17151B;color:#FFFFFF;display:flex;gap:12px;align-items:center">
+<span style="width:40px;height:40px;flex:none;border-radius:50%;background:#E80069;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">AR</span>
+<div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:rgba(255,255,255,0.7)">Staff see you as</span><strong style="font-size:15px">Aarav R. · VIBE ID 4821</strong></div>
+<span style="padding:5px 9px;border-radius:999px;background:#221F27;font-size:11px;font-weight:700">MEMBER</span>
+</div>
+
+<section style="margin:14px 16px 0;background:#FFFFFF;border-radius:24px;border:1px solid #E9E6EC;padding:20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start">
+<div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#69646E">BILL FROM MERCHANT</span><strong style="font-size:15px">Table 12 · Bill A-2291</strong></div>
+<span style="font-size:12px;color:#69646E;text-align:right">Raised by Kiran<br>8:42 PM</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:14px;background:#F8F6F9">
+<sc-for list="{{items}}" as="i" hint-placeholder-count="4">
+<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#69646E">{{i.name}}</span><span>{{i.amt}}</span></div>
+</sc-for>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#69646E">Eligible bill</span><span style="font-weight:600">₹1,000.00</span></div>
+<div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#69646E">Member offer · 30% off</span><span style="font-weight:600;color:#C8005A">−₹300.00</span></div>
+<div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#69646E">Taxes &amp; charges</span><span style="font-weight:600">Included</span></div>
+<div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#69646E;display:flex;gap:4px;align-items:center">VIBE fee<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-label="No fee charged for members" role="img"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 11v5M12 7.5v.01"></path></svg></span><span style="font-weight:600">₹0.00</span></div>
+<div style="height:1px;background:#E9E6EC"></div>
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600">You pay</span><strong style="font-family:Sora,sans-serif;font-size:30px;letter-spacing:-0.01em">₹700.00</strong></div>
+<span style="align-self:flex-end;padding:5px 10px;border-radius:999px;background:#E7F3ED;color:#177A4C;font-size:12px;font-weight:700">You save ₹300.00</span>
+</section>
+
+<section style="margin:20px 16px 0;display:flex;flex-direction:column;gap:10px">
+<h2 style="margin:0;font-size:15px;font-weight:600">Pay with</h2>
+<div role="radiogroup" aria-label="Payment method" style="background:#FFFFFF;border-radius:20px;border:1px solid #E9E6EC;overflow:hidden">
+<sc-for list="{{methods}}" as="m" hint-placeholder-count="3">
+<button type="button" role="radio" aria-checked="{{m.checked}}" onClick="{{m.pick}}" style="width:100%;display:flex;gap:12px;align-items:center;padding:14px 16px;border:none;border-bottom:1px solid #E9E6EC;background:#FFFFFF;cursor:pointer;text-align:left;font:inherit;color:#17151B">
+<span style="width:40px;height:40px;flex:none;border-radius:12px;background:#F8F6F9;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17151B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{m.d}}"></path></svg></span>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><strong style="font-size:14px">{{m.name}}</strong><span style="font-size:12px;color:#69646E">{{m.sub}}</span></span>
+<span style="width:22px;height:22px;border-radius:50%;border:{{m.ring}};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:{{m.dot}}"></span></span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<div style="margin:16px 16px 0;display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:16px;background:#FFFFFF;border:1px solid #E9E6EC">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17151B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M12 3L4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6zM9 12l2 2 4-4"></path></svg>
+<span style="font-size:12px;line-height:17px;color:#69646E">Your payment is confirmed only after our RBI-regulated payment partner verifies it. Don’t pay the merchant separately for this bill.</span>
+</div>
+<a href="#dispute" style="margin:14px 16px 0;text-align:center;font-size:13px;font-weight:600;text-decoration:none;padding:8px">Bill looks wrong? Ask staff to edit it</a>
+</div>
+
+<div style="flex:none;padding:14px 16px 28px;background:#FFFFFF;border-top:1px solid #E9E6EC;box-shadow:0 -8px 28px rgba(23,21,27,0.08);display:flex;flex-direction:column;gap:8px">
+<a href="PaymentConfirmation.dc.html" style="height:54px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:16px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10.5h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 10.5v-3a4 4 0 0 1 8 0v3"></path></svg>Pay ₹700.00 with {{methodShort}}</a>
+<span style="text-align:center;font-size:11px;color:#69646E">By paying you accept the offer terms</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { method: 'UPI' };
+  }
+  renderVals() {
+    const st = this.state;
+    const steps = [
+      { label: 'Requested', mark: '✓', bg: '#177A4C', color: '#17151B', line: '#177A4C', flex: '1' },
+      { label: 'Bill received', mark: '✓', bg: '#177A4C', color: '#17151B', line: '#E9E6EC', flex: '1' },
+      { label: 'Pay', mark: '3', bg: '#E80069', color: '#17151B', line: 'transparent', flex: '0 0 auto' }
+    ];
+    const items = [
+      { name: 'Hyderabadi dum biryani × 1', amt: '₹480.00' },
+      { name: 'Charcoal seekh kebab × 1', amt: '₹390.00' },
+      { name: 'Irani chai pot × 1', amt: '₹120.00' },
+      { name: 'Mineral water × 1', amt: '₹10.00' }
+    ];
+    const M = [
+      ['UPI', 'UPI', 'Any UPI app on this phone', 'M5.5 6h13A2.5 2.5 0 0 1 21 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-8A2.5 2.5 0 0 1 5.5 6zM3 10h18M16 14.5h2'],
+      ['Card', 'card', 'Debit or credit · saved by payment partner', 'M5.5 5h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM2.5 10h19M6.5 15h4'],
+      ['Netbanking', 'netbanking', 'All major Indian banks', 'M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18']
+    ];
+    const methods = M.map(([name, short, sub, d]) => {
+      const on = name === st.method;
+      return { name, sub, d, checked: on ? 'true' : 'false', ring: on ? '2px solid #E80069' : '1.5px solid #69646E', dot: on ? '#E80069' : 'transparent', pick: () => this.setState({ method: name }) };
+    });
+    const methodShort = (M.find((m) => m[0] === st.method) || M[0])[1];
+    return { steps, items, methods, methodShort };
+  }
+}
+</script>
+</body>
+</html>

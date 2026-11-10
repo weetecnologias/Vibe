@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Events</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:1640px;box-sizing:border-box;background:#F8F6F9;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:20px;padding-bottom:28px">
+
+<header style="padding:48px 20px 0;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:center;gap:8px">
+<a href="Home.dc.html" aria-label="Back" style="width:44px;height:44px;margin-left:-10px;display:flex;align-items:center;justify-content:center;color:#17151B"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<h1 style="margin:0;flex:1;font-family:Sora,sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.02em">Events</h1>
+<a href="Discover.dc.html" aria-label="Search events" style="width:44px;height:44px;border-radius:50%;background:#FFFFFF;border:1px solid #E9E6EC;box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#17151B"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-3.5-3.5"></path></svg></a>
+</div>
+<a href="TicketDetails.dc.html" style="display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:18px;background:#17151B;color:#FFFFFF;text-decoration:none">
+<span style="width:40px;height:40px;flex:none;border-radius:12px;background:#E80069;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5V14a2 2 0 0 0 0-4zM14.5 6v12"></path></svg></span>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><strong style="font-size:14px">Your ticket: Sunset Rooftop Jazz</strong><span style="font-size:12px;color:rgba(255,255,255,0.72)">Sat 21 Nov · 2 × VIP</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</header>
+
+<div role="tablist" aria-label="Event type" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 20px">
+<sc-for list="{{types}}" as="t" hint-placeholder-count="6">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="flex:none;height:38px;padding:0 14px;border-radius:999px;border:{{t.border}};background:{{t.bg}};color:{{t.fg}};font:600 13px Inter,sans-serif;cursor:pointer">{{t.label}}</button>
+</sc-for>
+</div>
+
+<div aria-label="Date" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 20px">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+<button type="button" aria-pressed="{{d.sel}}" onClick="{{d.pick}}" style="flex:none;width:52px;height:64px;border-radius:16px;border:{{d.border}};background:{{d.bg}};color:{{d.fg}};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;font-family:Inter,sans-serif">
+<span style="font-size:11px;font-weight:600;opacity:0.85">{{d.dow}}</span><strong style="font-family:Sora,sans-serif;font-size:18px">{{d.n}}</strong></button>
+</sc-for>
+</div>
+
+<a href="TicketDetails.dc.html" style="margin:0 20px;height:300px;border-radius:26px;position:relative;overflow:hidden;text-decoration:none;color:#FFFFFF;background-color:#17151B;background-image:radial-gradient(circle at 70% 25%,rgba(232,0,105,0.55),rgba(232,0,105,0) 60%)">
+<span style="position:absolute;left:16px;top:16px;padding:5px 10px;border-radius:999px;background:#FFFFFF;color:#17151B;font-size:11px;font-weight:700;letter-spacing:0.06em">FEATURED</span>
+<span style="position:absolute;right:16px;top:16px;padding:5px 10px;border-radius:999px;background:#FBF0E0;color:#9A5B00;font-size:11px;font-weight:700">Only 18 VIP left</span>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:20px;display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,rgba(23,21,27,0),rgba(23,21,27,0.92) 45%)">
+<span style="font-size:12px;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.8)">LIVE MUSIC · SAT 21 NOV · 7 PM</span>
+<strong style="font-family:Sora,sans-serif;font-size:24px;letter-spacing:-0.01em">Sunset Rooftop Jazz</strong>
+<span style="font-size:13px;color:rgba(255,255,255,0.8)">Skyline Terrace, Hitech City</span>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+<span style="font-size:14px"><span style="color:rgba(255,255,255,0.7)">From</span> <strong>₹799</strong></span>
+<span style="padding:10px 18px;border-radius:999px;background:#E80069;font-size:14px;font-weight:600">Get tickets</span>
+</div>
+</div>
+</a>
+
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">This week in Hyderabad</h2><span style="font-size:12px;color:#69646E">{{count}} events</span></div>
+<sc-for list="{{list}}" as="e" hint-placeholder-count="5">
+<a href="TicketDetails.dc.html" style="display:flex;gap:12px;padding:12px;border-radius:20px;background:#FFFFFF;border:1px solid #E9E6EC;text-decoration:none;color:#17151B">
+<div style="width:84px;height:96px;flex:none;border-radius:14px;position:relative;background-color:#17151B;background-image:{{e.img}}">
+<span style="position:absolute;left:8px;top:8px;width:40px;height:44px;border-radius:10px;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:9px;font-weight:700;color:#C8005A">{{e.mon}}</span><strong style="font-family:Sora,sans-serif;font-size:16px;line-height:1">{{e.day}}</strong></span>
+</div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+<span style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#69646E">{{e.kind}}</span>
+<strong style="font-size:15px">{{e.title}}</strong>
+<span style="font-size:12px;color:#69646E">{{e.meta}}</span>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto">
+<strong style="font-size:13px">{{e.price}}</strong>
+<span style="font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px;background:{{e.tagBg}};color:{{e.tagFg}}">{{e.tag}}</span>
+</div>
+</div>
+</a>
+</sc-for>
+</section>
+
+<a href="#host" style="margin:0 20px;padding:16px;border-radius:20px;border:1.5px dashed #69646E;display:flex;gap:12px;align-items:center;text-decoration:none;color:#17151B">
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><strong style="font-size:14px">Hosting an event in Hyderabad?</strong><span style="font-size:12px;color:#69646E">List it on VIBE. Every event is reviewed before it goes live.</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</div>
+<nav aria-label="Main" style="flex:none;display:flex;justify-content:space-around;background:#FFFFFF;border-top:1px solid #E9E6EC;padding:8px 6px 26px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:6px 0;text-decoration:none;font-size:11px;font-weight:600;color:{{t.color}}">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span>{{t.label}}</span>
+</a>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1640}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { type: 'All', day: 'All' };
+  }
+  renderVals() {
+    const st = this.state;
+    const types = ['All', 'Workshops', 'Live Events', 'Tours', 'Meetups', 'Experiences'].map((label) => {
+      const on = label === st.type;
+      return { label, sel: on ? 'true' : 'false', bg: on ? '#17151B' : '#FFFFFF', fg: on ? '#FFFFFF' : '#17151B', border: on ? '1px solid #17151B' : '1px solid #E9E6EC', pick: () => this.setState({ type: label }) };
+    });
+    const days = [['All', 'Week'], ['Mon', '9'], ['Tue', '10'], ['Wed', '11'], ['Thu', '12'], ['Fri', '13'], ['Sat', '14'], ['Sun', '15']].map(([dow, n]) => {
+      const key = dow === 'All' ? 'All' : n;
+      const on = key === st.day;
+      return { dow: dow === 'All' ? 'This' : dow, n: dow === 'All' ? 'All' : n, sel: on ? 'true' : 'false', bg: on ? '#E80069' : '#FFFFFF', fg: on ? '#FFFFFF' : '#17151B', border: on ? '1px solid #E80069' : '1px solid #E9E6EC', pick: () => this.setState({ day: key }) };
+    });
+    const glow = ['78% 22%', '22% 30%', '70% 80%', '30% 75%', '50% 18%'];
+    const img = (i) => 'radial-gradient(circle at ' + glow[i % glow.length] + ', rgba(232,0,105,0.42), rgba(232,0,105,0) 60%)';
+    const all = [
+      { kind: 'WORKSHOPS', mon: 'NOV', day: '13', title: 'Pottery for beginners', meta: 'Fri · 6:00 PM · Clay Studio, Madhapur', price: '₹1,200', tag: '6 seats left', tagBg: '#FBF0E0', tagFg: '#9A5B00' },
+      { kind: 'TOURS', mon: 'NOV', day: '14', title: 'Old City Heritage Walk', meta: 'Sat · 6:30 AM · Starts at Charminar', price: '₹499', tag: 'Early Bird', tagBg: '#FDE6F0', tagFg: '#C8005A' },
+      { kind: 'LIVE EVENTS', mon: 'NOV', day: '14', title: 'Stand-up Night', meta: 'Sat · 8:30 PM · The Loft, Film Nagar', price: 'From ₹399', tag: 'General · VIP', tagBg: '#F8F6F9', tagFg: '#17151B' },
+      { kind: 'MEETUPS', mon: 'NOV', day: '15', title: 'Founders’ Sunday Brunch', meta: 'Sun · 11:00 AM · Jubilee Hills', price: '₹650', tag: 'Members first', tagBg: '#E80069', tagFg: '#FFFFFF' },
+      { kind: 'EXPERIENCES', mon: 'NOV', day: '15', title: 'Board Game Night', meta: 'Sun · 7:00 PM · Meeple Café, Kondapur', price: '₹349', tag: 'Sold out', tagBg: '#E9E6EC', tagFg: '#69646E' }
+    ].map((e, i) => ({ ...e, img: img(i) }));
+    const list = all.filter((e) => (st.type === 'All' || e.kind === st.type.toUpperCase()) && (st.day === 'All' || e.day === st.day));
+    const nav = [
+      ['Home', 'Home.dc.html', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
+      ['Discover', 'Discover.dc.html', 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M15.5 8.5l-2 5-5 2 2-5z'],
+      ['Social', 'Social.dc.html', 'M5.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.5 3.5 5.2'],
+      ['Membership', 'Membership.dc.html', 'M5.5 5h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM2.5 10h19M6.5 15h4'],
+      ['Profile', 'Profile.dc.html', 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21c1-4 4.2-6 8-6s7 2 8 6']
+    ];
+    const tabs = nav.map(([label, href, d]) => ({ label, href, d, color: label === 'Discover' ? '#E80069' : '#69646E' }));
+    return { types, days, list, count: list.length, tabs };
+  }
+}
+</script>
+</body>
+</html>

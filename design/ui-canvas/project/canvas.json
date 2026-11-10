@@ -1,0 +1,54 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "BusinessDetails.dc.html": { "h": 2820, "is_interactive": true, "title": "08 Business details", "w": 390, "x": 1410, "y": 5064 },
+    "CategoryListing.dc.html": { "h": 1560, "is_interactive": true, "title": "07 Category listing", "w": 390, "x": 940, "y": 5064 },
+    "Discover.dc.html": { "h": 1300, "is_interactive": true, "title": "06 Discover", "w": 390, "x": 470, "y": 5064 },
+    "Events.dc.html": { "h": 1640, "is_interactive": true, "title": "13 Events", "w": 390, "x": 1410, "y": 8384 },
+    "Home.dc.html": { "h": 2960, "is_interactive": true, "title": "05 Home", "w": 390, "x": 0, "y": 5064 },
+    "Location.dc.html": { "h": 844, "is_interactive": true, "title": "04 Location", "w": 390, "x": 2820, "y": 3860 },
+    "Login.dc.html": { "h": 844, "is_interactive": true, "title": "03 Login", "w": 390, "x": 1880, "y": 3860 },
+    "Main.dc.html": { "h": 3500, "title": "00 Design system", "w": 1440, "x": 0, "y": 0 },
+    "Membership.dc.html": { "h": 2500, "is_interactive": true, "title": "12 Membership", "w": 390, "x": 940, "y": 8384 },
+    "OfferDetails.dc.html": { "h": 1580, "is_interactive": true, "title": "09 Offer details", "w": 390, "x": 1880, "y": 5064 },
+    "Onboarding1.dc.html": { "h": 844, "is_interactive": true, "title": "02 Onboarding · Discover", "w": 390, "x": 470, "y": 3860 },
+    "Onboarding2.dc.html": { "h": 844, "is_interactive": true, "title": "02 Onboarding · Save", "w": 390, "x": 940, "y": 3860 },
+    "Onboarding3.dc.html": { "h": 844, "is_interactive": true, "title": "02 Onboarding · Social", "w": 390, "x": 1410, "y": 3860 },
+    "Otp.dc.html": { "h": 844, "is_interactive": true, "title": "03 OTP verification", "w": 390, "x": 2350, "y": 3860 },
+    "PaymentConfirmation.dc.html": { "h": 1080, "is_interactive": true, "title": "11 Payment confirmation", "w": 390, "x": 470, "y": 8384 },
+    "Profile.dc.html": { "h": 1560, "is_interactive": true, "title": "16 Profile", "w": 390, "x": 470, "y": 11244 },
+    "RedeemOffer.dc.html": { "h": 1300, "is_interactive": true, "title": "10 Redeem offer", "w": 390, "x": 0, "y": 8384 },
+    "Social.dc.html": { "h": 1900, "is_interactive": true, "title": "15 Social", "w": 390, "x": 0, "y": 11244 },
+    "Splash.dc.html": { "h": 844, "is_interactive": true, "title": "01 Splash", "w": 390, "x": 0, "y": 3860 },
+    "TicketDetails.dc.html": { "h": 1380, "is_interactive": true, "title": "14 Ticket details", "w": 390, "x": 1880, "y": 8384 }
+  },
+  "createdOnFiles": { "at": "2026-11-09T12:00:00Z", "v": 1 },
+  "designSystems": [],
+  "launch": { "view": "canvas" },
+  "noteOrder": ["t1", "t2", "t3", "t4", "t5", "about"],
+  "notes": {
+    "about": {
+      "fill": "pink",
+      "size": 24,
+      "text": "Review notes\n\n• Every business, price, offer and figure on these screens is demo data. Offers, fees, membership pricing and categories will all be admin-configurable.\n\n• Dark photo blocks are placeholders for real business photography supplied by merchants.\n\n• Press Play on any phone screen to click through: bottom tabs, Home → Business → Offer → Redeem → Payment, Events → Ticket.\n\n• Payment confirmation has a Tweak to switch between the verified and pending states.\n\n• No payment, maps, OTP or push provider is connected yet. Payment success is only ever shown after server-side verification.",
+      "w": 440,
+      "x": 1520,
+      "y": 0
+    },
+    "t1": { "kind": "title1", "maxW": 1440, "text": "VIBE Hyderabad — design system", "w": 240, "x": 0, "y": -300 },
+    "t2": { "kind": "title1", "maxW": 3210, "text": "Welcome, sign-in & location", "w": 240, "x": 0, "y": 3620 },
+    "t3": { "kind": "title1", "maxW": 2270, "text": "Discover & explore", "w": 240, "x": 0, "y": 4824 },
+    "t4": { "kind": "title1", "maxW": 2270, "text": "Redeem, pay, membership & tickets", "w": 240, "x": 0, "y": 8144 },
+    "t5": { "kind": "title1", "maxW": 860, "text": "Social & profile", "w": 240, "x": 0, "y": 11004 }
+  },
+  "order": [
+    "Main.dc.html",
+    "Splash.dc.html", "Onboarding1.dc.html", "Onboarding2.dc.html", "Onboarding3.dc.html", "Login.dc.html", "Otp.dc.html", "Location.dc.html",
+    "Home.dc.html", "Discover.dc.html", "CategoryListing.dc.html", "BusinessDetails.dc.html", "OfferDetails.dc.html",
+    "RedeemOffer.dc.html", "PaymentConfirmation.dc.html", "Membership.dc.html", "Events.dc.html", "TicketDetails.dc.html",
+    "Social.dc.html", "Profile.dc.html"
+  ],
+  "pages": [],
+  "title": "VIBE Hyderabad — Customer App UI"
+}

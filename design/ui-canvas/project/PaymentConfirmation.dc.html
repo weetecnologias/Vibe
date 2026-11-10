@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Payment confirmation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:1080px;box-sizing:border-box;background:#F8F6F9;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;padding:48px 16px 24px">
+<div style="display:flex;justify-content:flex-end">
+<a href="Home.dc.html" aria-label="Close" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#17151B"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+</div>
+
+<sc-if value="{{verified}}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:4px 8px 0">
+<span style="width:88px;height:88px;border-radius:50%;background:#E7F3ED;display:flex;align-items:center;justify-content:center"><span style="width:60px;height:60px;border-radius:50%;background:#177A4C;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></span>
+<h1 style="margin:8px 0 0;font-family:Sora,sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.02em">Payment successful</h1>
+<p style="margin:0;font-size:15px;color:#69646E"><strong style="color:#17151B">₹700.00</strong> paid to Saffron Courtyard</p>
+<span style="display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:600;color:#177A4C"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6zM9 12l2 2 4-4"></path></svg>Verified by payment partner · 9 Nov 2026, 8:44 PM</span>
+<span style="margin-top:6px;padding:10px 16px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:14px;font-weight:600">You saved ₹300 with VIBE Membership</span>
+</div>
+</sc-if>
+
+<sc-if value="{{pending}}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:4px 8px 0">
+<span style="width:88px;height:88px;border-radius:50%;background:#FBF0E0;display:flex;align-items:center;justify-content:center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9A5B00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 7v5l3 2"></path></svg></span>
+<h1 style="margin:8px 0 0;font-family:Sora,sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.02em">Confirming your payment</h1>
+<p style="margin:0;font-size:14px;line-height:20px;color:#69646E">We’re waiting for our payment partner to confirm ₹700.00. This usually takes a few seconds. Please don’t pay again.</p>
+</div>
+</sc-if>
+
+<section style="margin-top:24px;background:#FFFFFF;border-radius:24px;border:1px solid #E9E6EC;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:15px;font-weight:600">VIBE receipt</h2><span style="padding:5px 10px;border-radius:999px;background:{{statusBg}};color:{{statusFg}};font-size:12px;font-weight:700">{{statusLabel}}</span></div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<div style="display:flex;justify-content:space-between;gap:12px;font-size:13px"><span style="color:#69646E">{{r.k}}</span><span style="font-weight:{{r.w}};color:{{r.c}};text-align:right">{{r.v}}</span></div>
+</sc-for>
+<div style="height:1px;background:#E9E6EC"></div>
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:600">Total paid</span><strong style="font-family:Sora,sans-serif;font-size:22px">₹700.00</strong></div>
+</section>
+
+<p style="margin:14px 4px 0;font-size:12px;line-height:17px;color:#69646E">This is a VIBE payment receipt. Saffron Courtyard issues your tax invoice separately.</p>
+
+<section style="margin-top:20px;background:#FFFFFF;border-radius:20px;border:1px solid #E9E6EC;padding:16px 18px;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center">
+<strong style="font-size:15px">How was Saffron Courtyard?</strong>
+<div role="radiogroup" aria-label="Rating" style="display:flex;gap:6px">
+<sc-for list="{{stars}}" as="s" hint-placeholder-count="5">
+<button type="button" role="radio" aria-checked="{{s.checked}}" aria-label="{{s.label}}" onClick="{{s.pick}}" style="width:44px;height:44px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="{{s.fill}}" stroke="{{s.stroke}}" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"></path></svg></button>
+</sc-for>
+</div>
+</section>
+
+<span style="flex:1;min-height:20px"></span>
+<div style="display:flex;gap:10px">
+<a href="#receipt" style="flex:1;height:52px;border-radius:999px;border:1.5px solid #17151B;color:#17151B;font-size:15px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center">Share receipt</a>
+<a href="Home.dc.html" style="flex:1;height:52px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center">Done</a>
+</div>
+<a href="#help" style="margin-top:12px;text-align:center;font-size:13px;font-weight:600;text-decoration:none;padding:8px">Problem with this payment?</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"state":{"editor":"enum","options":["verified","pending"],"default":"verified"},"$preview":{"width":390,"height":1080}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { rating: 0 };
+  }
+  renderVals() {
+    const mode = this.props.state ?? 'verified';
+    const verified = mode === 'verified';
+    const rows = [
+      { k: 'VIBE reference', v: 'VB-24X7-QK19', w: 700, c: '#17151B' },
+      { k: 'Partner payment ID', v: verified ? 'pay_••••8Kq2' : 'Awaiting', w: 500, c: verified ? '#17151B' : '#9A5B00' },
+      { k: 'Paid with', v: 'UPI', w: 500, c: '#17151B' },
+      { k: 'Merchant', v: 'Saffron Courtyard, Jubilee Hills', w: 500, c: '#17151B' },
+      { k: 'Bill', v: 'A-2291 · Table 12', w: 500, c: '#17151B' },
+      { k: 'Eligible bill', v: '₹1,000.00', w: 500, c: '#17151B' },
+      { k: 'Member offer · 30%', v: '−₹300.00', w: 600, c: '#C8005A' },
+      { k: 'VIBE fee', v: '₹0.00', w: 500, c: '#17151B' }
+    ];
+    const r = this.state.rating;
+    const stars = [1, 2, 3, 4, 5].map((n) => ({
+      label: n + (n === 1 ? ' star' : ' stars'),
+      checked: n === r ? 'true' : 'false',
+      fill: n <= r ? '#E80069' : 'none',
+      stroke: n <= r ? '#E80069' : '#69646E',
+      pick: () => this.setState({ rating: n })
+    }));
+    return {
+      verified, pending: !verified, rows, stars,
+      statusLabel: verified ? 'Verified' : 'Pending',
+      statusBg: verified ? '#E7F3ED' : '#FBF0E0',
+      statusFg: verified ? '#177A4C' : '#9A5B00'
+    };
+  }
+}
+</script>
+</body>
+</html>

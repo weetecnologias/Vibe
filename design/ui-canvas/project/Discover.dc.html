@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Discover</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:1300px;box-sizing:border-box;background:#F8F6F9;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:28px">
+
+<header style="padding:52px 20px 0;display:flex;flex-direction:column;gap:14px;background:#FFFFFF;border-bottom:1px solid #E9E6EC">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<h1 style="margin:0;font-family:Sora,sans-serif;font-size:28px;font-weight:700;letter-spacing:-0.02em">Discover</h1>
+<a href="Location.dc.html" style="display:flex;gap:4px;align-items:center;font-size:13px;font-weight:600;color:#17151B;text-decoration:none;padding:8px 0">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E80069" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM9.5 9.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0"></path></svg>Jubilee Hills</a>
+</div>
+<label style="display:flex;align-items:center;height:52px;border:1.5px solid #E9E6EC;border-radius:16px;padding:0 14px;gap:10px;background:#F8F6F9">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17151B" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-3.5-3.5"></path></svg>
+<input type="search" placeholder="Businesses, services, events…" aria-label="Search" style="border:none;outline:none;font:500 15px Inter,sans-serif;color:#17151B;flex:1;min-width:0;background:transparent">
+</label>
+<div role="tablist" aria-label="Search in" style="display:flex;gap:20px;overflow-x:auto;scrollbar-width:none;font-size:14px;font-weight:600">
+<sc-for list="{{scopes}}" as="s" hint-placeholder-count="5">
+<button type="button" role="tab" aria-selected="{{s.sel}}" onClick="{{s.pick}}" style="flex:none;background:transparent;border:none;padding:6px 0 12px;font:600 14px Inter,sans-serif;cursor:pointer;color:{{s.color}};border-bottom:{{s.line}}">{{s.label}}</button>
+</sc-for>
+</div>
+</header>
+
+<div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:14px 20px 0">
+<button type="button" style="flex:none;height:38px;padding:0 12px;border-radius:999px;border:1px solid #17151B;background:#FFFFFF;display:flex;align-items:center;gap:6px;font:600 13px Inter,sans-serif;color:#17151B;cursor:pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1M13 7a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0M15 17a2 2 0 1 0 4 0a2 2 0 1 0-4 0"></path></svg>Filters · {{activeCount}}</button>
+<button type="button" style="flex:none;height:38px;padding:0 12px;border-radius:999px;border:1px solid #E9E6EC;background:#FFFFFF;display:flex;align-items:center;gap:4px;font:600 13px Inter,sans-serif;color:#17151B;cursor:pointer">Sort: Nearest<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="5">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.toggle}}" style="flex:none;height:38px;padding:0 14px;border-radius:999px;border:{{c.border}};background:{{c.bg}};color:{{c.fg}};font:600 13px Inter,sans-serif;cursor:pointer">{{c.label}}</button>
+</sc-for>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px">
+<span style="font-size:13px;color:#69646E"><strong style="color:#17151B">48 places</strong> within 3 km</span>
+<div role="group" aria-label="View" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:#FFFFFF;border-radius:999px;padding:3px;border:1px solid #E9E6EC">
+<button type="button" aria-pressed="{{isList}}" onClick="{{showList}}" style="display:flex;gap:5px;align-items:center;justify-content:center;padding:7px 12px;border:none;border-radius:999px;background:{{listBg}};color:{{listFg}};font:600 12px Inter,sans-serif;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6v.01M3.5 12v.01M3.5 18v.01"></path></svg>List</button>
+<button type="button" aria-pressed="{{isMap}}" onClick="{{showMap}}" style="display:flex;gap:5px;align-items:center;justify-content:center;padding:7px 12px;border:none;border-radius:999px;background:{{mapBg}};color:{{mapFg}};font:600 12px Inter,sans-serif;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6.5V20l6-2.5 6 2.5 6-2.5V4l-6 2.5zM9 4v13.5M15 6.5V20"></path></svg>Map</button>
+</div>
+</div>
+
+<sc-if value="{{isMap}}" hint-placeholder-val="{{ true }}">
+<div style="margin:0 20px 16px;height:300px;border-radius:24px;overflow:hidden;position:relative;background:#E9E6EC">
+<svg width="350" height="300" viewBox="0 0 350 300" role="img" aria-label="Map of places near Jubilee Hills" style="display:block">
+<rect width="350" height="300" fill="#E9E6EC"></rect>
+<ellipse cx="290" cy="245" rx="70" ry="42" fill="#F8F6F9"></ellipse>
+<path d="M-10 80 C 80 60, 160 120, 360 90" stroke="#FFFFFF" stroke-width="12" fill="none"></path>
+<path d="M60 -10 C 80 100, 40 200, 90 310" stroke="#FFFFFF" stroke-width="9" fill="none"></path>
+<path d="M-10 222 L 360 178" stroke="#FFFFFF" stroke-width="7" fill="none"></path>
+<path d="M220 -10 C 200 80, 260 160, 236 310" stroke="#FFFFFF" stroke-width="8" fill="none"></path>
+<path d="M110 140 H 270 M150 90 V 210" stroke="#FFFFFF" stroke-width="4" fill="none"></path>
+</svg>
+<span style="position:absolute;left:150px;top:150px;width:18px;height:18px;border-radius:50%;background:#17151B;border:4px solid #FFFFFF;box-shadow:0 0 0 8px rgba(23,21,27,0.12)" aria-label="You are here"></span>
+<sc-for list="{{pins}}" as="p" hint-placeholder-count="5">
+<a href="BusinessDetails.dc.html" style="position:absolute;left:{{p.x}};top:{{p.y}};padding:6px 10px;border-radius:999px;background:{{p.bg}};color:#FFFFFF;font-size:12px;font-weight:700;text-decoration:none;border:2px solid #FFFFFF;white-space:nowrap">{{p.label}}</a>
+</sc-for>
+<span style="position:absolute;right:12px;bottom:12px;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.85);font-size:10px;color:#69646E">Map provider TBD</span>
+</div>
+</sc-if>
+
+<div style="display:flex;flex-direction:column;gap:12px;padding:0 20px">
+<sc-for list="{{results}}" as="r" hint-placeholder-count="4">
+<a href="BusinessDetails.dc.html" style="display:flex;gap:12px;padding:12px;border-radius:20px;background:#FFFFFF;border:1px solid #E9E6EC;text-decoration:none;color:#17151B">
+<div style="width:92px;height:104px;flex:none;border-radius:14px;position:relative;background-color:#17151B;background-image:{{r.img}}"></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;justify-content:space-between;gap:8px"><strong style="font-size:15px">{{r.name}}</strong><span style="font-size:12px;color:#69646E;white-space:nowrap">{{r.dist}}</span></div>
+<span style="font-size:13px;color:#69646E">{{r.meta}}</span>
+<div style="display:flex;gap:8px;align-items:center;font-size:12px">
+<span style="display:inline-flex;gap:3px;align-items:center;font-weight:700"><svg width="12" height="12" viewBox="0 0 24 24" fill="#E80069" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"></path></svg>{{r.rating}}</span>
+<span style="color:#69646E">({{r.reviews}})</span><span style="color:#69646E">·</span><span style="font-weight:600">{{r.price}}</span>
+<span style="color:{{r.openColor}};font-weight:600">{{r.open}}</span>
+</div>
+<span style="margin-top:auto;align-self:flex-start;padding:5px 9px;border-radius:999px;background:#FDE6F0;color:#C8005A;font-size:11px;font-weight:700">{{r.offer}}</span>
+</div>
+</a>
+</sc-for>
+</div>
+</div>
+<nav aria-label="Main" style="flex:none;display:flex;justify-content:space-around;background:#FFFFFF;border-top:1px solid #E9E6EC;padding:8px 6px 26px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:6px 0;text-decoration:none;font-size:11px;font-weight:600;color:{{t.color}}">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span>{{t.label}}</span>
+</a>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'map', scope: 'All', on: { 'Open now': true, 'Member offers': true } };
+  }
+  renderVals() {
+    const st = this.state;
+    const glow = ['78% 22%', '22% 30%', '70% 80%', '30% 75%', '50% 18%'];
+    const img = (i) => 'radial-gradient(circle at ' + glow[i % glow.length] + ', rgba(232,0,105,0.38), rgba(232,0,105,0) 58%)';
+    const scopes = ['All', 'Places', 'Services', 'Experiences', 'Events'].map((label) => {
+      const sel = label === st.scope;
+      return { label, sel: sel ? 'true' : 'false', color: sel ? '#17151B' : '#69646E', line: sel ? '2.5px solid #E80069' : '2.5px solid transparent', pick: () => this.setState({ scope: label }) };
+    });
+    const chips = ['Open now', 'Member offers', 'Rating 4.0+', '₹₹ and under', 'Within 3 km'].map((label) => {
+      const on = !!st.on[label];
+      return {
+        label, pressed: on ? 'true' : 'false',
+        bg: on ? '#17151B' : '#FFFFFF', fg: on ? '#FFFFFF' : '#17151B', border: on ? '1px solid #17151B' : '1px solid #E9E6EC',
+        toggle: () => this.setState({ on: { ...st.on, [label]: !on } })
+      };
+    });
+    const activeCount = Object.values(st.on).filter(Boolean).length;
+    const pins = [
+      { x: '40px', y: '50px', label: '30%', bg: '#E80069' },
+      { x: '230px', y: '40px', label: '1+1', bg: '#E80069' },
+      { x: '180px', y: '108px', label: 'Saffron · 30%', bg: '#17151B' },
+      { x: '250px', y: '196px', label: '20%', bg: '#E80069' },
+      { x: '70px', y: '232px', label: '10%', bg: '#E80069' }
+    ];
+    const results = [
+      { name: 'Saffron Courtyard', meta: 'Hyderabadi · Restaurant', dist: '1.2 km', rating: '4.6', reviews: '1,284', price: '₹₹₹', open: 'Open', openColor: '#177A4C', offer: '30% OFF FOR MEMBERS' },
+      { name: 'Brew & Bloom Café', meta: 'Café · Work-friendly', dist: '0.8 km', rating: '4.7', reviews: '642', price: '₹₹', open: 'Open', openColor: '#177A4C', offer: '1+1 COFFEE' },
+      { name: 'Glow Grooming Lounge', meta: 'Grooming · Men', dist: '1.5 km', rating: '4.6', reviews: '311', price: '₹₹', open: 'Closes 9 PM', openColor: '#9A5B00', offer: '20% OFF' },
+      { name: 'Pulse Studio', meta: 'Gym · HIIT & strength', dist: '2.9 km', rating: '4.8', reviews: '908', price: '₹₹₹', open: 'Open', openColor: '#177A4C', offer: 'FREE TRIAL CLASS' }
+    ].map((r, i) => ({ ...r, img: img(i) }));
+    const isMap = st.view === 'map';
+    const nav = [
+      ['Home', 'Home.dc.html', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
+      ['Discover', 'Discover.dc.html', 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M15.5 8.5l-2 5-5 2 2-5z'],
+      ['Social', 'Social.dc.html', 'M5.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.5 3.5 5.2'],
+      ['Membership', 'Membership.dc.html', 'M5.5 5h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM2.5 10h19M6.5 15h4'],
+      ['Profile', 'Profile.dc.html', 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21c1-4 4.2-6 8-6s7 2 8 6']
+    ];
+    const tabs = nav.map(([label, href, d]) => ({ label, href, d, color: label === 'Discover' ? '#E80069' : '#69646E' }));
+    return {
+      scopes, chips, activeCount, pins, results, tabs,
+      isMap, isList: !isMap,
+      showMap: () => this.setState({ view: 'map' }),
+      showList: () => this.setState({ view: 'list' }),
+      mapBg: isMap ? '#17151B' : 'transparent', mapFg: isMap ? '#FFFFFF' : '#69646E',
+      listBg: isMap ? 'transparent' : '#17151B', listFg: isMap ? '#69646E' : '#FFFFFF'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Login</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#FFFFFF;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;padding:56px 24px 36px;overflow:hidden">
+<span style="font-family:Sora,sans-serif;font-weight:800;font-size:28px;letter-spacing:-0.04em;color:#E80069">VIBE</span>
+<h1 style="margin:40px 0 0;font-family:Sora,sans-serif;font-weight:700;font-size:28px;line-height:34px;letter-spacing:-0.02em">Enter your mobile number</h1>
+<p style="margin:10px 0 0;font-size:15px;line-height:22px;color:#69646E">We’ll text you a 6-digit code to sign in or create your account.</p>
+<label for="phone" style="margin-top:32px;font-size:13px;font-weight:600">Mobile number</label>
+<div style="margin-top:8px;display:flex;align-items:center;height:56px;border:2px solid #E80069;border-radius:14px;padding:0 16px;gap:12px">
+<span style="display:flex;align-items:center;gap:6px;font-weight:600;font-size:16px">+91</span>
+<span style="width:1px;height:24px;background:#E9E6EC"></span>
+<input id="phone" type="tel" inputmode="numeric" autocomplete="tel-national" value="98765 43210" style="border:none;outline:none;font:600 17px Inter,sans-serif;letter-spacing:0.04em;color:#17151B;flex:1;min-width:0;background:transparent">
+</div>
+<span style="margin-top:8px;font-size:12px;color:#69646E">Indian numbers only for now.</span>
+<div style="margin-top:24px;display:flex;gap:12px;align-items:flex-start;font-size:13px;line-height:19px;color:#69646E">
+<button type="button" role="checkbox" aria-checked="{{checkedStr}}" aria-label="I agree to the Terms of Use and Privacy Policy" onClick="{{toggle}}" style="width:22px;height:22px;flex:none;padding:0;border-radius:7px;box-sizing:border-box;border:{{boxBorder}};background:{{boxBg}};display:inline-flex;align-items:center;justify-content:center;cursor:pointer">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</button>
+<span>I agree to the <a href="#terms">Terms of Use</a> and <a href="#privacy">Privacy Policy</a>, and consent to receive my OTP by SMS.</span>
+</div>
+<span style="flex:1"></span>
+<sc-if value="{{agreed}}" hint-placeholder-val="{{ true }}">
+<a href="Otp.dc.html" style="height:52px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:16px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center">Send OTP</a>
+</sc-if>
+<sc-if value="{{notAgreed}}" hint-placeholder-val="{{ false }}">
+<span style="height:52px;border-radius:999px;background:#E9E6EC;color:#69646E;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center">Send OTP</span>
+</sc-if>
+<a href="Home.dc.html" style="margin-top:14px;text-align:center;font-size:14px;font-weight:600;color:#17151B;text-decoration:none;padding:8px">Browse as guest</a>
+<div style="margin-top:18px;padding-top:18px;border-top:1px solid #E9E6EC;display:flex;justify-content:center;gap:6px;font-size:13px;color:#69646E">Own a business? <a href="#merchant" style="font-weight:600">Join VIBE for Business</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { agreed: true };
+  }
+  renderVals() {
+    const agreed = this.state.agreed;
+    return {
+      agreed,
+      notAgreed: !agreed,
+      checkedStr: agreed ? 'true' : 'false',
+      toggle: () => this.setState({ agreed: !agreed }),
+      boxBg: agreed ? '#E80069' : '#FFFFFF',
+      boxBorder: agreed ? 'none' : '1.5px solid #69646E'
+    };
+  }
+}
+</script>
+</body>
+</html>

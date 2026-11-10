@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VIBE Social</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#FFFFFF}a:hover{color:#FFFFFF}
+</style>
+</helmet>
+<div style="width:390px;height:1900px;box-sizing:border-box;background:#17151B;font-family:Inter,system-ui,sans-serif;color:#FFFFFF;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:22px;padding-bottom:28px">
+
+<header style="padding:52px 20px 0;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="flex:1;display:flex;align-items:baseline;gap:8px"><span style="font-family:Sora,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.045em;color:#E80069">VIBE</span><span style="font-family:Sora,sans-serif;font-weight:600;font-size:24px;letter-spacing:-0.02em">Social</span></div>
+<a href="#search" aria-label="Search groups and activities" style="width:44px;height:44px;border-radius:50%;background:#221F27;display:flex;align-items:center;justify-content:center;color:#FFFFFF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-3.5-3.5"></path></svg></a>
+<a href="#host" aria-label="Host an activity" style="width:44px;height:44px;border-radius:50%;background:#E80069;display:flex;align-items:center;justify-content:center;color:#FFFFFF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></a>
+</div>
+<div role="tablist" aria-label="Social sections" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none">
+<sc-for list="{{tabsTop}}" as="t" hint-placeholder-count="5">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="flex:none;height:38px;padding:0 14px;border-radius:999px;border:{{t.border}};background:{{t.bg}};color:#FFFFFF;font:600 13px Inter,sans-serif;cursor:pointer">{{t.label}}</button>
+</sc-for>
+</div>
+</header>
+
+<a href="#guidelines" style="margin:0 20px;padding:12px 14px;border-radius:16px;background:#221F27;display:flex;gap:12px;align-items:center;text-decoration:none">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E80069" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 3L4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6zM9 12l2 2 4-4"></path></svg>
+<span style="flex:1;font-size:12px;line-height:17px;color:rgba(255,255,255,0.82)">Verified hosts, private profiles by default, and Report or Block on every person and post. <span style="text-decoration:underline;color:#FFFFFF;font-weight:600">Community guidelines</span></span>
+</a>
+
+<section style="display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;padding:0 20px;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">Happening this week</h2>
+<div style="margin:0 20px;height:250px;border-radius:26px;position:relative;overflow:hidden;background-color:#221F27;background-image:radial-gradient(circle at 75% 25%,rgba(232,0,105,0.55),rgba(232,0,105,0) 60%)">
+<button type="button" aria-label="Report or block" style="position:absolute;right:12px;top:12px;width:40px;height:40px;border:none;border-radius:50%;background:rgba(23,21,27,0.6);display:flex;align-items:center;justify-content:center;color:#FFFFFF;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h12l-2 4 2 4H5"></path></svg></button>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:18px;display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,rgba(23,21,27,0),rgba(23,21,27,0.92) 45%)">
+<div style="display:flex;gap:6px"><span style="padding:4px 9px;border-radius:999px;background:#E80069;font-size:11px;font-weight:700">DINNER MEETUP</span><span style="padding:4px 9px;border-radius:999px;background:#17151B;font-size:11px;font-weight:700">Approval needed</span></div>
+<strong style="font-family:Sora,sans-serif;font-size:22px">Table for Eight: Deccan Flavours</strong>
+<span style="font-size:13px;color:rgba(255,255,255,0.78)">Thu 12 Nov · 8 PM · Banjara Hills · ₹1,500 incl. dinner</span>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+<span style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.78)"><span style="display:flex"><sc-for list="{{faces}}" as="f" hint-placeholder-count="3"><span style="width:26px;height:26px;margin-right:-8px;border-radius:50%;border:2px solid #17151B;background:{{f.bg}};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">{{f.i}}</span></sc-for></span><span style="padding-left:8px">5 of 8 seats taken</span></span>
+<a href="#request" style="padding:10px 16px;border-radius:999px;background:#E80069;font-size:13px;font-weight:600;text-decoration:none">Request to join</a>
+</div>
+</div>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px;padding:0 20px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">Activities near you</h2><a href="#all" style="font-size:13px;font-weight:600;text-decoration:underline">See all</a></div>
+<sc-for list="{{activities}}" as="a" hint-placeholder-count="3">
+<div style="padding:16px;border-radius:20px;background:#221F27;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:12px;align-items:flex-start">
+<span style="width:46px;height:50px;flex:none;border-radius:12px;background:#17151B;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.7)">{{a.dow}}</span><strong style="font-family:Sora,sans-serif;font-size:17px;line-height:1">{{a.day}}</strong></span>
+<div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0"><strong style="font-size:15px">{{a.title}}</strong><span style="font-size:12px;color:rgba(255,255,255,0.72)">{{a.meta}}</span></div>
+<button type="button" aria-label="Report this activity" style="width:36px;height:36px;flex:none;border:none;border-radius:50%;background:transparent;color:rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4h12l-2 4 2 4H5"></path></svg></button>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+<span style="display:inline-flex;gap:6px;align-items:center;font-size:12px;color:rgba(255,255,255,0.78)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E80069" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6zM9 12l2 2 4-4"></path></svg>{{a.host}}</span>
+<button type="button" onClick="{{a.act}}" style="height:38px;padding:0 14px;border-radius:999px;border:{{a.btnBorder}};background:{{a.btnBg}};color:#FFFFFF;font:600 13px Inter,sans-serif;cursor:pointer;white-space:nowrap">{{a.cta}}</button>
+</div>
+</div>
+</sc-for>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;padding:0 20px;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">Groups for you</h2>
+<div style="display:flex;gap:12px;overflow-x:auto;padding:0 20px;scrollbar-width:none">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+<a href="#group" style="flex:none;width:168px;border-radius:20px;background:#221F27;overflow:hidden;text-decoration:none;display:flex;flex-direction:column">
+<div style="height:90px;background-color:#17151B;background-image:{{g.img}}"></div>
+<div style="padding:12px;display:flex;flex-direction:column;gap:3px"><strong style="font-size:14px;line-height:18px">{{g.name}}</strong><span style="font-size:12px;color:rgba(255,255,255,0.72)">{{g.meta}}</span><span style="margin-top:4px;font-size:12px;font-weight:600">{{g.privacy}}</span></div>
+</a>
+</sc-for>
+</div>
+</section>
+
+<section style="margin:0 20px;padding:18px;border-radius:22px;border:1.5px solid #E80069;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<span style="padding:4px 9px;border-radius:999px;background:#E80069;font-size:11px;font-weight:700">18+ ONLY</span>
+<span style="padding:4px 9px;border-radius:999px;background:#221F27;font-size:11px;font-weight:700">ID verified</span>
+<span style="padding:4px 9px;border-radius:999px;background:#221F27;font-size:11px;font-weight:700">Hosted by VIBE</span>
+</div>
+<strong style="font-family:Sora,sans-serif;font-size:19px">Speed Dating Night · 25–35</strong>
+<span style="font-size:13px;line-height:19px;color:rgba(255,255,255,0.78)">Sat 28 Nov · 7 PM · Jubilee Hills. Matches are shared only if both of you say yes. Contact details stay hidden.</span>
+<a href="#verify" style="align-self:flex-start;padding:10px 16px;border-radius:999px;background:#FFFFFF;color:#17151B;font-size:13px;font-weight:600;text-decoration:none">Verify age to book</a>
+</section>
+
+<section style="margin:0 20px;padding:16px 18px;border-radius:20px;background:#221F27;display:flex;flex-direction:column;gap:10px">
+<h2 style="margin:0;font-size:15px;font-weight:600">Your safety controls</h2>
+<sc-for list="{{controls}}" as="c" hint-placeholder-count="4">
+<a href="#safety" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;text-decoration:none;padding:4px 0"><span style="color:rgba(255,255,255,0.86)">{{c.k}}</span><span style="font-weight:600">{{c.v}}</span></a>
+</sc-for>
+</section>
+</div>
+<nav aria-label="Main" style="flex:none;display:flex;justify-content:space-around;background:#17151B;border-top:1px solid #221F27;padding:8px 6px 26px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:6px 0;text-decoration:none;font-size:11px;font-weight:600;color:{{t.color}}">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.stroke}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span>{{t.label}}</span>
+</a>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { top: 'For you', joined: {} };
+  }
+  renderVals() {
+    const st = this.state;
+    const tabsTop = ['For you', 'Groups', 'Activities', 'Communities', 'Social events'].map((label) => {
+      const on = label === st.top;
+      return { label, sel: on ? 'true' : 'false', bg: on ? '#E80069' : '#221F27', border: on ? '1px solid #E80069' : '1px solid #221F27', pick: () => this.setState({ top: label }) };
+    });
+    const faces = [['PR', '#E80069'], ['SK', '#69646E'], ['+3', '#221F27']].map(([i, bg]) => ({ i, bg }));
+    const A = [
+      { id: 'run', dow: 'SUN', day: '15', title: 'Sunday Sunrise Run · 5 km', meta: '6:00 AM · Necklace Road · 24 going', host: 'Hosted by Deccan Runners', cta: 'Join', done: 'Joined ✓' },
+      { id: 'code', dow: 'WED', day: '11', title: 'Coffee & Code', meta: '7:30 PM · Brew & Bloom, Banjara Hills · ₹199', host: 'Hosted by Ravi T.', cta: 'Book a place', done: 'Booked ✓' },
+      { id: 'books', dow: 'SAT', day: '14', title: 'Book Circle: Indian fiction', meta: '5:00 PM · Reading Room Café, Banjara Hills · Free', host: 'Hosted by Hyderabad Readers', cta: 'Request', done: 'Requested' }
+    ];
+    const activities = A.map((a) => {
+      const done = !!st.joined[a.id];
+      return {
+        ...a, cta: done ? a.done : a.cta,
+        btnBg: done ? 'transparent' : '#E80069', btnBorder: done ? '1px solid rgba(255,255,255,0.4)' : '1px solid #E80069',
+        act: () => this.setState({ joined: { ...st.joined, [a.id]: !done } })
+      };
+    });
+    const glow = ['78% 22%', '22% 30%', '70% 80%', '30% 75%'];
+    const img = (i) => 'radial-gradient(circle at ' + glow[i % glow.length] + ', rgba(232,0,105,0.5), rgba(232,0,105,0) 62%)';
+    const groups = [
+      { name: 'Deccan Cyclists', meta: 'Weekend rides', privacy: 'Public · Join' },
+      { name: 'Founders’ Brunch Club', meta: 'Entrepreneurs', privacy: 'Private · Request' },
+      { name: 'Gachibowli Parents', meta: 'Playdates & tips', privacy: 'Private · Request' },
+      { name: 'Hyderabad Food Trail', meta: 'Food community', privacy: 'Public · Join' }
+    ].map((g, i) => ({ ...g, img: img(i) }));
+    const controls = [
+      { k: 'Profile visibility', v: 'Members of my groups' },
+      { k: 'Who can message me', v: 'Hosts only' },
+      { k: 'Blocked people', v: '0' },
+      { k: 'My reports', v: 'View' }
+    ];
+    const nav = [
+      ['Home', 'Home.dc.html', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
+      ['Discover', 'Discover.dc.html', 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M15.5 8.5l-2 5-5 2 2-5z'],
+      ['Social', 'Social.dc.html', 'M5.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.5 3.5 5.2'],
+      ['Membership', 'Membership.dc.html', 'M5.5 5h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM2.5 10h19M6.5 15h4'],
+      ['Profile', 'Profile.dc.html', 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21c1-4 4.2-6 8-6s7 2 8 6']
+    ];
+    const tabs = nav.map(([label, href, d]) => {
+      const on = label === 'Social';
+      return { label, href, d, color: on ? '#FFFFFF' : 'rgba(255,255,255,0.6)', stroke: on ? '#E80069' : 'rgba(255,255,255,0.6)' };
+    });
+    return { tabsTop, faces, activities, groups, controls, tabs };
+  }
+}
+</script>
+</body>
+</html>

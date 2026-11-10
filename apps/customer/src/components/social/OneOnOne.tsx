@@ -1,0 +1,483 @@
+import { useMemo, useState } from 'react';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import {
+  api, type Gender, type MeetPreference, type MemberCard, type OneOnOneInput, type OneOnOneInvite, type OneOnOneKind, type SocialProfile,
+} from '@/api';
+import { istAt, formatTime, relativeDay } from '@/lib/dates';
+import { errorMessage, useAsync } from '@/lib/useAsync';
+import { colors, fonts, radius } from '@/theme/tokens';
+
+import { Badge, Button, Chip, EmptyState, ErrorState, Icon, IconButton, LoadingState, Notice, Photo, T, type IconName } from '../ui';
+
+// ---------- labels ----------
+const GENDERS: { key: Gender; label: string }[] = [
+  { key: 'woman', label: 'Woman' }, { key: 'man', label: 'Man' }, { key: 'nonbinary', label: 'Non-binary' }, { key: 'undisclosed', label: 'Prefer not to say' },
+];
+const PREFS: { key: MeetPreference; label: string; hint: string }[] = [
+  { key: 'anyone', label: 'Anyone', hint: 'Open to everyone' },
+  { key: 'women', label: 'Women', hint: 'Only women' },
+  { key: 'men', label: 'Men', hint: 'Only men' },
+];
+const AGE_BANDS = ['18–24', '25–29', '30–34', '35–39', '40+'];
+export const KINDS: { key: OneOnOneKind; label: string; icon: IconName; example: string }[] = [
+  { key: 'coffee', label: 'Coffee & chat', icon: 'food', example: 'Coffee & conversation' },
+  { key: 'sport', label: 'Sports partner', icon: 'fitness', example: 'Shuttle badminton · singles' },
+  { key: 'food', label: 'Meal for two', icon: 'food', example: 'Dinner for two' },
+  { key: 'walk', label: 'Walk', icon: 'directions', example: 'Evening walk by the lake' },
+  { key: 'movie', label: 'Movie', icon: 'ticket', example: 'Weekend matinee' },
+];
+const openToLabel = (p: MeetPreference) => (p === 'anyone' ? 'Open to anyone' : p === 'women' ? 'Women only' : 'Men only');
+const kindIcon = (k: OneOnOneKind) => KINDS.find((x) => x.key === k)?.icon ?? 'social';
+
+/** Public places to suggest per activity. Partner businesses come from the API. */
+const KIND_CATEGORY: Partial<Record<OneOnOneKind, string>> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants' };
+const STATIC_VENUES: Partial<Record<OneOnOneKind, { name: string; area: string }[]>> = {
+  walk: [{ name: 'Necklace Road promenade', area: 'Hussain Sagar' }, { name: 'KBR Park walking track', area: 'Jubilee Hills' }, { name: 'Botanical Garden', area: 'Kondapur' }],
+  movie: [{ name: 'Galleria Cinemas', area: 'Hitech City' }, { name: 'Central Square Cinemas', area: 'Gachibowli' }],
+};
+
+// ---------- small pieces ----------
+function Avatar({ m, size = 40 }: { m: MemberCard; size?: number }) {
+  return (
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]} accessibilityElementsHidden aria-hidden>
+      <T variant="captionStrong" color={colors.white} style={{ fontSize: size * 0.38 }}>{m.firstName[0]}</T>
+    </View>
+  );
+}
+
+function Who({ m }: { m: MemberCard }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+      <Avatar m={m} />
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <T variant="bodyStrong" color={colors.white}>{m.firstName}{m.ageBand ? `, ${m.ageBand}` : ''}</T>
+          {m.verified ? <Icon name="shield" size={14} color={colors.pink} strokeWidth={2.2} /> : null}
+        </View>
+        <T variant="small" color={colors.onDarkMuted}>{m.verified ? 'Phone verified' : 'Not yet verified'}</T>
+      </View>
+    </View>
+  );
+}
+
+function Segmented<K extends string>({ options, value, onChange, label }: { options: { key: K; label: string }[]; value: K | null; onChange: (k: K) => void; label: string }) {
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {options.map((o) => {
+        const on = value === o.key;
+        return (
+          <Pressable key={o.key} accessibilityRole="radio" accessibilityState={{ checked: on }} aria-checked={on} onPress={() => onChange(o.key)}
+            style={[styles.seg, on && styles.segOn]}>
+            <T variant="captionStrong" color={colors.white}>{o.label}</T>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={styles.grab} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <T variant="title2" color={colors.white} style={{ flex: 1 }} accessibilityRole="header">{title}</T>
+          <IconButton icon="close" label="Close" tone="dark" size={40} onPress={onClose} />
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 16, paddingBottom: 8 }}>{children}</ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ---------- profile setup ----------
+function ProfileSheet({ visible, initial, onClose, onSaved }: { visible: boolean; initial: SocialProfile | null; onClose: () => void; onSaved: (p: SocialProfile) => void }) {
+  const [gender, setGender] = useState<Gender | null>(initial?.gender ?? null);
+  const [pref, setPref] = useState<MeetPreference>(initial?.meetPreference ?? 'anyone');
+  const [band, setBand] = useState<string | null>(initial?.ageBand ?? null);
+  const [adult, setAdult] = useState(initial?.ageConfirmed18 ?? false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ready = !!gender && !!band && adult;
+
+  const save = async () => {
+    if (!ready) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onSaved(await api.saveSocialProfile({ gender: gender!, meetPreference: pref, ageBand: band, ageConfirmed18: adult }));
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Your one-on-one profile">
+      <T variant="caption" color={colors.onDarkMuted}>
+        Used only to match invites. Other members see your first name and age range, never your phone number, surname or exact age.
+      </T>
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>I am</T>
+        <Segmented label="I am" options={GENDERS} value={gender} onChange={setGender} />
+      </View>
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>I’d like to meet</T>
+        <Segmented label="I'd like to meet" options={PREFS} value={pref} onChange={setPref} />
+        {gender === 'undisclosed' || gender === 'nonbinary' ? (
+          <T variant="small" color={colors.onDarkMuted}>You’ll see invites that are open to anyone.</T>
+        ) : null}
+      </View>
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>Age range</T>
+        <Segmented label="Age range" options={AGE_BANDS.map((b) => ({ key: b, label: b }))} value={band} onChange={setBand} />
+      </View>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: adult }} aria-checked={adult} onPress={() => setAdult((a) => !a)} style={styles.checkRow}>
+        <View style={[styles.box, adult && { backgroundColor: colors.pink, borderColor: colors.pink }]}>{adult ? <Icon name="check" size={14} color={colors.white} strokeWidth={3} /> : null}</View>
+        <T variant="caption" color={colors.white} style={{ flex: 1 }}>I confirm I’m 18 or older and agree to the community guidelines.</T>
+      </Pressable>
+      <Notice tone="warning" icon="info">
+        <T variant="small">Age is self-declared for now. ID verification will be added once a KYC provider is connected.</T>
+      </Notice>
+      {error ? <Notice tone="error"><T variant="caption">{error}</T></Notice> : null}
+      <Button label="Save and continue" onPress={save} disabled={!ready} loading={busy} />
+    </Sheet>
+  );
+}
+
+// ---------- post an invite ----------
+function slots(now = Date.now()) {
+  const out: { iso: string; label: string }[] = [];
+  const plan: [number, number][] = [[0, 18], [0, 20], [1, 7], [1, 13], [1, 18], [2, 7], [2, 18], [3, 10], [4, 17]];
+  for (const [d, h] of plan) {
+    const iso = istAt(d, h, 0, now);
+    if (Date.parse(iso) > now + 45 * 60_000) out.push({ iso, label: `${relativeDay(iso, now)} · ${formatTime(iso)}` });
+  }
+  return out.slice(0, 6);
+}
+
+function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: () => void; onPosted: (i: OneOnOneInvite) => void }) {
+  const [kind, setKind] = useState<OneOnOneKind>('coffee');
+  const [activity, setActivity] = useState('');
+  const [venue, setVenue] = useState<{ name: string; area: string; businessId: string | null } | null>(null);
+  const [slot, setSlot] = useState<string | null>(null);
+  const [openTo, setOpenTo] = useState<MeetPreference>('anyone');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const times = useMemo(() => slots(), [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const venues = useAsync(async () => {
+    const cat = KIND_CATEGORY[kind];
+    if (!cat) return (STATIC_VENUES[kind] ?? []).map((v) => ({ ...v, businessId: null as string | null }));
+    const list = await api.searchBusinesses({ categoryId: cat, sort: 'nearest' });
+    return list.slice(0, 6).map((b) => ({ name: b.name, area: b.area, businessId: b.id as string | null }));
+  }, [kind]);
+
+  const pickKind = (k: OneOnOneKind) => { setKind(k); setVenue(null); };
+  const label = activity.trim() || KINDS.find((k) => k.key === kind)!.example;
+
+  const post = async () => {
+    if (!venue || !slot) return;
+    setBusy(true);
+    setError(null);
+    const input: OneOnOneInput = { kind, activity: label, venueName: venue.name, venueBusinessId: venue.businessId, area: venue.area, startsAt: slot, openTo, note: note.trim() || undefined };
+    try {
+      onPosted(await api.createOneOnOne(input));
+      setActivity(''); setVenue(null); setSlot(null); setNote('');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Post a one-on-one">
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>What’s the plan?</T>
+        <Segmented label="Activity" options={KINDS} value={kind} onChange={pickKind} />
+        <TextInput
+          value={activity}
+          onChangeText={setActivity}
+          placeholder={KINDS.find((k) => k.key === kind)!.example}
+          placeholderTextColor={colors.onDarkSubtle}
+          maxLength={60}
+          accessibilityLabel="Describe the plan"
+          style={styles.input}
+        />
+      </View>
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>Where (public places only)</T>
+        {venues.loading && !venues.data ? <T variant="small" color={colors.onDarkMuted}>Finding places…</T> : null}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {venues.data?.map((v) => (
+            <Chip key={v.name} label={`${v.name} · ${v.area}`} onDark selected={venue?.name === v.name} onPress={() => setVenue(v)} />
+          ))}
+        </View>
+      </View>
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>When</T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {times.map((t) => <Chip key={t.iso} label={t.label} onDark selected={slot === t.iso} onPress={() => setSlot(t.iso)} />)}
+        </View>
+      </View>
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>Who can join</T>
+        <Segmented label="Who can join" options={PREFS} value={openTo} onChange={setOpenTo} />
+        <T variant="small" color={colors.onDarkMuted}>{PREFS.find((p) => p.key === openTo)!.hint}. Only people who match will see this invite.</T>
+      </View>
+      <TextInput
+        value={note}
+        onChangeText={setNote}
+        placeholder="Add a short note (optional)"
+        placeholderTextColor={colors.onDarkSubtle}
+        maxLength={140}
+        multiline
+        accessibilityLabel="Note"
+        style={[styles.input, { minHeight: 64, textAlignVertical: 'top', paddingTop: 12 }]}
+      />
+      {error ? <Notice tone="error"><T variant="caption">{error}</T></Notice> : null}
+      <Button label="Post invite" onPress={post} disabled={!venue || !slot} loading={busy} />
+    </Sheet>
+  );
+}
+
+// ---------- invite card ----------
+function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onReport, onDemoAccept, onDemoRequest }: {
+  i: OneOnOneInvite; busy: boolean;
+  onRequest: () => void; onWithdraw: () => void; onCancel: () => void; onRespond: (m: MemberCard, accept: boolean) => void;
+  onReport: () => void; onDemoAccept?: () => void; onDemoRequest?: () => void;
+}) {
+  const when = `${relativeDay(i.startsAt)} · ${formatTime(i.startsAt)}`;
+  return (
+    <View style={styles.card}>
+      <Photo uri={i.coverUrl} seed={i.id} style={{ height: 120 }} scrim={0.25}>
+        <View style={styles.cardTop}>
+          <View style={styles.kindPill}><Icon name={kindIcon(i.kind)} size={13} color={colors.white} strokeWidth={2.2} /><T variant="small" color={colors.white} style={{ fontFamily: fonts.semibold }}>{KINDS.find((k) => k.key === i.kind)?.label}</T></View>
+          <Badge label={openToLabel(i.openTo)} tone={i.openTo === 'anyone' ? 'dark' : 'pink'} />
+        </View>
+      </Photo>
+      <View style={{ padding: 14, gap: 10 }}>
+        {i.myStatus === 'host' ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Badge label="Your invite" tone="pink" uppercase /><T variant="small" color={colors.onDarkMuted}>{i.status === 'matched' ? 'Matched' : `${i.requests.length} request${i.requests.length === 1 ? '' : 's'}`}</T></View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Who m={i.host} />
+            <IconButton icon="flag" label={`Report or block ${i.host.firstName}`} tone="clear" size={36} color={colors.onDarkSubtle} onPress={onReport} />
+          </View>
+        )}
+        <T variant="title3" color={colors.white}>{i.activity}</T>
+        {i.note ? <T variant="caption" color={colors.onDarkMuted}>“{i.note}”</T> : null}
+        <View style={{ gap: 4 }}>
+          <Fact icon="calendar" text={`${when} · ${i.durationMin < 60 ? `${i.durationMin} min` : `${Math.round(i.durationMin / 60 * 10) / 10} hr`}`} />
+          <Fact icon="pin" text={`${i.venueName}, ${i.area}`} />
+          <Fact icon="wallet" text={i.costNote} />
+        </View>
+
+        {i.myStatus === 'none' ? <Button label="Ask to join" size="md" onPress={onRequest} loading={busy} /> : null}
+
+        {i.myStatus === 'requested' ? (
+          <View style={{ gap: 8 }}>
+            <Notice tone="warning" icon="clock"><T variant="small">Request sent. {i.host.firstName} will confirm. You’ll see the plan here once accepted.</T></Notice>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button label="Withdraw" variant="outline" size="sm" style={{ flex: 1 }} onPress={onWithdraw} />
+              {onDemoAccept ? <Button label={`Demo: ${i.host.firstName} accepts`} variant="light" size="sm" style={{ flex: 1.6 }} onPress={onDemoAccept} /> : null}
+            </View>
+          </View>
+        ) : null}
+
+        {i.myStatus === 'confirmed' && i.matchedWith ? (
+          <View style={{ gap: 8 }}>
+            <Notice tone="success" icon="check"><T variant="small">You’re meeting {i.matchedWith.firstName} {when.toLowerCase().startsWith('today') ? 'today' : 'on ' + relativeDay(i.startsAt)} at {i.venueName}. Meet inside the venue and tell a friend your plan.</T></Notice>
+            <Button label="Cancel plan" variant="outline" size="sm" onPress={onWithdraw} />
+          </View>
+        ) : null}
+
+        {i.myStatus === 'host' ? (
+          <View style={{ gap: 8 }}>
+            {i.status === 'matched' && i.matchedWith ? (
+              <Notice tone="success" icon="check"><T variant="small">You’re meeting {i.matchedWith.firstName} ({i.matchedWith.ageBand}) at {i.venueName}.</T></Notice>
+            ) : null}
+            {i.requests.map((m) => (
+              <View key={m.id} style={styles.request}>
+                <Who m={m} />
+                <Button label="Decline" variant="outline" size="sm" onPress={() => onRespond(m, false)} />
+                <Button label="Accept" size="sm" onPress={() => onRespond(m, true)} />
+              </View>
+            ))}
+            {i.status === 'open' && i.requests.length === 0 ? <T variant="small" color={colors.onDarkMuted}>No requests yet. Matching members can see your invite now.</T> : null}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button label="Cancel invite" variant="outline" size="sm" style={{ flex: 1 }} onPress={onCancel} />
+              {onDemoRequest && i.status === 'open' ? <Button label="Demo: someone asks" variant="light" size="sm" style={{ flex: 1.4 }} onPress={onDemoRequest} /> : null}
+            </View>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function Fact({ icon, text }: { icon: IconName; text: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Icon name={icon} size={15} color={colors.onDarkMuted} />
+      <T variant="small" color={colors.onDarkMuted} style={{ flex: 1 }}>{text}</T>
+    </View>
+  );
+}
+
+// ---------- section ----------
+type ReportTarget = { type: 'user'; id: string; name: string; hostId: string };
+
+export function OneOnOneSection({ signedIn, onRequireSignIn, onReport }: { signedIn: boolean; onRequireSignIn: () => void; onReport: (t: ReportTarget) => void }) {
+  const profile = useAsync(() => (signedIn ? api.getSocialProfile() : Promise.resolve(null)), [signedIn]);
+  const p = profile.data ?? null;
+  const invites = useAsync(() => (p ? api.getOneOnOnes() : Promise.resolve([] as OneOnOneInvite[])), [p?.gender, p?.meetPreference]);
+  const [kind, setKind] = useState<OneOnOneKind | 'all'>('all');
+  const [editing, setEditing] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+
+  const replace = (n: OneOnOneInvite) => invites.setData((list) => list?.some((x) => x.id === n.id) ? list.map((x) => (x.id === n.id ? n : x)) : [n, ...(list ?? [])]);
+  const run = async (inviteId: string, fn: () => Promise<OneOnOneInvite | void>, ok?: string) => {
+    setBusyId(inviteId);
+    setNotice(null);
+    try {
+      const r = await fn();
+      if (r) replace(r); else invites.reload();
+      if (ok) setNotice({ tone: 'success', text: ok });
+    } catch (e) {
+      setNotice({ tone: 'error', text: errorMessage(e) });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const list = (invites.data ?? []).filter((i) => kind === 'all' || i.kind === kind);
+  const mine = list.filter((i) => i.myStatus !== 'none');
+  const open = list.filter((i) => i.myStatus === 'none');
+
+  return (
+    <View style={{ gap: 14 }}>
+      <View style={{ paddingHorizontal: 20, gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <T variant="title2" color={colors.white} accessibilityRole="header">One-on-one</T>
+          <Badge label="18+" tone="pink" />
+        </View>
+        <T variant="caption" color={colors.onDarkMuted}>Coffee, a game of badminton or a date. One person posts a plan at a public place, one person joins.</T>
+      </View>
+
+      <View style={styles.safety}>
+        {[
+          ['shield', 'Public venues only, first names only'],
+          ['lock', 'Your phone number is never shared'],
+          ['flag', 'Report or block anyone, anytime'],
+        ].map(([icon, text]) => (
+          <View key={text} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <Icon name={icon as IconName} size={15} color={colors.pink} strokeWidth={2.2} />
+            <T variant="small" color="rgba(255,255,255,0.86)">{text}</T>
+          </View>
+        ))}
+      </View>
+
+      {!signedIn ? (
+        <View style={{ paddingHorizontal: 20 }}><Button label="Sign in to see one-on-ones" onPress={onRequireSignIn} /></View>
+      ) : profile.error ? (
+        <ErrorState message={profile.error} onRetry={profile.reload} />
+      ) : profile.loading && !profile.data ? (
+        <LoadingState rows={1} dark />
+      ) : !p ? (
+        <View style={styles.setup}>
+          <T variant="headline" color={colors.white}>Set your preferences first</T>
+          <T variant="caption" color={colors.onDarkMuted}>Tell us who you are and who you’d like to meet: men, women or anyone. You only see invites that work both ways.</T>
+          <Button label="Set up one-on-one" onPress={() => setEditing(true)} />
+        </View>
+      ) : (
+        <>
+          <View style={styles.prefRow}>
+            <View style={{ flex: 1 }}>
+              <T variant="small" color={colors.onDarkMuted}>Showing invites for</T>
+              <T variant="captionStrong" color={colors.white}>
+                {GENDERS.find((g) => g.key === p.gender)?.label} · meeting {PREFS.find((x) => x.key === p.meetPreference)?.label.toLowerCase()}{p.ageBand ? ` · ${p.ageBand}` : ''}
+              </T>
+            </View>
+            <Button label="Change" variant="light" size="sm" onPress={() => setEditing(true)} />
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}>
+            <Chip label="All" onDark selected={kind === 'all'} onPress={() => setKind('all')} />
+            {KINDS.map((k) => <Chip key={k.key} label={k.label} onDark selected={kind === k.key} onPress={() => setKind(k.key)} />)}
+          </ScrollView>
+
+          <View style={{ paddingHorizontal: 20 }}><Button label="Post a one-on-one" icon="plus" variant="primary" size="md" onPress={() => setPosting(true)} /></View>
+          {notice ? <View style={{ paddingHorizontal: 20 }}><Notice tone={notice.tone}><T variant="caption">{notice.text}</T></Notice></View> : null}
+          {invites.error ? <ErrorState message={invites.error} onRetry={invites.reload} /> : null}
+          {invites.loading && !invites.data ? <LoadingState rows={1} dark /> : null}
+
+          <View style={{ paddingHorizontal: 20, gap: 14 }}>
+            {mine.length ? <T variant="label" color={colors.onDarkMuted}>Your plans</T> : null}
+            {[...mine, ...open].map((i, idx) => (
+              <View key={i.id} style={{ gap: 14 }}>
+                {idx === mine.length && open.length ? <T variant="label" color={colors.onDarkMuted}>Open invites near you</T> : null}
+                <InviteCard
+                  i={i}
+                  busy={busyId === i.id}
+                  onRequest={() => run(i.id, () => api.requestOneOnOne(i.id))}
+                  onWithdraw={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes()).then((l) => { invites.setData(() => l); }))}
+                  onCancel={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes()).then((l) => { invites.setData(() => l); }), 'Invite cancelled. Anyone who asked to join has been told.')}
+                  onRespond={(m, accept) => run(i.id, () => api.respondOneOnOne(i.id, m.id, accept), accept ? `You’re meeting ${m.firstName}. You’ll both see the plan here.` : undefined)}
+                  onReport={() => onReport({ type: 'user', id: i.host.id, name: i.host.firstName, hostId: i.host.id })}
+                  onDemoAccept={api.demo ? () => run(i.id, () => api.demo!.simulateHostAccepts(i.id)) : undefined}
+                  onDemoRequest={api.demo ? () => run(i.id, () => api.demo!.simulateJoinRequest(i.id)) : undefined}
+                />
+              </View>
+            ))}
+            {invites.data && list.length === 0 ? (
+              <EmptyState dark icon="social" title="No matching invites yet" message="Try another activity, or post your own plan." />
+            ) : null}
+          </View>
+        </>
+      )}
+
+      <ProfileSheet
+        key={p ? `${p.gender}-${p.meetPreference}-${p.ageBand}` : 'new'}
+        visible={editing}
+        initial={p}
+        onClose={() => setEditing(false)}
+        onSaved={(np) => { profile.setData(() => np); setEditing(false); }}
+      />
+      <PostSheet
+        visible={posting}
+        onClose={() => setPosting(false)}
+        onPosted={(inv) => { replace(inv); setPosting(false); setNotice({ tone: 'success', text: 'Invite posted. Matching members can ask to join now.' }); }}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  avatar: { backgroundColor: colors.pink, alignItems: 'center', justifyContent: 'center' },
+  seg: { paddingHorizontal: 14, height: 40, borderRadius: radius.pill, backgroundColor: colors.darkSurface, borderWidth: 1.5, borderColor: colors.darkSurface, alignItems: 'center', justifyContent: 'center' },
+  segOn: { borderColor: colors.pink, backgroundColor: colors.nearBlack },
+  backdrop: { flex: 1, backgroundColor: 'rgba(23,21,27,0.6)' },
+  sheet: { maxHeight: '90%', backgroundColor: colors.nearBlack, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: 20, paddingTop: 10 },
+  grab: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.darkSurface, marginBottom: 12 },
+  checkRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  box: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: colors.onDarkSubtle, alignItems: 'center', justifyContent: 'center' },
+  input: { minHeight: 48, borderRadius: radius.md, backgroundColor: colors.darkSurface, color: colors.white, paddingHorizontal: 14, fontFamily: fonts.medium, fontSize: 15 },
+  card: { borderRadius: 22, backgroundColor: colors.darkSurface, overflow: 'hidden' },
+  cardTop: { position: 'absolute', top: 12, left: 12, right: 12, flexDirection: 'row', justifyContent: 'space-between' },
+  kindPill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(23,21,27,0.75)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  request: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 16, backgroundColor: colors.nearBlack },
+  safety: { marginHorizontal: 20, padding: 14, borderRadius: 16, backgroundColor: colors.darkSurface, gap: 8 },
+  setup: { marginHorizontal: 20, padding: 18, borderRadius: 20, borderWidth: 1.5, borderColor: colors.pink, gap: 10 },
+  prefRow: { marginHorizontal: 20, padding: 12, borderRadius: 16, backgroundColor: colors.darkSurface, flexDirection: 'row', alignItems: 'center', gap: 10 },
+});

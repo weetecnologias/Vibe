@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OTP verification</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#FFFFFF;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;padding:48px 24px 36px;overflow:hidden">
+<a href="Login.dc.html" aria-label="Back" style="width:44px;height:44px;margin-left:-10px;display:flex;align-items:center;justify-content:center;color:#17151B">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<h1 style="margin:24px 0 0;font-family:Sora,sans-serif;font-weight:700;font-size:28px;line-height:34px;letter-spacing:-0.02em">Verify your number</h1>
+<p style="margin:10px 0 0;font-size:15px;line-height:22px;color:#69646E">Enter the code sent to <strong style="color:#17151B">+91 98765 •••10</strong>. <a href="Login.dc.html" style="font-weight:600">Edit</a></p>
+<fieldset style="margin:32px 0 0;padding:0;border:none;display:flex;gap:10px">
+<legend style="position:absolute;width:1px;height:1px;overflow:hidden">One-time code</legend>
+<sc-for list="{{boxes}}" as="b" hint-placeholder-count="6">
+<input type="text" inputmode="numeric" maxlength="1" value="{{b.v}}" aria-label="{{b.label}}" style="width:48px;height:58px;box-sizing:border-box;border-radius:14px;border:{{b.border}};text-align:center;font:700 24px Sora,sans-serif;color:#17151B;background:#FFFFFF;outline:none">
+</sc-for>
+</fieldset>
+<div style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;font-size:14px">
+<span style="color:#69646E">Didn’t get it?</span>
+<span style="color:#69646E">Resend in <strong style="color:#17151B">0:24</strong></span>
+</div>
+<div style="margin-top:28px;background:#F8F6F9;border-radius:16px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#17151B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M7 10.5h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 10.5v-3a4 4 0 0 1 8 0v3"></path></svg>
+<span style="font-size:13px;line-height:19px;color:#69646E">Never share this code. VIBE and our partner businesses will never ask for it.</span>
+</div>
+<span style="flex:1"></span>
+<a href="Location.dc.html" style="height:52px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:16px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center">Verify and continue</a>
+<span style="margin-top:14px;text-align:center;font-size:12px;color:#69646E">Code expires in 5 minutes · 3 attempts left</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const boxes = ['4', '8', '2', '1', '', ''].map((v, i) => ({
+      v,
+      label: 'Digit ' + (i + 1),
+      border: i === 4 ? '2px solid #E80069' : (v ? '1.5px solid #17151B' : '1.5px solid #E9E6EC')
+    }));
+    return { boxes };
+  }
+}
+</script>
+</body>
+</html>

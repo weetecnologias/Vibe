@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Location selection</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#FFFFFF;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;padding:48px 24px 36px;overflow:hidden">
+<a href="Otp.dc.html" aria-label="Back" style="width:44px;height:44px;margin-left:-10px;display:flex;align-items:center;justify-content:center;color:#17151B">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+</a>
+<h1 style="margin:16px 0 0;font-family:Sora,sans-serif;font-weight:700;font-size:28px;line-height:34px;letter-spacing:-0.02em">Where in Hyderabad?</h1>
+<p style="margin:10px 0 0;font-size:15px;line-height:22px;color:#69646E">We show places, offers and events near you. Change it anytime from Home.</p>
+<button type="button" style="margin-top:24px;height:56px;border:none;border-radius:16px;background:#17151B;color:#FFFFFF;display:flex;align-items:center;gap:12px;padding:0 18px;font:600 15px Inter,sans-serif;cursor:pointer">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E80069" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12a7 7 0 1 0 14 0a7 7 0 1 0-14 0M9.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+<span style="flex:1;text-align:left">Use my current location</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+<label style="margin-top:14px;display:flex;align-items:center;height:52px;border:1.5px solid #E9E6EC;border-radius:14px;padding:0 14px;gap:10px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#69646E" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-3.5-3.5"></path></svg>
+<input type="search" placeholder="Search area, street or landmark" aria-label="Search area" style="border:none;outline:none;font:500 15px Inter,sans-serif;color:#17151B;flex:1;min-width:0;background:transparent">
+</label>
+<h2 style="margin:28px 0 12px;font-size:13px;font-weight:700;letter-spacing:0.06em;color:#69646E">POPULAR AREAS</h2>
+<div style="display:flex;flex-wrap:wrap;gap:8px">
+<sc-for list="{{areas}}" as="a" hint-placeholder-count="12">
+<button type="button" onClick="{{a.pick}}" style="height:40px;padding:0 14px;border-radius:999px;border:{{a.border}};background:{{a.bg}};color:{{a.fg}};font:600 13px Inter,sans-serif;cursor:pointer">{{a.name}}</button>
+</sc-for>
+</div>
+<span style="flex:1"></span>
+<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:16px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#69646E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px"><path d="M7 10.5h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 10.5v-3a4 4 0 0 1 8 0v3"></path></svg>
+<span style="font-size:12px;line-height:17px;color:#69646E">Location is only used while the app is open. Manage it in Profile › Privacy.</span>
+</div>
+<a href="Home.dc.html" style="height:52px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:16px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center">Continue with {{picked}}</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: 'Jubilee Hills' };
+  }
+  renderVals() {
+    const names = ['Jubilee Hills', 'Banjara Hills', 'Gachibowli', 'Hitech City', 'Madhapur', 'Kondapur', 'Kukatpally', 'Secunderabad', 'Begumpet', 'Himayatnagar', 'Kokapet', 'Old City'];
+    const areas = names.map((name) => {
+      const on = name === this.state.picked;
+      return {
+        name,
+        bg: on ? '#17151B' : '#FFFFFF',
+        fg: on ? '#FFFFFF' : '#17151B',
+        border: on ? '1px solid #17151B' : '1px solid #E9E6EC',
+        pick: () => this.setState({ picked: name })
+      };
+    });
+    return { areas, picked: this.state.picked };
+  }
+}
+</script>
+</body>
+</html>

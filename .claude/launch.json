@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "customer-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["apps/customer/node_modules/expo/bin/cli", "start", "apps/customer", "--web", "--port", "8082"],
+      "port": 8082
+    }
+  ]
+}

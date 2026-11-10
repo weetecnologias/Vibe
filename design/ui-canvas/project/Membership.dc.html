@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Membership</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:2500px;box-sizing:border-box;background:#F8F6F9;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:24px;padding-bottom:28px">
+
+<header style="background:#17151B;color:#FFFFFF;padding:52px 20px 26px;border-radius:0 0 28px 28px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<h1 style="margin:0;font-family:Sora,sans-serif;font-size:28px;font-weight:700;letter-spacing:-0.02em">Membership</h1>
+<span style="display:inline-flex;gap:6px;align-items:center;padding:6px 12px;border-radius:999px;background:#E7F3ED;color:#177A4C;font-size:12px;font-weight:700"><span style="width:7px;height:7px;border-radius:50%;background:#177A4C"></span>Active</span>
+</div>
+<div style="height:212px;border-radius:24px;background:#E80069;padding:22px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden">
+<span style="position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;border:28px solid rgba(255,255,255,0.12)" aria-hidden="true"></span>
+<div style="display:flex;justify-content:space-between;align-items:flex-start">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:Sora,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.045em">VIBE</span><span style="font-size:11px;font-weight:700;letter-spacing:0.16em">MEMBER</span></div>
+<span style="padding:5px 10px;border-radius:999px;background:#17151B;font-size:11px;font-weight:700">MONTHLY</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<strong style="font-size:20px">Aarav Reddy</strong>
+<div style="display:flex;justify-content:space-between;font-size:13px"><span style="letter-spacing:0.12em">VB 4821 7730</span><span>Valid till 09 Dec 2026</span></div>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,0.78)">
+<span>Renews <strong style="color:#FFFFFF">9 Dec</strong> · ₹299 via UPI Autopay</span>
+<a href="#manage" style="color:#FFFFFF;font-weight:600;text-decoration:underline;padding:6px 0">Manage</a>
+</div>
+</header>
+
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">Your savings</h2>
+<div style="background:#FFFFFF;border-radius:22px;border:1px solid #E9E6EC;padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;color:#69646E">Saved since joining in June</span><strong style="font-family:Sora,sans-serif;font-size:34px;letter-spacing:-0.02em">₹4,860</strong><span style="font-size:13px;color:#177A4C;font-weight:600">That’s 2.7× your membership fees so far</span></div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+<div style="padding:12px;border-radius:14px;background:#F8F6F9;display:flex;flex-direction:column;gap:2px"><strong style="font-size:17px">{{s.v}}</strong><span style="font-size:11px;color:#69646E">{{s.k}}</span></div>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:12px;font-weight:700;letter-spacing:0.06em;color:#69646E">BY CATEGORY</span>
+<sc-for list="{{byCat}}" as="c" hint-placeholder-count="4">
+<div style="display:flex;justify-content:space-between;font-size:13px"><span>{{c.k}}</span><span style="font-weight:600">{{c.v}}</span></div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 20px"><h2 style="margin:0;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">Member exclusives</h2><a href="Discover.dc.html" style="font-size:13px;font-weight:600;text-decoration:none">See all</a></div>
+<div style="display:flex;gap:12px;overflow-x:auto;padding:0 20px;scrollbar-width:none">
+<sc-for list="{{exclusives}}" as="e" hint-placeholder-count="3">
+<a href="OfferDetails.dc.html" style="flex:none;width:200px;border-radius:20px;background:#FFFFFF;border:1px solid #E9E6EC;overflow:hidden;text-decoration:none;color:#17151B">
+<div style="height:96px;position:relative;background-color:#17151B;background-image:{{e.img}}"><span style="position:absolute;left:10px;bottom:10px;padding:5px 9px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:12px;font-weight:700">{{e.deal}}</span></div>
+<div style="padding:12px;display:flex;flex-direction:column;gap:2px"><strong style="font-size:14px">{{e.name}}</strong><span style="font-size:12px;color:#69646E">{{e.meta}}</span></div>
+</a>
+</sc-for>
+</div>
+</section>
+
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">Plans</h2>
+<div role="radiogroup" aria-label="Membership plan" style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{plans}}" as="p" hint-placeholder-count="2">
+<button type="button" role="radio" aria-checked="{{p.checked}}" onClick="{{p.pick}}" style="display:flex;gap:14px;align-items:center;padding:16px 18px;border-radius:20px;border:{{p.border}};background:#FFFFFF;cursor:pointer;text-align:left;font:inherit;color:#17151B">
+<span style="width:22px;height:22px;flex:none;border-radius:50%;border:{{p.ring}};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:{{p.dot}}"></span></span>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><strong style="font-size:15px">{{p.name}}</strong><span style="font-size:12px;color:#69646E">{{p.note}}</span></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><strong style="font-family:Sora,sans-serif;font-size:18px">{{p.price}}</strong><span style="padding:3px 8px;border-radius:999px;background:{{p.tagBg}};color:{{p.tagFg}};font-size:11px;font-weight:700">{{p.tag}}</span></span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{changing}}" hint-placeholder-val="{{ false }}">
+<a href="#switch" style="height:50px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center">Switch to annual from 9 Dec</a>
+</sc-if>
+<span style="font-size:12px;color:#69646E">Prices include GST. Plan changes apply at your next renewal.</span>
+</section>
+
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">What you get</h2>
+<div style="background:#FFFFFF;border-radius:22px;border:1px solid #E9E6EC;padding:6px 18px">
+<sc-for list="{{benefits}}" as="b" hint-placeholder-count="4">
+<div style="display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid #E9E6EC">
+<span style="width:40px;height:40px;flex:none;border-radius:12px;background:#FDE6F0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8005A" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.d}}"></path></svg></span>
+<span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:14px">{{b.t}}</strong><span style="font-size:12px;color:#69646E">{{b.s}}</span></span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">Recent savings</h2><a href="#transactions" style="font-size:13px;font-weight:600;text-decoration:none">All transactions</a></div>
+<div style="background:#FFFFFF;border-radius:22px;border:1px solid #E9E6EC;padding:4px 18px">
+<sc-for list="{{txns}}" as="t" hint-placeholder-count="3">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #E9E6EC">
+<span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:14px">{{t.name}}</strong><span style="font-size:12px;color:#69646E">{{t.when}} · paid {{t.paid}}</span></span>
+<span style="font-size:13px;font-weight:700;color:#177A4C">Saved {{t.saved}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-family:Sora,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.01em">Membership payments</h2><a href="#payments" style="font-size:13px;font-weight:600;text-decoration:none">Invoices</a></div>
+<div style="background:#FFFFFF;border-radius:22px;border:1px solid #E9E6EC;padding:4px 18px">
+<sc-for list="{{payments}}" as="p" hint-placeholder-count="3">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #E9E6EC">
+<span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:14px">{{p.when}}</strong><span style="font-size:12px;color:#69646E">Monthly plan · UPI Autopay</span></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px"><strong style="font-size:14px">₹299.00</strong><span style="font-size:11px;font-weight:700;color:#177A4C">PAID</span></span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:8px">
+<a href="#refunds" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-radius:16px;background:#FFFFFF;border:1px solid #E9E6EC;text-decoration:none;color:#17151B;font-size:14px;font-weight:600">Cancellation &amp; refund policy<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+<a href="#cancel" style="padding:12px 4px;font-size:14px;font-weight:600;color:#D93025;text-decoration:none">Cancel membership</a>
+<span style="font-size:12px;line-height:17px;color:#69646E">If you cancel, benefits continue until 9 Dec 2026. No partial refunds for the current month.</span>
+</section>
+</div>
+<nav aria-label="Main" style="flex:none;display:flex;justify-content:space-around;background:#FFFFFF;border-top:1px solid #E9E6EC;padding:8px 6px 26px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:6px 0;text-decoration:none;font-size:11px;font-weight:600;color:{{t.color}}">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span>{{t.label}}</span>
+</a>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { plan: 'Monthly' };
+  }
+  renderVals() {
+    const st = this.state;
+    const glow = ['78% 22%', '22% 30%', '70% 80%'];
+    const img = (i) => 'radial-gradient(circle at ' + glow[i % glow.length] + ', rgba(232,0,105,0.38), rgba(232,0,105,0) 58%)';
+    const stats = [{ v: '₹1,240', k: 'This month' }, { v: '14', k: 'Redemptions' }, { v: '9', k: 'Places visited' }];
+    const byCat = [{ k: 'Food & Dining', v: '₹2,980' }, { k: 'Fitness & Wellness', v: '₹1,000' }, { k: 'Beauty & Personal Care', v: '₹640' }, { k: 'Events', v: '₹240' }];
+    const exclusives = [
+      { name: 'Saffron Courtyard', meta: 'Total bill · Mon–Thu', deal: '30% OFF' },
+      { name: 'Pulse Studio', meta: 'First month', deal: '₹500 OFF' },
+      { name: 'Lumière Salon', meta: 'Hair & skin services', deal: '20% OFF' }
+    ].map((e, i) => ({ ...e, img: img(i) }));
+    const plans = [
+      { name: 'Monthly', note: 'Billed every month · cancel anytime', price: '₹299', tag: 'CURRENT', tagBg: '#17151B', tagFg: '#FFFFFF' },
+      { name: 'Annual', note: '₹2,999 billed yearly · ₹250 a month', price: '₹2,999', tag: 'SAVE ₹589', tagBg: '#FDE6F0', tagFg: '#C8005A' }
+    ].map((p) => {
+      const on = p.name === st.plan;
+      return { ...p, checked: on ? 'true' : 'false', border: on ? '2px solid #E80069' : '1px solid #E9E6EC', ring: on ? '2px solid #E80069' : '1.5px solid #69646E', dot: on ? '#E80069' : 'transparent', pick: () => this.setState({ plan: p.name }) };
+    });
+    const benefits = [
+      { t: 'Member-only offers', s: 'Exclusive discounts across 8 categories', d: 'M3 12V4h8l10 10-8 8zM6 8.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0' },
+      { t: 'Early access to events', s: 'Book before tickets go on general sale', d: 'M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5V14a2 2 0 0 0 0-4zM14.5 6v12' },
+      { t: 'Members-only social events', s: 'Hosted dinners, runs and meetups', d: 'M5.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.5 3.5 5.2' },
+      { t: 'Savings tracker', s: 'See exactly what membership saved you', d: 'M5.5 6h13A2.5 2.5 0 0 1 21 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-8A2.5 2.5 0 0 1 5.5 6zM3 10h18M16 14.5h2' }
+    ];
+    const txns = [
+      { name: 'Saffron Courtyard', when: '9 Nov', paid: '₹700', saved: '₹300' },
+      { name: 'Pulse Studio', when: '3 Nov', paid: '₹2,499', saved: '₹500' },
+      { name: 'Brew & Bloom Café', when: '1 Nov', paid: '₹360', saved: '₹180' }
+    ];
+    const payments = [{ when: '9 Nov 2026' }, { when: '9 Oct 2026' }, { when: '9 Sep 2026' }];
+    const nav = [
+      ['Home', 'Home.dc.html', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
+      ['Discover', 'Discover.dc.html', 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M15.5 8.5l-2 5-5 2 2-5z'],
+      ['Social', 'Social.dc.html', 'M5.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.5 3.5 5.2'],
+      ['Membership', 'Membership.dc.html', 'M5.5 5h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM2.5 10h19M6.5 15h4'],
+      ['Profile', 'Profile.dc.html', 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21c1-4 4.2-6 8-6s7 2 8 6']
+    ];
+    const tabs = nav.map(([label, href, d]) => ({ label, href, d, color: label === 'Membership' ? '#E80069' : '#69646E' }));
+    return { stats, byCat, exclusives, plans, changing: st.plan !== 'Monthly', benefits, txns, payments, tabs };
+  }
+}
+</script>
+</body>
+</html>

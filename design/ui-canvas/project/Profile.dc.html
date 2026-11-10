@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Profile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:1560px;box-sizing:border-box;background:#F8F6F9;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:22px;padding-bottom:28px">
+
+<header style="background:#17151B;color:#FFFFFF;padding:52px 20px 24px;border-radius:0 0 28px 28px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;gap:14px;align-items:center">
+<span style="width:68px;height:68px;flex:none;border-radius:50%;background:#E80069;display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:700;font-size:24px" aria-hidden="true">AR</span>
+<div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">
+<h1 style="margin:0;font-family:Sora,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.01em">Aarav Reddy</h1>
+<span style="font-size:13px;color:rgba(255,255,255,0.72)">+91 98765 •••10 · Jubilee Hills</span>
+<span style="align-self:flex-start;margin-top:2px;padding:4px 9px;border-radius:999px;background:#221F27;font-size:11px;font-weight:700;display:inline-flex;gap:5px;align-items:center"><span style="width:6px;height:6px;border-radius:50%;background:#E80069"></span>VIBE MEMBER</span>
+</div>
+<a href="#edit" style="padding:9px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.3);color:#FFFFFF;font-size:13px;font-weight:600;text-decoration:none">Edit</a>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+<a href="{{s.href}}" style="padding:12px;border-radius:16px;background:#221F27;display:flex;flex-direction:column;gap:2px;text-decoration:none;color:#FFFFFF"><strong style="font-family:Sora,sans-serif;font-size:18px">{{s.v}}</strong><span style="font-size:11px;color:rgba(255,255,255,0.72)">{{s.k}}</span></a>
+</sc-for>
+</div>
+</header>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
+<h2 style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.08em;color:#69646E">{{g.title}}</h2>
+<div style="background:#FFFFFF;border-radius:20px;border:1px solid #E9E6EC;overflow:hidden">
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="4">
+<a href="{{i.href}}" style="display:flex;gap:14px;align-items:center;padding:13px 16px;border-bottom:1px solid #E9E6EC;text-decoration:none;color:#17151B">
+<span style="width:36px;height:36px;flex:none;border-radius:11px;background:#F8F6F9;display:flex;align-items:center;justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#17151B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.d}}"></path></svg></span>
+<span style="flex:1;font-size:14px;font-weight:500">{{i.label}}</span>
+<span style="font-size:12px;color:#69646E">{{i.meta}}</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#69646E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</sc-for>
+</div>
+</section>
+</sc-for>
+
+<section style="padding:0 20px;display:flex;flex-direction:column;gap:6px">
+<a href="Login.dc.html" style="display:flex;gap:14px;align-items:center;padding:14px 16px;border-radius:18px;background:#FFFFFF;border:1px solid #E9E6EC;text-decoration:none;color:#17151B;font-size:14px;font-weight:600">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"></path></svg>Log out</a>
+<a href="#delete" style="padding:12px 4px;font-size:14px;font-weight:600;color:#D93025;text-decoration:none">Delete my account and data</a>
+<span style="font-size:12px;line-height:17px;color:#69646E">We’ll confirm by OTP and explain what is deleted and what we must keep by law, such as payment records.</span>
+<span style="margin-top:10px;font-size:11px;color:#69646E;text-align:center">VIBE Hyderabad · v0.1 design preview</span>
+</section>
+</div>
+<nav aria-label="Main" style="flex:none;display:flex;justify-content:space-around;background:#FFFFFF;border-top:1px solid #E9E6EC;padding:8px 6px 26px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<a href="{{t.href}}" style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:6px 0;text-decoration:none;font-size:11px;font-weight:600;color:{{t.color}}">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span>{{t.label}}</span>
+</a>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1560}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const I = {
+      cal: 'M6 5h12a2.5 2.5 0 0 1 2.5 2.5v10.5a2.5 2.5 0 0 1-2.5 2.5H6a2.5 2.5 0 0 1-2.5-2.5V7.5A2.5 2.5 0 0 1 6 5zM3.5 10h17M8 3v4M16 3v4',
+      ticket: 'M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5V14a2 2 0 0 0 0-4zM14.5 6v12',
+      heart: 'M12 20s-7.5-4.6-9-9.3C2 7.4 4.3 4.5 7.3 4.5c2 0 3.6 1.1 4.7 2.8 1.1-1.7 2.7-2.8 4.7-2.8 3 0 5.3 2.9 4.3 6.2C19.5 15.4 12 20 12 20z',
+      receipt: 'M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21zM9 8h6M9 12h6M9 16h3',
+      user: 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21c1-4 4.2-6 8-6s7 2 8 6',
+      pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM9.5 9.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0',
+      bell: 'M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0',
+      lock: 'M7 10.5h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 10.5v-3a4 4 0 0 1 8 0v3',
+      shield: 'M12 3L4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6zM9 12l2 2 4-4',
+      flag: 'M5 21V4h12l-2 4 2 4H5',
+      help: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.5v.7M12 16.5v.01',
+      doc: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5'
+    };
+    const stats = [
+      { v: '₹4,860', k: 'Saved', href: 'Membership.dc.html' },
+      { v: '3', k: 'Bookings', href: '#bookings' },
+      { v: '2', k: 'Tickets', href: 'TicketDetails.dc.html' }
+    ];
+    const groups = [
+      { title: 'ACTIVITY', items: [
+        { label: 'My bookings', meta: '1 upcoming', href: '#bookings', d: I.cal },
+        { label: 'My tickets', meta: 'Sat 21 Nov', href: 'TicketDetails.dc.html', d: I.ticket },
+        { label: 'Saved places', meta: '12', href: '#saved', d: I.heart },
+        { label: 'Payments & receipts', meta: '', href: '#payments', d: I.receipt }
+      ] },
+      { title: 'ACCOUNT', items: [
+        { label: 'Personal details', meta: '', href: '#details', d: I.user },
+        { label: 'Saved addresses', meta: '2', href: '#addresses', d: I.pin },
+        { label: 'Notifications', meta: 'On', href: '#notifications', d: I.bell }
+      ] },
+      { title: 'PRIVACY & SAFETY', items: [
+        { label: 'Privacy & data', meta: 'Consents', href: '#privacy', d: I.lock },
+        { label: 'Blocked people', meta: '0', href: '#blocked', d: I.shield },
+        { label: 'Community guidelines', meta: '', href: '#guidelines', d: I.flag }
+      ] },
+      { title: 'SUPPORT', items: [
+        { label: 'Help & support', meta: '', href: '#help', d: I.help },
+        { label: 'Terms & policies', meta: '', href: '#terms', d: I.doc }
+      ] }
+    ];
+    const nav = [
+      ['Home', 'Home.dc.html', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'],
+      ['Discover', 'Discover.dc.html', 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M15.5 8.5l-2 5-5 2 2-5z'],
+      ['Social', 'Social.dc.html', 'M5.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.5 3.5 5.2'],
+      ['Membership', 'Membership.dc.html', 'M5.5 5h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM2.5 10h19M6.5 15h4'],
+      ['Profile', 'Profile.dc.html', 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21c1-4 4.2-6 8-6s7 2 8 6']
+    ];
+    const tabs = nav.map(([label, href, d]) => ({ label, href, d, color: label === 'Profile' ? '#E80069' : '#69646E' }));
+    return { stats, groups, tabs };
+  }
+}
+</script>
+</body>
+</html>

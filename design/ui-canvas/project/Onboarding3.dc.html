@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Onboarding — Social</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sora:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8005A}a:hover{color:#E80069}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#FFFFFF;font-family:Inter,system-ui,sans-serif;color:#17151B;display:flex;flex-direction:column;overflow:hidden">
+<div style="height:500px;flex:none;background:#17151B;border-radius:0 0 32px 32px;position:relative;overflow:hidden;padding:56px 24px 0;box-sizing:border-box;color:#FFFFFF">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-family:Sora,sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.04em;color:#E80069">VIBE</span>
+<span style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.6)">Social</span>
+</div>
+<div style="margin-top:40px;display:flex;justify-content:center">
+<sc-for list="{{people}}" as="p" hint-placeholder-count="5">
+<span style="width:60px;height:60px;border-radius:50%;margin-left:-12px;border:3px solid #17151B;background:{{p.bg}};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Sora,sans-serif;font-weight:700;font-size:18px">{{p.i}}</span>
+</sc-for>
+</div>
+<div style="margin:28px 8px 0;background:#221F27;border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+<div style="display:flex;flex-direction:column;gap:4px"><strong style="font-size:17px">Sunday Sunrise Run</strong><span style="font-size:13px;color:rgba(255,255,255,0.72)">Sun · 6:00 AM · Necklace Road · 5 km</span></div>
+<span style="display:inline-flex;gap:5px;align-items:center;padding:5px 9px;border-radius:999px;background:#17151B;font-size:11px;font-weight:600;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#E80069" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6zM9 12l2 2 4-4"></path></svg>Verified host</span>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:13px;color:rgba(255,255,255,0.72)">24 going · 6 spots left</span>
+<span style="padding:9px 16px;border-radius:999px;background:#E80069;font-size:13px;font-weight:600">Request to join</span>
+</div>
+</div>
+<div style="margin:16px 8px 0;display:flex;gap:8px;flex-wrap:wrap">
+<sc-for list="{{safety}}" as="s" hint-placeholder-count="3">
+<span style="padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);font-size:12px;color:rgba(255,255,255,0.82)">{{s}}</span>
+</sc-for>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;padding:32px 28px 32px;gap:14px">
+<div style="display:flex;gap:6px" aria-label="Step 3 of 3">
+<span style="width:8px;height:8px;border-radius:999px;background:#E9E6EC"></span>
+<span style="width:8px;height:8px;border-radius:999px;background:#E9E6EC"></span>
+<span style="width:24px;height:8px;border-radius:999px;background:#E80069"></span>
+</div>
+<h1 style="margin:6px 0 0;font-family:Sora,sans-serif;font-weight:700;font-size:30px;line-height:36px;letter-spacing:-0.02em">Find your people</h1>
+<p style="margin:0;font-size:15px;line-height:23px;color:#69646E">Running groups, book clubs and hosted dinners, with verified hosts and safety controls built in.</p>
+<span style="flex:1"></span>
+<a href="Login.dc.html" style="height:52px;border-radius:999px;background:#E80069;color:#FFFFFF;font-size:16px;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center">Get started</a>
+<a href="Login.dc.html" style="text-align:center;font-size:14px;font-weight:600;color:#17151B;text-decoration:none;padding:6px">I already have an account</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const people = [['AR', '#E80069'], ['SK', '#221F27'], ['MN', '#69646E'], ['PV', '#221F27'], ['+20', '#E80069']].map(([i, bg]) => ({ i, bg }));
+    const safety = ['Report & block anytime', 'Private profile', 'Age-checked events'];
+    return { people, safety };
+  }
+}
+</script>
+</body>
+</html>
