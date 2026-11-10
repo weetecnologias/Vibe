@@ -3,8 +3,9 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { BusinessRow, BusinessTile, EventTile, OfferCard } from '@/components/cards';
-import { Button, ErrorState, Icon, LoadingState, Photo, SectionHeader, T, type IconName } from '@/components/ui';
+import { Button, ErrorState, Icon, LoadingState, Photo, SectionHeader, T } from '@/components/ui';
 import { formatINR } from '@/lib/money';
 import { useAsync } from '@/lib/useAsync';
 import { useSession } from '@/state/session';
@@ -95,7 +96,7 @@ export default function Home() {
                   accessibilityLabel={c.name}
                   onPress={() => (c.id === 'social' ? router.push('/social') : c.id === 'events' ? router.push('/events') : router.push(`/category/${c.id}`))}
                   style={styles.catTile}>
-                  <Icon name={(c.icon ?? 'sparkle') as IconName} size={26} color={c.id === 'offers' ? colors.pink : colors.nearBlack} />
+                  <CategoryIcon icon={c.icon} iconUrl={c.iconUrl} size={26} color={c.id === 'offers' ? colors.pink : colors.nearBlack} />
                   <T variant="small" style={{ fontFamily: fonts.semibold }} numberOfLines={1}>{shortName(c.name)}</T>
                 </Pressable>
               ))}

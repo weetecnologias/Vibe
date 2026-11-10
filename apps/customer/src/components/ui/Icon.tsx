@@ -54,6 +54,11 @@ export const iconPaths = {
 
 export type IconName = keyof typeof iconPaths;
 
+/** Falls back to a default icon, so an unknown name (say a new admin-created category) never renders blank. */
+export function resolveIconName(name?: string | null): IconName {
+  return name && Object.prototype.hasOwnProperty.call(iconPaths, name) ? (name as IconName) : 'sparkle';
+}
+
 type Props = {
   name: IconName;
   size?: number;
@@ -67,7 +72,7 @@ export function Icon({ name, size = 22, color = colors.nearBlack, strokeWidth = 
     <View aria-hidden pointerEvents="none" style={{ width: size, height: size }}>
       <Svg width={size} height={size} viewBox="0 0 24 24">
         <Path
-        d={iconPaths[name]}
+        d={iconPaths[resolveIconName(name)]}
         fill={filled ? color : 'none'}
         stroke={color}
         strokeWidth={filled ? 0 : strokeWidth}

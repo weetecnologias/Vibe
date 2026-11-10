@@ -3,11 +3,12 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, type BusinessQuery, type SearchScope, type SortKey } from '@/api';
+import { api, type BusinessQuery, type BusinessSummary, type SearchScope, type SortKey } from '@/api';
 import { BusinessRow, EventRow } from '@/components/cards';
-import { EmptyState, ErrorState, Icon, LoadingState, T } from '@/components/ui';
+import { Button, EmptyState, ErrorState, Icon, LoadingState, T } from '@/components/ui';
 import { Chip } from '@/components/ui/Chip';
 import { useAsync } from '@/lib/useAsync';
+import { EMPTY_PAGE, usePaged } from '@/lib/usePaged';
 import { useSession } from '@/state/session';
 import { colors, fonts } from '@/theme/tokens';
 
@@ -40,7 +41,7 @@ export default function Discover() {
     openNow: f.openNow || undefined, memberOffers: f.memberOffers || undefined,
     minRating: f.rating4 ? 4 : undefined, maxPriceLevel: f.budget ? 2 : undefined, maxDistanceKm: f.near ? 3 : undefined,
   };
-  const places = useAsync(() => (eventScope ? Promise.resolve([]) : api.searchBusinesses(query)), [JSON.stringify(query), eventScope]);
+  const places = usePaged<BusinessSummary>((offset) => (eventScope ? Promise.resolve(EMPTY_PAGE) : api.searchBusinessesPage(query, offset)), [JSON.stringify(query), eventScope]);
   const events = useAsync(async () => {
     if (!eventScope) return [];
     const list = await api.getEvents({});
@@ -103,7 +104,7 @@ export default function Discover() {
 
       <View style={styles.resultsRow}>
         <T variant="caption" color={colors.mutedGrey}>
-          <T variant="captionStrong">{state.loading ? 'Searching…' : `${count} ${eventScope ? 'events' : 'places'}`}</T>
+          <T variant="captionStrong">{state.loading ? 'Searching…' : `${eventScope ? count : places.total ?? count} ${eventScope ? 'events' : 'places'}`}</T>
           {active && !eventScope ? ` · ${active} filter${active > 1 ? 's' : ''}` : ''}
         </T>
         {!eventScope ? (
@@ -133,6 +134,7 @@ export default function Discover() {
           <EmptyState icon="search" title="Nothing matches yet" message="Try removing a filter or searching for something broader." actionLabel={active ? 'Clear filters' : undefined} onAction={() => setF({ openNow: false, memberOffers: false, rating4: false, budget: false, near: false })} />
         ) : null}
         {eventScope ? events.data?.map((e) => <EventRow key={e.id} e={e} />) : places.data?.map((b) => <BusinessRow key={b.id} b={b} />)}
+        {!eventScope && places.hasMore ? <Button label={`Show more (${Math.max(0, (places.total ?? 0) - count)} left)`} variant="outline" onPress={places.loadMore} loading={places.loadingMore} /> : null}
       </View>
     </ScrollView>
   );

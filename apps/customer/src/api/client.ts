@@ -1,5 +1,5 @@
 import type {
-  AuthResult, BusinessDetail, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
+  AuthResult, BusinessDetail, Page, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
   HomeFeed, ID, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
   ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
@@ -24,7 +24,9 @@ export interface VibeApi {
   // Discovery
   getCategories(): Promise<CategoryNode[]>;
   getHome(area: string | null): Promise<HomeFeed>;
+  /** Everything that matches (up to the server cap). Prefer searchBusinessesPage for long lists. */
   searchBusinesses(query: BusinessQuery): Promise<BusinessSummary[]>;
+  searchBusinessesPage(query: BusinessQuery, offset?: number, limit?: number): Promise<Page<BusinessSummary>>;
   getBusiness(id: ID): Promise<BusinessDetail>;
 
   // Offers, Pay & Redeem
@@ -144,7 +146,8 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     requestAccountDeletion: () => call('POST', '/me/deletion-request'),
     getCategories: () => call('GET', '/categories'),
     getHome: (area) => call('GET', `/home${qs({ area })}`),
-    searchBusinesses: (q) => call('GET', `/businesses${qs(q)}`),
+    searchBusinesses: (q) => call<Page<BusinessSummary>>('GET', `/businesses${qs({ ...q, limit: 100 })}`).then((p) => p.items),
+    searchBusinessesPage: (q, offset = 0, limit = 12) => call('GET', `/businesses${qs({ ...q, offset, limit })}`),
     getBusiness: (id) => call('GET', `/businesses/${id}`),
     getOffers: (view) => call('GET', `/offers${qs({ view })}`),
     getOffer: (id) => call('GET', `/offers/${id}`),

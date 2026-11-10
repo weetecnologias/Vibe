@@ -8,7 +8,6 @@
     "scheme": "vibe",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.vibehyderabad.app"
     },
     "android": {
@@ -32,7 +31,7 @@
         {
           "backgroundColor": "#17151B",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 220
         }
       ],
       "expo-secure-store",

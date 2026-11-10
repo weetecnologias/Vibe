@@ -111,10 +111,10 @@ export const businesses: Biz[] = [
     address: 'Road No. 36, Jubilee Hills, Hyderabad 500033', location: { lat: 17.4306, lng: 78.4071 },
     hours: week('12:00 PM – 11:30 PM', '12:00 PM – 12:30 AM'),
     menu: [
-      { id: 'm1', name: 'Hyderabadi dum biryani', note: 'Chicken or mutton · serves 1', price: r(480) },
-      { id: 'm2', name: 'Charcoal seekh kebab', note: '6 pieces', price: r(390) },
-      { id: 'm3', name: 'Qubani ka meetha', note: 'Apricot dessert, cream', price: r(220) },
-      { id: 'm4', name: 'Irani chai & Osmania biscuits', note: 'Pot for two', price: r(120) },
+      { id: 'm1', name: 'Hyderabadi dum biryani', note: 'Chicken or mutton · serves 1', price: r(480), section: 'Mains' },
+      { id: 'm2', name: 'Charcoal seekh kebab', note: '6 pieces', price: r(390), section: 'Starters' },
+      { id: 'm3', name: 'Qubani ka meetha', note: 'Apricot dessert, cream', price: r(220), section: 'Desserts' },
+      { id: 'm4', name: 'Irani chai & Osmania biscuits', note: 'Pot for two', price: r(120), section: 'Drinks' },
     ],
     branches: [
       { id: 'br1', name: 'Jubilee Hills', address: 'Road No. 36', distanceKm: 1.2, status: open() },

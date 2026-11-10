@@ -13,12 +13,22 @@ export type AuthResult = { accessToken: string; refreshToken: string; user: User
 export type User = { id: ID; name: string; phoneMasked: string; vibeId: string; area: string | null; isMember: boolean };
 
 // ---------- Categories (admin-managed, 3 levels) ----------
-export type CategoryNode = { id: ID; slug: string; name: string; icon?: string; imageUrl?: string | null; children: CategoryNode[] };
+export type CategoryNode = {
+  id: ID; slug: string; name: string;
+  /** One of the app's built-in icons, by name. */
+  icon?: string;
+  /** An uploaded icon (SVG or PNG). Used instead of `icon` when present. */
+  iconUrl?: string | null;
+  imageUrl?: string | null;
+  children: CategoryNode[];
+};
 
 // ---------- Businesses ----------
 export type OpenStatus = { open: boolean; label: string; tone: 'success' | 'warning' | 'muted' };
 
 export type BusinessSummary = {
+  /** Merchant-uploaded logo. When missing, the app shows the business initials. */
+  logoUrl?: string | null;
   id: ID;
   name: string;
   primaryCategoryId: ID;
@@ -38,7 +48,7 @@ export type BusinessSummary = {
 };
 
 export type OpeningHours = { day: string; hours: string; today: boolean };
-export type MenuItem = { id: ID; name: string; note: string; price: Paise; imageUrl?: string | null };
+export type MenuItem = { id: ID; name: string; note: string; price: Paise; imageUrl?: string | null; /** e.g. "Starters", "Mains". Items without one are grouped under "Other". */ section?: string };
 export type Branch = { id: ID; name: string; address: string; distanceKm: number; status: OpenStatus };
 export type Review = { id: ID; authorName: string; rating: number; text: string; createdAt: ISODate; verifiedVisit: boolean };
 
@@ -63,6 +73,7 @@ export type BusinessDetail = BusinessSummary & {
 export type OfferType = 'percentage' | 'flat' | 'bogo' | 'free_addon';
 
 export type OfferSummary = {
+  businessLogoUrl?: string | null;
   id: ID;
   businessId: ID;
   businessName: string;
@@ -392,6 +403,9 @@ export type HomeFeed = {
 
 export type SearchScope = 'all' | 'places' | 'services' | 'experiences' | 'events';
 export type SortKey = 'nearest' | 'rating' | 'popular';
+
+/** One page of a long list. nextOffset is null on the last page. */
+export type Page<T> = { items: T[]; total: number; nextOffset: number | null };
 
 export type BusinessQuery = {
   q?: string;

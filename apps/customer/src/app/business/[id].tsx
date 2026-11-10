@@ -1,13 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
+import { Linking, Platform, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { BusinessLogo } from '@/components/BusinessLogo';
 import { Rating } from '@/components/cards';
 import { Badge, BackButton, Button, Card, ErrorState, Icon, IconButton, LoadingState, Photo, Screen, T, type IconName } from '@/components/ui';
 import { formatDate } from '@/lib/dates';
 import { formatINR } from '@/lib/money';
+import { groupMenu } from '@/lib/menu';
 import { useAsync } from '@/lib/useAsync';
 import { colors, fonts, radius } from '@/theme/tokens';
 
@@ -20,11 +22,14 @@ export default function BusinessScreen() {
   const { data: b, error, reload } = useAsync(() => api.getBusiness(id), [id]);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>('Overview');
+  const [menuQuery, setMenuQuery] = useState('');
 
   if (error) return <View style={{ flex: 1, paddingTop: insets.top }}><BackButton /><ErrorState message={error} onRetry={reload} /></View>;
   if (!b) return <View style={{ flex: 1, paddingTop: insets.top + 48, backgroundColor: colors.softWhite }}><LoadingState rows={3} /></View>;
 
   const memberOffer = b.offers.find((o) => o.memberOnly) ?? b.offers[0];
+  // Overview shows a few highlights; the Menu tab shows everything, in sections, with search.
+  const menuGroups = tab === 'Menu' ? groupMenu(b.menu, menuQuery) : [{ title: null as string | null, items: b.menu.slice(0, 4) }];
   const directions = () => {
     const { lat, lng } = b.location;
     const url = Platform.select({
@@ -72,7 +77,7 @@ export default function BusinessScreen() {
 
       <View style={styles.infoCard}>
         <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          <View style={styles.logo}><T style={styles.logoText}>{b.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</T></View>
+          <BusinessLogo name={b.name} logoUrl={b.logoUrl} />
           <View style={{ flex: 1, gap: 2 }}>
             <T variant="title1" accessibilityRole="header">{b.name}</T>
             {b.verified ? (
@@ -152,13 +157,30 @@ export default function BusinessScreen() {
         {show('Menu') && b.menu.length ? (
           <View style={{ gap: 10 }}>
             <T variant="headline">{b.primaryCategoryId.startsWith('food') ? 'Menu highlights' : 'Services & prices'}</T>
-            {b.menu.map((m) => (
-              <Card key={m.id} style={styles.menuRow}>
-                {m.imageUrl ? <Photo uri={m.imageUrl} seed={m.id} style={{ width: 56, height: 56 }} radius={12} /> : null}
-                <View style={{ flex: 1 }}><T variant="captionStrong">{m.name}</T><T variant="small" color={colors.mutedGrey}>{m.note}</T></View>
-                <T variant="captionStrong">{formatINR(m.price)}</T>
-              </Card>
+            {tab === 'Menu' && b.menu.length > 8 ? (
+              <TextInput
+                value={menuQuery}
+                onChangeText={setMenuQuery}
+                placeholder={`Search ${b.menu.length} items`}
+                placeholderTextColor={colors.mutedGrey}
+                accessibilityLabel="Search the menu"
+                style={styles.menuSearch}
+              />
+            ) : null}
+            {menuGroups.map((g) => (
+              <View key={g.title ?? 'all'} style={{ gap: 10 }}>
+                {g.title && tab === 'Menu' ? <T variant="label" color={colors.mutedGrey} accessibilityRole="header">{g.title}</T> : null}
+                {g.items.map((m) => (
+                  <Card key={m.id} style={styles.menuRow}>
+                    {m.imageUrl ? <Photo uri={m.imageUrl} seed={m.id} style={{ width: 56, height: 56 }} radius={12} /> : null}
+                    <View style={{ flex: 1 }}><T variant="captionStrong">{m.name}</T><T variant="small" color={colors.mutedGrey}>{m.note}</T></View>
+                    <T variant="captionStrong">{formatINR(m.price)}</T>
+                  </Card>
+                ))}
+              </View>
             ))}
+            {tab === 'Menu' && menuQuery && menuGroups.length === 0 ? <T variant="caption" color={colors.mutedGrey}>Nothing matches “{menuQuery}”.</T> : null}
+            {tab === 'Overview' && b.menu.length > 4 ? <Button label={`See all ${b.menu.length} items`} variant="ghost" size="md" onPress={() => setTab('Menu')} /> : null}
           </View>
         ) : null}
         {tab === 'Menu' && !b.menu.length ? <T variant="caption" color={colors.mutedGrey}>This business hasn’t added a menu yet.</T> : null}
@@ -238,6 +260,7 @@ const styles = StyleSheet.create({
   saveBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   infoCard: { marginTop: -28, marginHorizontal: 16, backgroundColor: colors.white, borderRadius: 24, borderWidth: 1, borderColor: colors.hairline, padding: 20, gap: 12 },
   logo: { width: 60, height: 60, borderRadius: 16, backgroundColor: colors.nearBlack, alignItems: 'center', justifyContent: 'center' },
+  menuSearch: { height: 46, borderRadius: 14, borderWidth: 1.5, borderColor: colors.hairline, backgroundColor: colors.white, paddingHorizontal: 14, fontFamily: fonts.medium, fontSize: 15, color: colors.nearBlack },
   logoText: { fontFamily: fonts.displayHeavy, fontSize: 20, color: colors.pink },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   actions: { flexDirection: 'row', gap: 8, paddingTop: 4 },

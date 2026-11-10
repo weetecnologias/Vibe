@@ -5,8 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type BusinessSummary, type CategoryNode, type OfferSummary, type OfferView } from '@/api';
 import { BusinessCard, OfferCard } from '@/components/cards';
-import { BackButton, Chip, EmptyState, ErrorState, Icon, IconButton, LoadingState, Photo, T } from '@/components/ui';
+import { BackButton, Button, Chip, EmptyState, ErrorState, Icon, IconButton, LoadingState, Photo, T } from '@/components/ui';
 import { useAsync } from '@/lib/useAsync';
+import { EMPTY_PAGE, usePaged } from '@/lib/usePaged';
 import { useSession } from '@/state/session';
 import { colors } from '@/theme/tokens';
 
@@ -47,15 +48,23 @@ export default function CategoryScreen() {
   const target = effectiveLeaf ?? effectiveSub ?? root?.id ?? id;
   const isOffers = root?.id === 'offers';
 
-  const results = useAsync<Results>(
-    () => (!root ? Promise.resolve(null) : isOffers
-      ? api.getOffers(OFFER_VIEWS[target] ?? 'all').then((o) => ({ kind: 'offers' as const, items: o }))
-      : api.searchBusinesses({ categoryId: target, openNow: openNow || undefined, memberOffers: memberOffers || undefined, sort: 'popular' }).then((b) => ({ kind: 'places' as const, items: b }))),
-    [root?.id, target, openNow, memberOffers],
+  const places = usePaged<BusinessSummary>(
+    (offset) => (!root || isOffers
+      ? Promise.resolve(EMPTY_PAGE)
+      : api.searchBusinessesPage({ categoryId: target, openNow: openNow || undefined, memberOffers: memberOffers || undefined, sort: 'popular' }, offset)),
+    [root?.id, target, openNow, memberOffers, isOffers],
   );
+  const results = useAsync<Results>(
+    () => (!root || !isOffers ? Promise.resolve(null) : api.getOffers(OFFER_VIEWS[target] ?? 'all').then((o) => ({ kind: 'offers' as const, items: o }))),
+    [root?.id, target, isOffers],
+  );
+  const loading = isOffers ? results.loading : places.loading;
+  const error = isOffers ? results.error : places.error;
+  const reload = isOffers ? results.reload : places.reload;
 
   const label = (subNode && effectiveLeaf ? subNode.children.find((c) => c.id === effectiveLeaf)?.name : subNode?.name) ?? root?.name ?? '';
-  const count = results.data?.items.length ?? 0;
+  const count = isOffers ? results.data?.items.length ?? 0 : places.total ?? 0;
+  const shown = places.data?.length ?? 0;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.softWhite }} contentContainerStyle={{ paddingBottom: 32 }}>
@@ -126,17 +135,18 @@ export default function CategoryScreen() {
 
       {root ? (
         <View style={styles.countRow}>
-          <T variant="caption" color={colors.mutedGrey}><T variant="captionStrong">{results.loading ? '…' : count} {isOffers ? (count === 1 ? 'offer' : 'offers') : count === 1 ? 'place' : 'places'}</T> · {label}</T>
+          <T variant="caption" color={colors.mutedGrey}><T variant="captionStrong">{loading ? '…' : count} {isOffers ? (count === 1 ? 'offer' : 'offers') : count === 1 ? 'place' : 'places'}</T> · {label}</T>
         </View>
       ) : null}
 
       <View style={{ paddingHorizontal: 20, gap: 14 }}>
-        {results.error ? <ErrorState message={results.error} onRetry={results.reload} /> : null}
-        {results.loading && !results.data ? <LoadingState rows={2} /> : null}
-        {!results.loading && results.data && count === 0 ? (
+        {error ? <ErrorState message={error} onRetry={reload} /> : null}
+        {loading && !(isOffers ? results.data : places.data) ? <LoadingState rows={2} /> : null}
+        {!loading && (isOffers ? results.data : places.data) && count === 0 ? (
           <EmptyState icon="search" title={`No ${isOffers ? 'offers' : 'places'} here yet`} message="We’re adding new businesses every week. Try another subcategory." />
         ) : null}
-        {results.data?.kind === 'places' ? results.data.items.map((b) => <BusinessCard key={b.id} b={b} />) : null}
+        {!isOffers ? places.data?.map((b) => <BusinessCard key={b.id} b={b} />) : null}
+        {!isOffers && places.hasMore ? <Button label={`Show more (${Math.max(0, count - shown)} left)`} variant="outline" onPress={places.loadMore} loading={places.loadingMore} /> : null}
         {results.data?.kind === 'offers' ? results.data.items.map((o) => <OfferCard key={o.id} o={o} width="100%" />) : null}
       </View>
     </ScrollView>

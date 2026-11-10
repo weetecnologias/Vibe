@@ -44,6 +44,14 @@ Copy `.env.example` to `.env` to switch modes. Release builds never fall back to
 
 One-on-one meetups can only be at VIBE-listed businesses that suit the activity (cafés for coffee, restaurants for meals, sports venues for games). The backend rejects any other place.
 
+### Icons, logos, menus and long lists
+
+- **App icon, splash and favicon:** generated from the Sora ExtraBold wordmark (pink VIBE on near-black) in `assets/images/`. To replace them with the official logo, swap `icon.png` (1024×1024), the three `android-icon-*.png` layers, `splash-icon.png` and `favicon.png`, then rebuild the app. They can't be changed from a dashboard.
+- **Category icons:** a category carries either `icon` (one of the built-in icon names) or `iconUrl` (an uploaded SVG/PNG). Unknown or broken icons fall back to a default, so a new category never shows blank.
+- **Business logos:** `logoUrl` on a business (and `businessLogoUrl` on an offer). Without one, or if it fails to load, the business initials are shown.
+- **Menus:** menu items can carry a `section`. The Menu tab groups them by section and adds a search box for menus over 8 items; the Overview tab shows the first 4.
+- **Long lists:** Discover and category listings load 12 at a time with **Show more**. The API contract is `GET /businesses?limit=&offset=` returning `{ items, total, nextOffset }`.
+
 ### Demo catalogue and photos
 
 - Every subcategory in Food, Shopping, Fitness, Beauty and Kids has at least one fictional business; Events and Social have something in every section. `catalog-test.ts` fails if a subcategory is ever left empty.

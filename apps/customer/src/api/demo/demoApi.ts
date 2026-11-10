@@ -9,7 +9,7 @@
  */
 import { ApiError, type VibeApi } from '../client';
 import type {
-  BusinessDetail, BusinessSummary, ChatMessage, OneOnOneChat, EventDetail, EventSummary, ID, MemberCard, Membership, OfferSummary, OneOnOneInvite, Payment,
+  BusinessDetail, BusinessQuery, BusinessSummary, ChatMessage, OneOnOneChat, EventDetail, EventSummary, ID, MemberCard, Membership, OfferSummary, OneOnOneInvite, Payment,
   PaymentMethod, PaymentRequest, Redemption, SocialActivity, SocialProfile, Ticket, TicketReservation, User,
 } from '../types';
 import * as C from './catalog';
@@ -243,6 +243,25 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     return pr;
   };
 
+  const runSearch = (q: BusinessQuery): BusinessSummary[] => {
+      const text = (q.q ?? '').trim().toLowerCase();
+      let list = businesses.filter((b) => {
+        if (q.categoryId && !b.categoryIds.some((c) => c === q.categoryId || c.startsWith(q.categoryId + '.'))) return false;
+        if (text && !`${b.name} ${b.categoryLabel} ${b.area} ${b.menu.map((m) => m.name).join(' ')}`.toLowerCase().includes(text)) return false;
+        if (q.openNow && !b.status.open) return false;
+        if (q.memberOffers && !b.hasMemberOffer) return false;
+        if (q.minRating && b.rating < q.minRating) return false;
+        if (q.maxDistanceKm && b.distanceKm > q.maxDistanceKm) return false;
+        if (q.maxPriceLevel && b.priceLevel > q.maxPriceLevel) return false;
+        if (q.scope === 'services' && !b.bookingEnabled) return false;
+        return true;
+      }).map(summaryOf);
+      if (q.sort === 'rating') list = list.sort((a, b) => b.rating - a.rating);
+      else if (q.sort === 'popular') list = list.sort((a, b) => b.reviewCount - a.reviewCount);
+      else list = list.sort((a, b) => a.distanceKm - b.distanceKm);
+      return list;
+  };
+
   const api: VibeApi = {
     mode: 'demo',
 
@@ -325,22 +344,12 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     },
 
     async searchBusinesses(q) {
-      const text = (q.q ?? '').trim().toLowerCase();
-      let list = businesses.filter((b) => {
-        if (q.categoryId && !b.categoryIds.some((c) => c === q.categoryId || c.startsWith(q.categoryId + '.'))) return false;
-        if (text && !`${b.name} ${b.categoryLabel} ${b.area} ${b.menu.map((m) => m.name).join(' ')}`.toLowerCase().includes(text)) return false;
-        if (q.openNow && !b.status.open) return false;
-        if (q.memberOffers && !b.hasMemberOffer) return false;
-        if (q.minRating && b.rating < q.minRating) return false;
-        if (q.maxDistanceKm && b.distanceKm > q.maxDistanceKm) return false;
-        if (q.maxPriceLevel && b.priceLevel > q.maxPriceLevel) return false;
-        if (q.scope === 'services' && !b.bookingEnabled) return false;
-        return true;
-      }).map(summaryOf);
-      if (q.sort === 'rating') list = list.sort((a, b) => b.rating - a.rating);
-      else if (q.sort === 'popular') list = list.sort((a, b) => b.reviewCount - a.reviewCount);
-      else list = list.sort((a, b) => a.distanceKm - b.distanceKm);
-      return wait(list);
+      return wait(runSearch(q));
+    },
+    async searchBusinessesPage(q, offset = 0, limit = 12) {
+      const list = runSearch(q);
+      const next = offset + limit;
+      return wait({ items: list.slice(offset, next), total: list.length, nextOffset: next < list.length ? next : null });
     },
 
     async getBusiness(bid) {

@@ -3,6 +3,7 @@ import { Pressable, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { BusinessLogo } from '@/components/BusinessLogo';
 import { Badge, BackButton, Button, Card, Divider, ErrorState, Icon, IconButton, LoadingState, Notice, Photo, Screen, T } from '@/components/ui';
 import { daysUntil, formatDate } from '@/lib/dates';
 import { formatINR } from '@/lib/money';
@@ -62,7 +63,7 @@ export default function OfferScreen() {
 
       <View style={styles.card}>
         <Pressable accessibilityRole="link" onPress={() => router.push(`/business/${o.businessId}`)} style={styles.bizRow}>
-          <View style={styles.logo}><T style={{ fontFamily: fonts.displayHeavy, color: colors.pink, fontSize: 15 }}>{o.businessName.split(' ').map((w) => w[0]).slice(0, 2).join('')}</T></View>
+          <BusinessLogo name={o.businessName} logoUrl={o.businessLogoUrl} size={44} radius={12} />
           <View style={{ flex: 1 }}><T variant="bodyStrong">{o.businessName}</T><T variant="small" color={colors.mutedGrey}>{o.area}</T></View>
           <Icon name="chevronRight" size={18} strokeWidth={2} />
         </Pressable>
