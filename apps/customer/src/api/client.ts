@@ -1,7 +1,7 @@
 import type {
   AuthResult, BusinessDetail, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
   HomeFeed, ID, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
-  OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
+  ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
 
 /**
@@ -57,7 +57,8 @@ export interface VibeApi {
   cancelMembership(): Promise<Membership>;
 
   // Social
-  getSocialFeed(): Promise<{ activities: SocialActivity[]; groups: SocialGroup[] }>;
+  /** Filters apply to activities and social events; groups are always returned. */
+  getSocialFeed(filter?: SocialFilter): Promise<{ activities: SocialActivity[]; groups: SocialGroup[] }>;
   joinActivity(id: ID): Promise<SocialActivity>;
   leaveActivity(id: ID): Promise<SocialActivity>;
   joinGroup(id: ID): Promise<SocialGroup>;
@@ -67,19 +68,25 @@ export interface VibeApi {
   // Social: one-on-one meetups (18+). The backend only returns invites that match both people's preferences.
   getSocialProfile(): Promise<SocialProfile | null>;
   saveSocialProfile(input: SocialProfileInput): Promise<SocialProfile>;
-  getOneOnOnes(): Promise<OneOnOneInvite[]>;
+  /** Filters apply to open invites only; my own plans are always returned. */
+  getOneOnOnes(filter?: SocialFilter): Promise<OneOnOneInvite[]>;
   createOneOnOne(input: OneOnOneInput): Promise<OneOnOneInvite>;
   requestOneOnOne(id: ID): Promise<OneOnOneInvite>;
   /** Withdraws my request, or cancels my own invite. */
   cancelOneOnOne(id: ID): Promise<void>;
   /** Host accepts or declines someone who asked to join. */
   respondOneOnOne(id: ID, memberId: ID, accept: boolean): Promise<OneOnOneInvite>;
+  /** Chat opens only after a match is accepted. Rules (30 messages, no contact details) are enforced server-side. */
+  getOneOnOneChat(inviteId: ID): Promise<OneOnOneChat>;
+  sendOneOnOneMessage(inviteId: ID, input: ChatSendInput): Promise<ChatSendResult>;
 
   /** Demo-only helpers. Undefined in the HTTP adapter. */
   demo?: {
     simulateMerchantBill(redemptionId: ID, eligibleAmount: number): Promise<Redemption>;
     simulateHostAccepts(inviteId: ID): Promise<OneOnOneInvite>;
     simulateJoinRequest(inviteId: ID): Promise<OneOnOneInvite>;
+    simulateChatReply(inviteId: ID): Promise<OneOnOneChat>;
+    moderationLog(): Promise<{ kind: string; inviteId: ID; userId: ID; reason: string; at: string }[]>;
   };
 }
 
@@ -159,7 +166,7 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     subscribe: (planId) => call('POST', '/membership/subscriptions', { planId }),
     changePlan: (planId) => call('POST', '/membership/plan-change', { planId }),
     cancelMembership: () => call('POST', '/membership/cancel'),
-    getSocialFeed: () => call('GET', '/social/feed'),
+    getSocialFeed: (f) => call('GET', `/social/feed${qs({ when: f?.when, nearMe: f?.nearMe })}`),
     joinActivity: (id) => call('POST', `/social/activities/${id}/join`),
     leaveActivity: (id) => call('POST', `/social/activities/${id}/leave`),
     joinGroup: (id) => call('POST', `/social/groups/${id}/join`),
@@ -168,10 +175,12 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     getSocialProfile: () =>
       call<SocialProfile | null>('GET', '/social/profile').catch((e) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
     saveSocialProfile: (input) => call('PUT', '/social/profile', input),
-    getOneOnOnes: () => call('GET', '/social/one-on-ones'),
+    getOneOnOnes: (f) => call('GET', `/social/one-on-ones${qs({ when: f?.when, nearMe: f?.nearMe })}`),
     createOneOnOne: (input) => call('POST', '/social/one-on-ones', input),
     requestOneOnOne: (id) => call('POST', `/social/one-on-ones/${id}/requests`),
     cancelOneOnOne: (id) => call('POST', `/social/one-on-ones/${id}/cancel`),
+    getOneOnOneChat: (id) => call('GET', `/social/one-on-ones/${id}/chat`),
+    sendOneOnOneMessage: (id, input) => call('POST', `/social/one-on-ones/${id}/chat/messages`, input),
     respondOneOnOne: (id, memberId, accept) => call('POST', `/social/one-on-ones/${id}/requests/${memberId}/respond`, { accept }),
   };
 }

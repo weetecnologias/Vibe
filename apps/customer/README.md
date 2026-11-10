@@ -37,7 +37,12 @@ Copy `.env.example` to `.env` to switch modes. Release builds never fall back to
 3. Pick an area → Home.
 4. **Pay & Redeem:** open *Saffron Courtyard → 30% off* → **Redeem offer** → tap **Demo: merchant sends ₹1,000 bill** (stands in for the merchant dashboard) → **Pay ₹700.00** → the receipt shows *Pending* and then *Verified*.
 5. **Tickets:** Events → *Sunset Rooftop Jazz* → add VIP tickets → attendee names → **Reserve and pay** → pay → **View tickets** (QR + admission code).
-6. **One-on-one (18+):** Social → **One-on-one** → set *I am*, *I'd like to meet* (women / men / anyone) and age range. You only see invites that work both ways. **Ask to join** an invite, then tap **Demo: … accepts**. Or **Post a one-on-one** (activity, public venue, time, *who can join*) and tap **Demo: someone asks** to receive a request you can accept or decline.
+6. **One-on-one (18+):** Social → **One-on-one** → set *I am*, *I'd like to meet* (women / men / anyone) and age range. You only see invites that work both ways. **Ask to join** an invite, then tap **Demo: … accepts**. Or **Post a one-on-one** (activity, a VIBE-recommended place, time, *who can join*) and tap **Demo: someone asks** to receive a request you can accept or decline.
+7. **Match chat:** once a plan is accepted, tap **Open chat**. It's for meeting details only: quick replies for dress colour, table or seat number, where you are and status, plus a short typed note (80 characters). The whole chat allows **30 messages** between both people. Typing a phone number (including spaced, spelled-out, Indic digits or split across messages), email, link or social handle means the message isn't sent, the chat closes, you're blocked from each other and it's flagged for moderators. Try it with `98765 43210`.
+
+8. **Social filters:** at the top of Social, **Near me** (within 3 km of your area) combines with **Any time / Within an hour / Today / This week** (the next 7 days, India time). They apply to activities, social events and open one-on-one invites; your own plans always stay visible. Demo data always has something starting within the hour and later today.
+
+One-on-one meetups can only be at VIBE-listed businesses that suit the activity (cafés for coffee, restaurants for meals, sports venues for games). The backend rejects any other place.
 
 ### Demo catalogue and photos
 

@@ -260,6 +260,8 @@ export type SocialActivity = {
   /** 'activity' = member-run meetups; 'social_event' = hosted, ticketed social events. */
   section: 'activity' | 'social_event';
   coverUrl: string | null;
+  /** From the member's chosen area, worked out by the backend. */
+  distanceKm: number;
 };
 
 export type SocialGroup = {
@@ -288,7 +290,7 @@ export type SocialProfileInput = Pick<SocialProfile, 'gender' | 'meetPreference'
 /** What one member sees of another in one-on-one. */
 export type MemberCard = { id: ID; firstName: string; ageBand: string | null; gender: Gender; verified: boolean };
 
-export type OneOnOneKind = 'coffee' | 'sport' | 'food' | 'walk' | 'movie';
+export type OneOnOneKind = 'coffee' | 'sport' | 'food';
 export type OneOnOneStatus = 'open' | 'matched' | 'cancelled';
 /** My relationship to an invite. `host` = I posted it. */
 export type OneOnOneMyStatus = 'none' | 'requested' | 'confirmed' | 'host';
@@ -299,9 +301,9 @@ export type OneOnOneInvite = {
   /** e.g. "Coffee & conversation", "Shuttle badminton, singles". */
   activity: string;
   note: string;
-  /** Always a public venue; ideally a VIBE partner business. */
+  /** Always a VIBE-recommended place (a listed business), never a free-typed address. */
   venueName: string;
-  venueBusinessId: ID | null;
+  venueBusinessId: ID;
   area: string;
   startsAt: ISODate;
   durationMin: number;
@@ -316,18 +318,61 @@ export type OneOnOneInvite = {
   /** Set once the host accepts someone. Only returned to the two people involved. */
   matchedWith: MemberCard | null;
   coverUrl: string | null;
+  /** From the member's chosen area to the venue, worked out by the backend. */
+  distanceKm: number;
 };
 
+/** The place must be a VIBE business that suits the activity; its name and area come from the listing. */
 export type OneOnOneInput = {
   kind: OneOnOneKind;
   activity: string;
-  venueName: string;
-  venueBusinessId: ID | null;
-  area: string;
+  venueBusinessId: ID;
   startsAt: ISODate;
   openTo: MeetPreference;
   note?: string;
 };
+
+// ---------- Social: one-on-one chat (meeting details only) ----------
+export type QuickTemplate = 'dress' | 'table' | 'seat' | 'spot' | 'status';
+
+export type ChatMessage = {
+  id: ID;
+  from: 'me' | 'them' | 'system';
+  text: string;
+  at: ISODate;
+  /** True when it was built from a quick reply. */
+  quick: boolean;
+};
+
+export type ChatClosedReason = 'contact_shared' | 'cancelled' | 'blocked' | 'ended';
+
+export type OneOnOneChat = {
+  inviteId: ID;
+  counterpart: MemberCard;
+  venueName: string;
+  startsAt: ISODate;
+  /** open = can send; limit_reached = all messages used; closed = ended (see closedReason). */
+  status: 'open' | 'limit_reached' | 'closed';
+  closedReason: ChatClosedReason | null;
+  messages: ChatMessage[];
+  /** Messages used by both people together (system notes don't count). */
+  used: number;
+  limit: number;
+  closesAt: ISODate;
+};
+
+export type ChatSendInput = { template: QuickTemplate; value: string } | { text: string };
+
+/**
+ * delivered=false with rejection='contact_shared' means the message was NOT sent:
+ * a contact detail was detected, the chat was closed and both people were blocked.
+ */
+export type ChatSendResult = { delivered: boolean; rejection: 'contact_shared' | null; chat: OneOnOneChat };
+
+/** Social filters. 'week' = the next 7 days; times are in India Standard Time. */
+export type SocialWhen = 'any' | 'hour' | 'today' | 'week';
+/** nearMe = within a few km of the member's chosen area (the backend sets the radius). */
+export type SocialFilter = { when?: SocialWhen; nearMe?: boolean };
 
 export type ReportReason = 'harassment' | 'unsafe' | 'spam' | 'inappropriate' | 'underage' | 'other';
 export type ReportInput = { targetType: 'activity' | 'group' | 'user'; targetId: ID; reason: ReportReason; note?: string };

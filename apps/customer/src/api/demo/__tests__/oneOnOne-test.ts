@@ -84,7 +84,7 @@ describe('one-on-one (demo backend)', () => {
     await signIn();
     await api.saveSocialProfile({ gender: 'man', meetPreference: 'anyone', ageConfirmed18: true, ageBand: '25–29' });
     const startsAt = new Date(Date.parse('2026-11-10T06:00:00Z') + 2 * 86_400_000).toISOString();
-    const mine = await api.createOneOnOne({ kind: 'sport', activity: 'Shuttle badminton', venueName: 'Smash Arena', venueBusinessId: 'b-smash', area: 'Kondapur', startsAt, openTo: 'men' });
+    const mine = await api.createOneOnOne({ kind: 'sport', activity: 'Shuttle badminton', venueBusinessId: 'b-smash', startsAt, openTo: 'men' });
     expect(mine.myStatus).toBe('host');
     const withReq = await api.demo!.simulateJoinRequest(mine.id);
     expect(withReq.requests).toHaveLength(1);
@@ -99,7 +99,7 @@ describe('one-on-one (demo backend)', () => {
     await signIn();
     await api.saveSocialProfile({ gender: 'woman', meetPreference: 'anyone', ageConfirmed18: true, ageBand: '30–34' });
     const soon = new Date(Date.parse('2026-11-10T06:10:00Z')).toISOString();
-    await expect(api.createOneOnOne({ kind: 'coffee', activity: 'Coffee', venueName: 'Matcha Lab', venueBusinessId: 'b-matcha', area: 'Madhapur', startsAt: soon, openTo: 'anyone' }))
+    await expect(api.createOneOnOne({ kind: 'coffee', activity: 'Coffee', venueBusinessId: 'b-matcha', startsAt: soon, openTo: 'anyone' }))
       .rejects.toMatchObject({ code: 'time' });
   });
 

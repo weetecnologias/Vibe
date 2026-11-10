@@ -3,25 +3,32 @@ import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, type ReportInput, type SocialActivity, type SocialGroup } from '@/api';
+import { api, type ReportInput, type SocialActivity, type SocialGroup, type SocialWhen } from '@/api';
 import { ReportSheet } from '@/components/ReportSheet';
 import { OneOnOneSection } from '@/components/social/OneOnOne';
 import { Badge, Button, Chip, EmptyState, ErrorState, Icon, IconButton, LoadingState, Notice, Photo, T } from '@/components/ui';
-import { formatDay, formatTime } from '@/lib/dates';
+import { formatTime, relativeDay, startsInLabel } from '@/lib/dates';
 import { formatINR } from '@/lib/money';
 import { errorMessage, useAsync } from '@/lib/useAsync';
 import { useSession } from '@/state/session';
 import { colors, fonts } from '@/theme/tokens';
 
+const WHEN: { key: SocialWhen; label: string }[] = [
+  { key: 'any', label: 'Any time' }, { key: 'hour', label: 'Within an hour' }, { key: 'today', label: 'Today' }, { key: 'week', label: 'This week' },
+];
 const SECTIONS = ['For you', 'One-on-one', 'Activities', 'Groups', 'Communities', 'Social events'] as const;
 type Section = (typeof SECTIONS)[number];
 type ReportTarget = { type: ReportInput['targetType']; id: string; name: string; hostId?: string };
 
 export default function Social() {
   const insets = useSafeAreaInsets();
-  const { status } = useSession();
+  const { status, area } = useSession();
   const signedIn = status === 'signedIn';
-  const feed = useAsync(() => api.getSocialFeed(), []);
+  const [when, setWhen] = useState<SocialWhen>('any');
+  const [nearMe, setNearMe] = useState(false);
+  const filter = { when: when === 'any' ? undefined : when, nearMe: nearMe || undefined };
+  const filtering = when !== 'any' || nearMe;
+  const feed = useAsync(() => api.getSocialFeed(filter), [when, nearMe]);
   const [section, setSection] = useState<Section>('For you');
   const [reporting, setReporting] = useState<ReportTarget | null>(null);
   const [notice, setNotice] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
@@ -76,6 +83,16 @@ export default function Social() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
             {SECTIONS.map((s) => <Chip key={s} label={s} onDark selected={section === s} onPress={() => setSection(s)} />)}
           </ScrollView>
+          {!is('Groups', 'Communities') ? (
+            <View style={{ gap: 6 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, alignItems: 'center' }} accessibilityLabel="Filters">
+                <Chip label="Near me" icon="pin" onDark selected={nearMe} onPress={() => setNearMe((v) => !v)} />
+                <View style={styles.sep} />
+                {WHEN.map((w) => <Chip key={w.key} label={w.label} onDark selected={when === w.key} onPress={() => setWhen(w.key)} />)}
+              </ScrollView>
+              {nearMe ? <T variant="small" color={colors.onDarkMuted}>Near me: within 3 km of {area ?? 'your area'}</T> : null}
+            </View>
+          ) : null}
         </View>
 
         {is('For you') ? (
@@ -103,7 +120,7 @@ export default function Social() {
         {notice ? <View style={{ paddingHorizontal: 20 }}><Notice tone={notice.tone}><T variant="caption">{notice.text}</T></Notice></View> : null}
 
         {is('One-on-one') ? (
-          <OneOnOneSection signedIn={signedIn} onRequireSignIn={() => router.push('/login')} onReport={setReporting} />
+          <OneOnOneSection filter={filter} signedIn={signedIn} onRequireSignIn={() => router.push('/login')} onReport={setReporting} />
         ) : null}
 
         {feed.error && !is('One-on-one') ? <ErrorState message={feed.error} onRetry={feed.reload} /> : null}
@@ -123,7 +140,7 @@ export default function Social() {
                 </View>
                 <T variant="title2" color={colors.white}>{featured.title}</T>
                 <T variant="caption" color={colors.onDarkMuted}>
-                  {formatDay(featured.startsAt)} · {formatTime(featured.startsAt)} · {featured.area}{featured.price ? ` · ${formatINR(featured.price)}` : ''}
+                  {relativeDay(featured.startsAt)} · {formatTime(featured.startsAt)} · {featured.area} · {featured.distanceKm} km{featured.price ? ` · ${formatINR(featured.price)}` : ''}
                 </T>
                 <View style={styles.between}>
                   <T variant="small" color={colors.onDarkMuted}>{featured.going} of {featured.capacity} places taken</T>
@@ -135,15 +152,15 @@ export default function Social() {
         ) : null}
 
         {f && is('For you', 'Activities') ? (
-          <ActivityList title="Activities near you" items={activities} onJoin={toggleActivity} onReport={(a) => setReporting({ type: 'activity', id: a.id, name: a.title, hostId: a.hostId })} />
+          <ActivityList filtering={filtering} onClear={() => { setWhen('any'); setNearMe(false); }} title={filtering ? 'Activities' : 'Activities near you'} items={activities} onJoin={toggleActivity} onReport={(a) => setReporting({ type: 'activity', id: a.id, name: a.title, hostId: a.hostId })} />
         ) : null}
 
         {f && is('Social events') ? (
-          <ActivityList title="Hosted social events" items={events.filter((e) => !e.featured && !e.requiresIdVerification)} onJoin={toggleActivity} onReport={(a) => setReporting({ type: 'activity', id: a.id, name: a.title, hostId: a.hostId })} />
+          <ActivityList filtering={filtering} onClear={() => { setWhen('any'); setNearMe(false); }} title="Hosted social events" items={events.filter((e) => !e.featured && !e.requiresIdVerification)} onJoin={toggleActivity} onReport={(a) => setReporting({ type: 'activity', id: a.id, name: a.title, hostId: a.hostId })} />
         ) : null}
 
-        {f && is('For you', 'Groups') ? <GroupRow title="Groups for you" items={groups} onJoin={joinGroup} /> : null}
-        {f && is('For you', 'Communities') ? <GroupRow title="Communities" items={communities} onJoin={joinGroup} /> : null}
+        {f && (is('Groups') || (is('For you') && !filtering)) ? <GroupRow title="Groups for you" items={groups} onJoin={joinGroup} /> : null}
+        {f && (is('Communities') || (is('For you') && !filtering)) ? <GroupRow title="Communities" items={communities} onJoin={joinGroup} /> : null}
 
         {f && is('For you', 'Social events') ? events.filter((a) => a.ageRange || a.requiresIdVerification).map((a) => (
           <View key={a.id} style={styles.restricted}>
@@ -155,7 +172,7 @@ export default function Social() {
             </View>
             <T variant="title3" color={colors.white}>{a.title}</T>
             <T variant="caption" color={colors.onDarkMuted}>
-              {formatDay(a.startsAt)} · {formatTime(a.startsAt)} · {a.area}. Matches are shared only if both of you say yes. Contact details stay hidden.
+              {relativeDay(a.startsAt)} · {formatTime(a.startsAt)} · {a.area}. Matches are shared only if both of you say yes. Contact details stay hidden.
             </T>
             <Button
               label={a.requiresIdVerification ? 'Verify age to book' : 'Request a place'}
@@ -173,20 +190,27 @@ export default function Social() {
   );
 }
 
-function ActivityList({ title, items, onJoin, onReport }: { title: string; items: SocialActivity[]; onJoin: (a: SocialActivity) => void; onReport: (a: SocialActivity) => void }) {
+function ActivityList({ title, items, onJoin, onReport, filtering, onClear }: { title: string; items: SocialActivity[]; onJoin: (a: SocialActivity) => void; onReport: (a: SocialActivity) => void; filtering: boolean; onClear: () => void }) {
   return (
     <View style={{ paddingHorizontal: 20, gap: 12 }}>
       <T variant="title2" color={colors.white}>{title}</T>
-      {items.length === 0 ? <EmptyState dark icon="social" title="Nothing here yet" message="Check back soon, or host your own." /> : null}
+      {items.length === 0 ? (
+        filtering
+          ? <EmptyState dark icon="calendar" title="Nothing matches these filters" message="Try Today or This week, or turn off Near me." actionLabel="Clear filters" onAction={onClear} />
+          : <EmptyState dark icon="social" title="Nothing here yet" message="Check back soon, or host your own." />
+      ) : null}
       {items.map((a) => (
         <View key={a.id} style={styles.activity}>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <Photo uri={a.coverUrl} seed={a.id} style={{ width: 76, height: 76 }} radius={14} />
             <View style={{ flex: 1, gap: 3 }}>
-              <T variant="label" color={colors.onDarkMuted}>{a.kind}</T>
+              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                <T variant="label" color={colors.onDarkMuted}>{a.kind}</T>
+                {startsInLabel(a.startsAt) ? <Badge label={startsInLabel(a.startsAt)!} tone="warning" /> : null}
+              </View>
               <T variant="bodyStrong" color={colors.white}>{a.title}</T>
-              <T variant="small" color={colors.onDarkMuted}>{formatDay(a.startsAt)} · {formatTime(a.startsAt)} · {a.place}</T>
-              <T variant="small" color={colors.onDarkMuted}>{a.price ? formatINR(a.price) : 'Free'} · {a.going} going</T>
+              <T variant="small" color={colors.onDarkMuted}>{relativeDay(a.startsAt)} · {formatTime(a.startsAt)} · {a.place}</T>
+              <T variant="small" color={colors.onDarkMuted}>{a.distanceKm} km · {a.price ? formatINR(a.price) : 'Free'} · {a.going} going</T>
             </View>
             <IconButton icon="flag" label={`Report ${a.title}`} tone="clear" size={36} color={colors.onDarkSubtle} onPress={() => onReport(a)} />
           </View>
@@ -246,6 +270,7 @@ function JoinButton({ a, onPress }: { a: SocialActivity; onPress: () => void }) 
 const styles = StyleSheet.create({
   logo: { fontFamily: fonts.displayHeavy, fontSize: 26, letterSpacing: -1.2, color: colors.pink },
   title: { fontFamily: fonts.displaySemi, fontSize: 24, letterSpacing: -0.5, color: colors.white },
+  sep: { width: 1, height: 22, backgroundColor: colors.darkSurface },
   promo: { marginHorizontal: 20, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: colors.pink },
   safety: { marginHorizontal: 20, padding: 14, borderRadius: 16, backgroundColor: colors.darkSurface, flexDirection: 'row', alignItems: 'center', gap: 12 },
   featured: { marginHorizontal: 20, height: 260, justifyContent: 'flex-end' },

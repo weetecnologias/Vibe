@@ -50,6 +50,13 @@ export function relativeDay(iso: string, now = Date.now()): string {
   return formatDay(iso);
 }
 
+/** "Starts in 40 min" for things starting within the hour, otherwise null. */
+export function startsInLabel(iso: string, now = Date.now()): string | null {
+  const min = Math.round((new Date(iso).getTime() - now) / 60_000);
+  if (min < 0 || min > 60) return null;
+  return min <= 1 ? 'Starting now' : `Starts in ${min} min`;
+}
+
 export function secondsUntil(iso: string, now = Date.now()): number {
   return Math.max(0, Math.round((new Date(iso).getTime() - now) / 1000));
 }

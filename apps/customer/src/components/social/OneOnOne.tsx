@@ -1,14 +1,16 @@
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  api, type Gender, type MeetPreference, type MemberCard, type OneOnOneInput, type OneOnOneInvite, type OneOnOneKind, type SocialProfile,
+  api, type Gender, type MeetPreference, type MemberCard, type OneOnOneInput, type OneOnOneInvite, type OneOnOneKind, type SocialFilter, type SocialProfile,
 } from '@/api';
-import { istAt, formatTime, relativeDay } from '@/lib/dates';
+import { istAt, formatTime, relativeDay, startsInLabel } from '@/lib/dates';
 import { errorMessage, useAsync } from '@/lib/useAsync';
 import { colors, fonts, radius } from '@/theme/tokens';
 
+import { MatchChat } from './MatchChat';
 import { Badge, Button, Chip, EmptyState, ErrorState, Icon, IconButton, LoadingState, Notice, Photo, T, type IconName } from '../ui';
 
 // ---------- labels ----------
@@ -25,18 +27,12 @@ export const KINDS: { key: OneOnOneKind; label: string; icon: IconName; example:
   { key: 'coffee', label: 'Coffee & chat', icon: 'food', example: 'Coffee & conversation' },
   { key: 'sport', label: 'Sports partner', icon: 'fitness', example: 'Shuttle badminton · singles' },
   { key: 'food', label: 'Meal for two', icon: 'food', example: 'Dinner for two' },
-  { key: 'walk', label: 'Walk', icon: 'directions', example: 'Evening walk by the lake' },
-  { key: 'movie', label: 'Movie', icon: 'ticket', example: 'Weekend matinee' },
 ];
 const openToLabel = (p: MeetPreference) => (p === 'anyone' ? 'Open to anyone' : p === 'women' ? 'Women only' : 'Men only');
 const kindIcon = (k: OneOnOneKind) => KINDS.find((x) => x.key === k)?.icon ?? 'social';
 
-/** Public places to suggest per activity. Partner businesses come from the API. */
-const KIND_CATEGORY: Partial<Record<OneOnOneKind, string>> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants' };
-const STATIC_VENUES: Partial<Record<OneOnOneKind, { name: string; area: string }[]>> = {
-  walk: [{ name: 'Necklace Road promenade', area: 'Hussain Sagar' }, { name: 'KBR Park walking track', area: 'Jubilee Hills' }, { name: 'Botanical Garden', area: 'Kondapur' }],
-  movie: [{ name: 'Galleria Cinemas', area: 'Hitech City' }, { name: 'Central Square Cinemas', area: 'Gachibowli' }],
-};
+/** Which kind of VIBE business suits each activity. Places come only from the app's own listings. */
+const KIND_CATEGORY: Record<OneOnOneKind, string> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants' };
 
 // ---------- small pieces ----------
 function Avatar({ m, size = 40 }: { m: MemberCard; size?: number }) {
@@ -165,7 +161,7 @@ function slots(now = Date.now()) {
 function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: () => void; onPosted: (i: OneOnOneInvite) => void }) {
   const [kind, setKind] = useState<OneOnOneKind>('coffee');
   const [activity, setActivity] = useState('');
-  const [venue, setVenue] = useState<{ name: string; area: string; businessId: string | null } | null>(null);
+  const [venue, setVenue] = useState<{ name: string; area: string; businessId: string } | null>(null);
   const [slot, setSlot] = useState<string | null>(null);
   const [openTo, setOpenTo] = useState<MeetPreference>('anyone');
   const [note, setNote] = useState('');
@@ -174,10 +170,8 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
   const times = useMemo(() => slots(), [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const venues = useAsync(async () => {
-    const cat = KIND_CATEGORY[kind];
-    if (!cat) return (STATIC_VENUES[kind] ?? []).map((v) => ({ ...v, businessId: null as string | null }));
-    const list = await api.searchBusinesses({ categoryId: cat, sort: 'nearest' });
-    return list.slice(0, 6).map((b) => ({ name: b.name, area: b.area, businessId: b.id as string | null }));
+    const list = await api.searchBusinesses({ categoryId: KIND_CATEGORY[kind], sort: 'nearest' });
+    return list.slice(0, 8).map((b) => ({ name: b.name, area: b.area, businessId: b.id }));
   }, [kind]);
 
   const pickKind = (k: OneOnOneKind) => { setKind(k); setVenue(null); };
@@ -187,7 +181,7 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
     if (!venue || !slot) return;
     setBusy(true);
     setError(null);
-    const input: OneOnOneInput = { kind, activity: label, venueName: venue.name, venueBusinessId: venue.businessId, area: venue.area, startsAt: slot, openTo, note: note.trim() || undefined };
+    const input: OneOnOneInput = { kind, activity: label, venueBusinessId: venue.businessId, startsAt: slot, openTo, note: note.trim() || undefined };
     try {
       onPosted(await api.createOneOnOne(input));
       setActivity(''); setVenue(null); setSlot(null); setNote('');
@@ -214,7 +208,7 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
         />
       </View>
       <View style={{ gap: 8 }}>
-        <T variant="label" color={colors.onDarkMuted}>Where (public places only)</T>
+        <T variant="label" color={colors.onDarkMuted}>Where · VIBE recommended places</T>
         {venues.loading && !venues.data ? <T variant="small" color={colors.onDarkMuted}>Finding places…</T> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {venues.data?.map((v) => (
@@ -250,10 +244,10 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
 }
 
 // ---------- invite card ----------
-function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onReport, onDemoAccept, onDemoRequest }: {
+function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onReport, onChat, onDemoAccept, onDemoRequest }: {
   i: OneOnOneInvite; busy: boolean;
   onRequest: () => void; onWithdraw: () => void; onCancel: () => void; onRespond: (m: MemberCard, accept: boolean) => void;
-  onReport: () => void; onDemoAccept?: () => void; onDemoRequest?: () => void;
+  onReport: () => void; onChat: () => void; onDemoAccept?: () => void; onDemoRequest?: () => void;
 }) {
   const when = `${relativeDay(i.startsAt)} · ${formatTime(i.startsAt)}`;
   return (
@@ -273,13 +267,17 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
             <IconButton icon="flag" label={`Report or block ${i.host.firstName}`} tone="clear" size={36} color={colors.onDarkSubtle} onPress={onReport} />
           </View>
         )}
+        {startsInLabel(i.startsAt) && i.myStatus === 'none' ? <Badge label={startsInLabel(i.startsAt)!} tone="warning" /> : null}
         <T variant="title3" color={colors.white}>{i.activity}</T>
         {i.note ? <T variant="caption" color={colors.onDarkMuted}>“{i.note}”</T> : null}
         <View style={{ gap: 4 }}>
           <Fact icon="calendar" text={`${when} · ${i.durationMin < 60 ? `${i.durationMin} min` : `${Math.round(i.durationMin / 60 * 10) / 10} hr`}`} />
-          <Fact icon="pin" text={`${i.venueName}, ${i.area}`} />
+          <Fact icon="pin" text={`${i.venueName}, ${i.area} · ${i.distanceKm} km`} />
           <Fact icon="wallet" text={i.costNote} />
         </View>
+        <Pressable accessibilityRole="link" accessibilityLabel={`View ${i.venueName} on VIBE`} onPress={() => router.push(`/business/${i.venueBusinessId}`)} hitSlop={8} style={{ alignSelf: 'flex-start' }}>
+          <T variant="captionStrong" color={colors.white} style={{ textDecorationLine: 'underline' }}>View {i.venueName} on VIBE</T>
+        </Pressable>
 
         {i.myStatus === 'none' ? <Button label="Ask to join" size="md" onPress={onRequest} loading={busy} /> : null}
 
@@ -296,6 +294,7 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
         {i.myStatus === 'confirmed' && i.matchedWith ? (
           <View style={{ gap: 8 }}>
             <Notice tone="success" icon="check"><T variant="small">You’re meeting {i.matchedWith.firstName} {when.toLowerCase().startsWith('today') ? 'today' : 'on ' + relativeDay(i.startsAt)} at {i.venueName}. Meet inside the venue and tell a friend your plan.</T></Notice>
+            <Button label="Open chat" icon="social" size="md" onPress={onChat} />
             <Button label="Cancel plan" variant="outline" size="sm" onPress={onWithdraw} />
           </View>
         ) : null}
@@ -305,6 +304,7 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
             {i.status === 'matched' && i.matchedWith ? (
               <Notice tone="success" icon="check"><T variant="small">You’re meeting {i.matchedWith.firstName} ({i.matchedWith.ageBand}) at {i.venueName}.</T></Notice>
             ) : null}
+            {i.status === 'matched' && i.matchedWith ? <Button label="Open chat" icon="social" size="md" onPress={onChat} /> : null}
             {i.requests.map((m) => (
               <View key={m.id} style={styles.request}>
                 <Who m={m} />
@@ -336,14 +336,16 @@ function Fact({ icon, text }: { icon: IconName; text: string }) {
 // ---------- section ----------
 type ReportTarget = { type: 'user'; id: string; name: string; hostId: string };
 
-export function OneOnOneSection({ signedIn, onRequireSignIn, onReport }: { signedIn: boolean; onRequireSignIn: () => void; onReport: (t: ReportTarget) => void }) {
+export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }: { filter: SocialFilter; signedIn: boolean; onRequireSignIn: () => void; onReport: (t: ReportTarget) => void }) {
   const profile = useAsync(() => (signedIn ? api.getSocialProfile() : Promise.resolve(null)), [signedIn]);
   const p = profile.data ?? null;
-  const invites = useAsync(() => (p ? api.getOneOnOnes() : Promise.resolve([] as OneOnOneInvite[])), [p?.gender, p?.meetPreference]);
+  const invites = useAsync(() => (p ? api.getOneOnOnes(filter) : Promise.resolve([] as OneOnOneInvite[])), [p?.gender, p?.meetPreference, filter.when, filter.nearMe]);
+  const filtering = !!filter.when || !!filter.nearMe;
   const [kind, setKind] = useState<OneOnOneKind | 'all'>('all');
   const [editing, setEditing] = useState(false);
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [chatInvite, setChatInvite] = useState<OneOnOneInvite | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   const replace = (n: OneOnOneInvite) => invites.setData((list) => list?.some((x) => x.id === n.id) ? list.map((x) => (x.id === n.id ? n : x)) : [n, ...(list ?? [])]);
@@ -431,17 +433,18 @@ export function OneOnOneSection({ signedIn, onRequireSignIn, onReport }: { signe
                   i={i}
                   busy={busyId === i.id}
                   onRequest={() => run(i.id, () => api.requestOneOnOne(i.id))}
-                  onWithdraw={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes()).then((l) => { invites.setData(() => l); }))}
-                  onCancel={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes()).then((l) => { invites.setData(() => l); }), 'Invite cancelled. Anyone who asked to join has been told.')}
+                  onWithdraw={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes(filter)).then((l) => { invites.setData(() => l); }))}
+                  onCancel={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes(filter)).then((l) => { invites.setData(() => l); }), 'Invite cancelled. Anyone who asked to join has been told.')}
                   onRespond={(m, accept) => run(i.id, () => api.respondOneOnOne(i.id, m.id, accept), accept ? `You’re meeting ${m.firstName}. You’ll both see the plan here.` : undefined)}
                   onReport={() => onReport({ type: 'user', id: i.host.id, name: i.host.firstName, hostId: i.host.id })}
+                  onChat={() => setChatInvite(i)}
                   onDemoAccept={api.demo ? () => run(i.id, () => api.demo!.simulateHostAccepts(i.id)) : undefined}
                   onDemoRequest={api.demo ? () => run(i.id, () => api.demo!.simulateJoinRequest(i.id)) : undefined}
                 />
               </View>
             ))}
             {invites.data && list.length === 0 ? (
-              <EmptyState dark icon="social" title="No matching invites yet" message="Try another activity, or post your own plan." />
+              <EmptyState dark icon="social" title={filtering ? 'No invites match these filters' : 'No matching invites yet'} message={filtering ? 'Try Today or This week, or turn off Near me.' : 'Try another activity, or post your own plan.'} />
             ) : null}
           </View>
         </>
@@ -454,6 +457,7 @@ export function OneOnOneSection({ signedIn, onRequireSignIn, onReport }: { signe
         onClose={() => setEditing(false)}
         onSaved={(np) => { profile.setData(() => np); setEditing(false); }}
       />
+      {chatInvite ? <MatchChat key={chatInvite.id} invite={chatInvite} onClose={() => setChatInvite(null)} onChanged={() => invites.reload()} /> : null}
       <PostSheet
         visible={posting}
         onClose={() => setPosting(false)}

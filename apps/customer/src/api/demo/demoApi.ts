@@ -9,12 +9,15 @@
  */
 import { ApiError, type VibeApi } from '../client';
 import type {
-  BusinessDetail, BusinessSummary, EventDetail, EventSummary, ID, MemberCard, Membership, OfferSummary, OneOnOneInvite, Payment,
+  BusinessDetail, BusinessSummary, ChatMessage, OneOnOneChat, EventDetail, EventSummary, ID, MemberCard, Membership, OfferSummary, OneOnOneInvite, Payment,
   PaymentMethod, PaymentRequest, Redemption, SocialActivity, SocialProfile, Ticket, TicketReservation, User,
 } from '../types';
 import * as C from './catalog';
 import * as D from './data';
 import { img } from './images';
+import { CHAT_AFTER_MEETUP_MIN, CHAT_FREE_TEXT_MAX, CHAT_LIMIT, renderQuick } from '../chat';
+import { checkContact } from './contactGuard';
+import { matchesFilter } from './socialFilter';
 import { AGE_BANDS, canMeet } from './matching';
 import { quote } from './pricing';
 import * as S from './social';
@@ -30,6 +33,9 @@ export type DemoOptions = {
   /** Lets `me()` restore the demo user after an app reload. */
   tokens?: { getAccessToken(): Promise<string | null> };
 };
+
+/** Which kind of VIBE business suits each one-on-one activity. */
+const VENUE_CATEGORY: Record<string, string> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants' };
 
 export function createDemoApi(opts: DemoOptions = {}): VibeApi {
   const latency = opts.latency ?? 350;
@@ -89,6 +95,53 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
   };
 
   const blocked = new Set<string>();
+
+  // ---- One-on-one chat state ----
+  type ChatState = { counterpart: MemberCard; venueName: string; messages: ChatMessage[]; closedReason: OneOnOneChat['closedReason']; digitStreak: number };
+  const chats = new Map<string, ChatState>();
+  const moderationLog: { kind: string; inviteId: string; userId: string; reason: string; at: string }[] = [];
+  const sys = (text: string): ChatMessage => ({ id: id('msg'), from: 'system', text, at: new Date(now()).toISOString(), quick: false });
+  const closeChat = (iid: string, reason: NonNullable<OneOnOneChat['closedReason']>) => {
+    const st = chats.get(iid);
+    if (!st || st.closedReason) return;
+    st.closedReason = reason;
+    st.messages.push(sys(reason === 'cancelled' ? 'The plan was cancelled, so this chat has ended.' : reason === 'blocked' ? 'This chat has ended because one of you blocked the other.' : 'This chat has ended.'));
+  };
+  const chatView = (iid: string, i: OneOnOneInvite): OneOnOneChat => {
+    const st = chats.get(iid)!;
+    const closesAt = new Date(Date.parse(i.startsAt) + (i.durationMin + CHAT_AFTER_MEETUP_MIN) * 60_000).toISOString();
+    if (!st.closedReason && now() > Date.parse(closesAt)) closeChat(iid, 'ended');
+    const used = st.messages.filter((m) => m.from !== 'system').length;
+    return {
+      inviteId: iid, counterpart: st.counterpart, venueName: st.venueName, startsAt: i.startsAt,
+      status: st.closedReason ? 'closed' : used >= CHAT_LIMIT ? 'limit_reached' : 'open',
+      closedReason: st.closedReason, messages: st.messages, used, limit: CHAT_LIMIT, closesAt,
+    };
+  };
+  /** Starts the chat the moment a match is accepted, so cancelling or blocking can always close it. */
+  const openChat = (i: OneOnOneInvite) => {
+    if (chats.has(i.id) || i.status !== 'matched' || !i.matchedWith) return;
+    const them = i.matchedWith;
+    chats.set(i.id, {
+      counterpart: them, venueName: i.venueName, digitStreak: 0, closedReason: null,
+      messages: [sys(`You’re matched with ${them.firstName}. Use this chat only to find each other at ${i.venueName}: dress colours, table or seat numbers, where you’re sitting. Sharing a phone number, email or social handle ends the chat and blocks you both. ${CHAT_LIMIT} messages in total.`)],
+    });
+  };
+  /** The invite behind a chat. A chat exists only once the plan is accepted, and stays readable after it ends. */
+  const chatInvite = (oid: string) => {
+    const i = oneOnOnes.find((x) => x.id === oid && (x.myStatus === 'host' || x.myStatus === 'confirmed' || chats.has(oid))) ?? fail(404, 'not_found', 'Chat not found.');
+    openChat(i!);
+    if (!chats.has(oid)) fail(409, 'no_match', 'Chat opens once the plan is accepted.');
+    return i!;
+  };
+  const endChatForContact = (oid: string, i: OneOnOneInvite, st: ChatState, reason: string, userId: string) => {
+    st.closedReason = 'contact_shared';
+    st.messages.push(sys(`Chat ended. A phone number or other contact detail was about to be shared, so that message wasn’t sent. You and ${st.counterpart.firstName} are now blocked from each other, and VIBE has flagged this for review.`));
+    blocked.add(st.counterpart.id);
+    moderationLog.push({ kind: 'contact_shared', inviteId: oid, userId, reason, at: new Date(now()).toISOString() });
+    if (i.myStatus === 'host') { i.status = 'cancelled'; i.requests = []; } else { i.myStatus = 'none'; }
+  };
+  const CANNED = ['I’m wearing a navy blue shirt', 'I’m at table 7 by the window', 'I’m here, just arrived', 'I’ll be there in 5 minutes'];
   const requireSocial = () => {
     const u = requireUser();
     if (!socialProfile) fail(403, 'social_profile_required', 'Set up your one-on-one profile first.');
@@ -472,8 +525,12 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       return wait(membership);
     },
 
-    async getSocialFeed() {
-      return wait({ activities: activities.filter((a) => !blocked.has(a.hostId)), groups });
+    async getSocialFeed(filter) {
+      const t = now();
+      const list = activities
+        .filter((a) => !blocked.has(a.hostId) && matchesFilter(a, filter, t))
+        .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+      return wait({ activities: list, groups });
     },
     async joinActivity(aid) {
       requireUser();
@@ -506,6 +563,7 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     async block(userId) {
       requireUser();
       blocked.add(userId);
+      for (const [iid, st] of chats) if (st.counterpart.id === userId) closeChat(iid, 'blocked');
       // Blocking also withdraws anything pending between the two of you.
       for (const i of oneOnOnes) {
         if (i.host.id === userId && i.myStatus !== 'none') { i.myStatus = 'none'; if (i.status === 'matched') { i.status = 'open'; i.matchedWith = null; } }
@@ -529,35 +587,38 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       for (const i of oneOnOnes) if (i.myStatus === 'host') i.host = { ...i.host, gender: input.gender, ageBand: input.ageBand };
       return wait(socialProfile);
     },
-    async getOneOnOnes() {
+    async getOneOnOnes(filter) {
       const { p } = requireSocial();
+      const t = now();
       const rank = { host: 0, confirmed: 1, requested: 2, none: 3 } as const;
-      const list = oneOnOnes.filter((i) => visibleToMe(i, p))
+      const list = oneOnOnes.filter((i) => visibleToMe(i, p) && (i.myStatus !== 'none' || matchesFilter(i, filter, t)))
         .sort((a, b) => rank[a.myStatus] - rank[b.myStatus] || Date.parse(a.startsAt) - Date.parse(b.startsAt));
       return wait(list.map(viewOf));
     },
     async createOneOnOne(input) {
       const { u, p } = requireSocial();
       const activity = input.activity.trim();
-      const venueName = input.venueName.trim();
       const note = (input.note ?? '').trim();
       if (activity.length < 3 || activity.length > 60) fail(400, 'activity', 'Describe the plan in 3 to 60 characters.');
-      if (venueName.length < 2 || !input.area.trim()) fail(400, 'venue', 'Choose a public place to meet.');
+      const wantCat = VENUE_CATEGORY[input.kind];
+      if (!wantCat) fail(400, 'kind', 'Choose an activity.');
+      const venue = businesses.find((b) => b.id === input.venueBusinessId);
+      if (!venue) fail(400, 'venue', 'Pick one of VIBE’s recommended places to meet.');
+      if (!venue!.categoryIds.some((c) => c === wantCat || c.startsWith(wantCat + '.'))) fail(400, 'venue', 'That place doesn’t suit this activity.');
       if (note.length > 140) fail(400, 'note', 'Keep your note under 140 characters.');
       if (!['men', 'women', 'anyone'].includes(input.openTo)) fail(400, 'open_to', 'Choose who can join.');
       const at = Date.parse(input.startsAt);
       if (!(at > now() + 30 * 60_000)) fail(400, 'time', 'Pick a time at least 30 minutes from now.');
       if (at > now() + 30 * 86_400_000) fail(400, 'time', 'Pick a time within the next 30 days.');
       if (oneOnOnes.filter((i) => i.myStatus === 'host' && i.status === 'open').length >= 3) fail(409, 'limit', 'You can have up to 3 open invites at a time.');
-      const venue = input.venueBusinessId ? businesses.find((b) => b.id === input.venueBusinessId) : undefined;
-      const KIND_IMAGE: Record<string, string> = { coffee: 'coffee', sport: 'badminton', food: 'dinner', walk: 'walk', movie: 'movie' };
+      const KIND_IMAGE: Record<string, string> = { coffee: 'coffee', sport: 'badminton', food: 'dinner' };
       if (!KIND_IMAGE[input.kind]) fail(400, 'kind', 'Choose an activity.');
       const inv: OneOnOneInvite = {
-        id: id('oo'), kind: input.kind, activity, note, venueName, venueBusinessId: venue?.id ?? null, area: input.area.trim(), startsAt: input.startsAt,
-        durationMin: input.kind === 'movie' ? 150 : 60, costNote: input.kind === 'walk' ? 'Free' : input.kind === 'sport' ? 'Court cost split equally' : 'Each pays their own',
+        id: id('oo'), kind: input.kind, activity, note, venueName: venue!.name, venueBusinessId: venue!.id, area: venue!.area, distanceKm: venue!.distanceKm, startsAt: input.startsAt,
+        durationMin: 60, costNote: input.kind === 'sport' ? 'Court cost split equally' : 'Each pays their own',
         host: { id: u.id, firstName: p.firstName, ageBand: p.ageBand, gender: p.gender, verified: true },
         openTo: input.openTo, status: 'open', myStatus: 'host', requests: [], matchedWith: null,
-        coverUrl: venue?.photos[0] ?? venue?.coverUrl ?? img(KIND_IMAGE[input.kind], 960),
+        coverUrl: venue!.photos[0] ?? venue!.coverUrl ?? img(KIND_IMAGE[input.kind], 960),
       };
       oneOnOnes.push(inv);
       return wait(viewOf(inv));
@@ -576,6 +637,7 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     },
     async cancelOneOnOne(oid) {
       requireUser();
+      closeChat(oid, 'cancelled');
       const i = oneOnOnes.find((x) => x.id === oid) ?? fail(404, 'not_found', 'Invite not found.');
       if (i!.myStatus === 'host') { i!.status = 'cancelled'; i!.requests = []; i!.matchedWith = null; }
       else if (i!.myStatus !== 'none') { if (i!.myStatus === 'confirmed') { i!.status = 'open'; i!.matchedWith = null; } i!.myStatus = 'none'; }
@@ -585,18 +647,65 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       requireSocial();
       const i = oneOnOnes.find((x) => x.id === oid && x.myStatus === 'host') ?? fail(404, 'not_found', 'Invite not found.');
       const m = i!.requests.find((x) => x.id === memberId) ?? fail(404, 'not_found', 'That request was withdrawn.');
-      if (accept) { i!.status = 'matched'; i!.matchedWith = m!; i!.requests = []; }
+      if (accept) { i!.status = 'matched'; i!.matchedWith = m!; i!.requests = []; openChat(i!); }
       else i!.requests = i!.requests.filter((x) => x.id !== memberId);
       return wait(viewOf(i!));
     },
 
+    async getOneOnOneChat(oid) {
+      requireSocial();
+      const i = chatInvite(oid);
+      return wait(chatView(oid, i));
+    },
+    async sendOneOnOneMessage(oid, input) {
+      const { u } = requireSocial();
+      const i = chatInvite(oid);
+      const st = chats.get(oid)!;
+      const view = chatView(oid, i);
+      if (view.status === 'closed') fail(409, 'chat_closed', 'This chat has ended.');
+      if (view.status === 'limit_reached') fail(409, 'limit_reached', `You’ve used all ${CHAT_LIMIT} messages. See you at the venue.`);
+      let text: string;
+      let quick = false;
+      if ('template' in input) {
+        const t = renderQuick(input.template, input.value);
+        if (!t) fail(400, 'bad_quick', 'Choose one of the quick replies.');
+        text = t!;
+        quick = true;
+      } else {
+        text = input.text.trim().replace(/\s+/g, ' ');
+        if (!text) fail(400, 'empty', 'Type a message first.');
+        if (text.length > CHAT_FREE_TEXT_MAX) fail(400, 'too_long', `Keep it under ${CHAT_FREE_TEXT_MAX} characters.`);
+        const g = checkContact(text, st.digitStreak);
+        st.digitStreak = g.digitStreak;
+        if (!g.ok) {
+          endChatForContact(oid, i, st, g.reason, u.id);
+          return wait({ delivered: false, rejection: 'contact_shared' as const, chat: chatView(oid, i) });
+        }
+      }
+      st.messages.push({ id: id('msg'), from: 'me', text, at: new Date(now()).toISOString(), quick });
+      return wait({ delivered: true, rejection: null, chat: chatView(oid, i) });
+    },
+
     demo: {
+      /** Stands in for the other person writing back with meeting details. */
+      async simulateChatReply(oid: ID) {
+        const i = chatInvite(oid);
+        const st = chats.get(oid)!;
+        if (chatView(oid, i).status !== 'open') fail(409, 'chat_closed', 'This chat isn’t open.');
+        const n = st.messages.filter((m) => m.from === 'them').length;
+        st.messages.push({ id: id('msg'), from: 'them', text: CANNED[n % CANNED.length], at: new Date(now()).toISOString(), quick: true });
+        return wait(chatView(oid, i));
+      },
+      async moderationLog() {
+        return wait(moderationLog.slice());
+      },
       /** Stands in for the other person accepting your request. */
       async simulateHostAccepts(oid: ID) {
         const i = oneOnOnes.find((x) => x.id === oid && x.myStatus === 'requested') ?? fail(404, 'not_found', 'No pending request on this invite.');
         i!.myStatus = 'confirmed';
         i!.status = 'matched';
         i!.matchedWith = i!.host;
+        openChat(i!);
         return wait(viewOf(i!));
       },
       /** Stands in for another member asking to join your invite. */
