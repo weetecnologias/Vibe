@@ -57,7 +57,8 @@ export interface VibeApi {
   getCinemaShows(cinemaId: ID, date: string): Promise<MovieShows[]>;
   getSeatMap(showId: ID): Promise<SeatMap>;
   /** Holds seats for a few minutes and returns a payment request to pay through startPayment. */
-  holdSeats(showId: ID, seatIds: string[]): Promise<SeatHold>;
+  /** `meetId` books the seats as the reservation of a one-on-one movie plan: exactly 2 seats, at that cinema, on the plan's day. */
+  holdSeats(showId: ID, seatIds: string[], opts?: { meetId?: ID }): Promise<SeatHold>;
 
   // Events & tickets
   getEvents(filter: { kind?: EventKind; day?: string }): Promise<EventSummary[]>;
@@ -92,6 +93,8 @@ export interface VibeApi {
   requestOneOnOne(id: ID): Promise<OneOnOneInvite>;
   /** Withdraws my request, or cancels my own invite. */
   cancelOneOnOne(id: ID): Promise<void>;
+  /** Host only: starts the payment for a table or slot at the venue. Movie plans reserve through holdSeats with meetId. Paid and verified by the server, then shared in the chat. */
+  reserveMeetVenue(inviteId: ID): Promise<{ paymentRequestId: ID }>;
   /** Host accepts or declines someone who asked to join. */
   respondOneOnOne(id: ID, memberId: ID, accept: boolean): Promise<OneOnOneInvite>;
   /** Chat opens only after a match is accepted. Rules (30 messages, no contact details) are enforced server-side. */
@@ -183,7 +186,7 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     getMovieShows: (movieId, date) => call('GET', `/movies/${movieId}/showtimes${qs({ date })}`),
     getCinemaShows: (cinemaId, date) => call('GET', `/cinemas/${cinemaId}/showtimes${qs({ date })}`),
     getSeatMap: (showId) => call('GET', `/shows/${showId}/seats`),
-    holdSeats: (showId, seatIds) => call('POST', `/shows/${showId}/holds`, { seatIds }),
+    holdSeats: (showId, seatIds, opts) => call('POST', `/shows/${showId}/holds`, { seatIds, meetId: opts?.meetId }),
     getEvents: (f) => call('GET', `/events${qs(f)}`),
     getEvent: (id) => call('GET', `/events/${id}`),
     reserveTickets: (eventId, items, attendees) => call('POST', `/events/${eventId}/reservations`, { items, attendees }),
@@ -207,6 +210,7 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     createOneOnOne: (input) => call('POST', '/social/one-on-ones', input),
     requestOneOnOne: (id) => call('POST', `/social/one-on-ones/${id}/requests`),
     cancelOneOnOne: (id) => call('POST', `/social/one-on-ones/${id}/cancel`),
+    reserveMeetVenue: (id) => call('POST', `/social/one-on-ones/${id}/reservation`),
     getOneOnOneChat: (id) => call('GET', `/social/one-on-ones/${id}/chat`),
     sendOneOnOneMessage: (id, input) => call('POST', `/social/one-on-ones/${id}/chat/messages`, input),
     respondOneOnOne: (id, memberId, accept) => call('POST', `/social/one-on-ones/${id}/requests/${memberId}/respond`, { accept }),

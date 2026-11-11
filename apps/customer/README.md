@@ -60,6 +60,17 @@ Home → **Movies** → a film → pick a day → see which cinemas play it with
 - Up to 6 seats per booking; booking closes 10 minutes before the show.
 - Films, shows and seat maps are fictional demo data (`src/api/demo/cinema.ts`). Real showtimes and seat inventory must come from the cinemas: see `docs/movie-booking-integration.md` for the options, the API contract and the business items to settle.
 
+### Reserve the venue for a one-on-one (demo)
+
+When a host posts a one-on-one, a **Reserve your spot** sheet appears straight away (and **Reserve …** stays on their plan until it's done). The host pays to lock the venue, so the plan is more likely to happen.
+
+- **Coffee and meals:** a table for two. **Sports:** a court slot. **Movie date** (new activity, at VIBE cinemas): two seats together, picked in the normal seat map.
+- The plan then shows a **Reserved** badge to everyone. The booking reference and seat or table details go only to the two people involved, and appear in the chat as a card and a note from VIBE (these notes never use up the 30 messages). Ticket QR codes and admission codes are never shared in chat.
+- A reservation counts only after the payment is verified. Only the host can reserve, up to 30 minutes before the start. Movie seats must be at the plan's cinema, on the plan's day; the plan moves to the show's start time.
+- Cancelling a reserved plan asks first and repeats the venue's cancellation policy.
+- API: `POST /social/one-on-ones/{id}/reservation` → `{ paymentRequestId }` (table and slot); movie plans use `POST /shows/{id}/holds` with `meetId`.
+- Fees and the policy text in `src/api/demo/meetReservations.ts` are **demo data and a business decision still to be made**: who sets the fee (venue or VIBE), whether it is adjusted against the bill, and when it is refunded. No refund is issued yet: it needs the payment partner.
+
 ### Offers at checkout (demo)
 
 On the payment screen for movie and event tickets, **Offers & coupons** lists VIBE-member offers (MEMBER badge) and public offers, or lets you type a code. Try `MEMBERFLIX`, `WELCOME50` or `GROUP100`.

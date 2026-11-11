@@ -142,7 +142,7 @@ export type Redemption = {
 
 export type PaymentMethod = 'upi' | 'card' | 'netbanking';
 export type PaymentStatus = 'created' | 'pending' | 'verified' | 'failed' | 'refunded';
-export type PaymentKind = 'redemption' | 'tickets' | 'membership' | 'movie';
+export type PaymentKind = 'redemption' | 'tickets' | 'membership' | 'movie' | 'meetup';
 
 /**
  * How to collect money. `provider` = open the payment aggregator's checkout SDK.
@@ -307,7 +307,7 @@ export type SocialProfileInput = Pick<SocialProfile, 'gender' | 'meetPreference'
 /** What one member sees of another in one-on-one. */
 export type MemberCard = { id: ID; firstName: string; ageBand: string | null; gender: Gender; verified: boolean };
 
-export type OneOnOneKind = 'coffee' | 'sport' | 'food';
+export type OneOnOneKind = 'coffee' | 'sport' | 'food' | 'movie';
 export type OneOnOneStatus = 'open' | 'matched' | 'cancelled';
 /** My relationship to an invite. `host` = I posted it. */
 export type OneOnOneMyStatus = 'none' | 'requested' | 'confirmed' | 'host';
@@ -337,6 +337,31 @@ export type OneOnOneInvite = {
   coverUrl: string | null;
   /** From the member's chosen area to the venue, worked out by the backend. */
   distanceKm: number;
+  /** Set once the host has paid to reserve the table, slot or seats. Everyone sees that it is reserved; the details only go to the two people involved. */
+  reservation: MeetReservation | null;
+  /** What the host can still reserve here. Null when it is already reserved, too late, or not the host. */
+  reservationOption: MeetReservationOption | null;
+};
+
+export type MeetReservationKind = 'table' | 'slot' | 'movie';
+export type MeetReservationOption = {
+  kind: MeetReservationKind;
+  title: string;
+  description: string;
+  /** Null for movies: the price comes from the seats chosen. */
+  fee: Paise | null;
+  policy: string;
+};
+export type MeetReservation = {
+  kind: MeetReservationKind;
+  title: string;
+  /** e.g. "Seats F5, F6 · Screen 2". Only returned to the two people involved. */
+  detail: string | null;
+  amount: Paise;
+  /** VIBE booking reference. Only returned to the two people involved. */
+  reference: string | null;
+  confirmedAt: ISODate;
+  policy: string;
 };
 
 /** The place must be a VIBE business that suits the activity; its name and area come from the listing. */
@@ -376,6 +401,8 @@ export type OneOnOneChat = {
   used: number;
   limit: number;
   closesAt: ISODate;
+  /** The reserved table, slot or seats, so both people see it in the chat. */
+  reservation: MeetReservation | null;
 };
 
 export type ChatSendInput = { template: QuickTemplate; value: string } | { text: string };

@@ -65,9 +65,9 @@ export const socialGroups: SocialGroup[] = [
 // ---------- One-on-one ----------
 const member = (id: string, firstName: string, gender: MemberCard['gender'], ageBand: string, verified = true): MemberCard => ({ id, firstName, gender, ageBand, verified });
 
-type Seed = Omit<OneOnOneInvite, 'status' | 'myStatus' | 'requests' | 'matchedWith' | 'coverUrl' | 'durationMin' | 'distanceKm'> & { key: string; durationMin?: number };
+type Seed = Omit<OneOnOneInvite, 'status' | 'myStatus' | 'requests' | 'matchedWith' | 'coverUrl' | 'durationMin' | 'distanceKm' | 'reservation' | 'reservationOption'> & { key: string; durationMin?: number };
 const invite = ({ key, durationMin = 60, ...s }: Seed): OneOnOneInvite =>
-  ({ ...s, durationMin, distanceKm: km(s.venueBusinessId), status: 'open', myStatus: 'none', requests: [], matchedWith: null, coverUrl: img(key, 960) });
+  ({ ...s, durationMin, distanceKm: km(s.venueBusinessId), status: 'open', myStatus: 'none', requests: [], matchedWith: null, coverUrl: img(key, 960), reservation: null, reservationOption: null });
 
 export const oneOnOnes: OneOnOneInvite[] = [
   invite({ id: 'oo-soon', key: 'coffee', kind: 'coffee', activity: 'Quick coffee before my next meeting', note: 'Free for 45 minutes. Happy to chat about anything.',

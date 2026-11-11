@@ -11,7 +11,7 @@ import { colors } from '@/theme/tokens';
 
 /** One cinema: the films it runs on the chosen day, with showtimes. */
 export default function CinemaScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, meet } = useLocalSearchParams<{ id: string; meet?: string }>();
   const days = useMemo(() => upcomingDays(6), []);
   const [day, setDay] = useState(days[0].key);
   const cinema = useAsync(() => api.getBusiness(id), [id]);
@@ -43,7 +43,7 @@ export default function CinemaScreen() {
               <Icon name="chevronRight" size={18} strokeWidth={2} />
             </Pressable>
             <View style={styles.chips}>
-              {list.map((s) => <ShowChip key={s.id} show={s} onPress={() => router.push(`/show/${s.id}`)} />)}
+              {list.map((s) => <ShowChip key={s.id} show={s} onPress={() => router.push(meet ? `/show/${s.id}?meet=${meet}` : `/show/${s.id}`)} />)}
             </View>
           </Card>
         ))}

@@ -12,7 +12,7 @@ import { colors, fonts } from '@/theme/tokens';
 
 /** Seat picker. Seats are held for a few minutes when you go to pay, so nobody else can take them. */
 export default function SeatScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, meet } = useLocalSearchParams<{ id: string; meet?: string }>();
   const { width } = useWindowDimensions();
   const { status } = useSession();
   const map = useAsync(() => api.getSeatMap(id), [id]);
@@ -37,8 +37,9 @@ export default function SeatScreen() {
     setNotice(null);
     setSelected((cur) => {
       if (cur.includes(seatId)) return cur.filter((s) => s !== seatId);
-      if (data && cur.length >= data.maxSeats) {
-        setNotice({ tone: 'warning', text: `You can book up to ${data.maxSeats} seats at a time.` });
+      const cap = meet ? 2 : data?.maxSeats;
+      if (data && cap !== undefined && cur.length >= cap) {
+        setNotice({ tone: 'warning', text: meet ? 'A plan for two needs exactly 2 seats.' : `You can book up to ${data.maxSeats} seats at a time.` });
         return cur;
       }
       return [...cur, seatId];
@@ -50,7 +51,7 @@ export default function SeatScreen() {
     setBusy(true);
     setNotice(null);
     try {
-      const hold = await api.holdSeats(id, selected);
+      const hold = await api.holdSeats(id, selected, meet ? { meetId: meet } : undefined);
       router.push(`/checkout/${hold.paymentRequestId}`);
     } catch (e) {
       setNotice({ tone: 'error', text: errorMessage(e) });
@@ -73,8 +74,8 @@ export default function SeatScreen() {
             <T variant="title2">{formatINR(total)}</T>
           </View>
           <Button
-            label={status !== 'signedIn' ? 'Sign in to book' : selected.length ? `Pay ${formatINR(total)}` : 'Select seats'}
-            disabled={status === 'signedIn' && selected.length === 0}
+            label={status !== 'signedIn' ? 'Sign in to book' : selected.length ? `Pay ${formatINR(total)}` : meet ? 'Select 2 seats' : 'Select seats'}
+            disabled={status === 'signedIn' && (meet ? selected.length !== 2 : selected.length === 0)}
             loading={busy}
             style={{ minWidth: 160 }}
             onPress={book}

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, type ChatMessage, type ChatSendInput, type OneOnOneChat, type OneOnOneInvite } from '@/api';
 import { CHAT_FREE_TEXT_MAX, DRESS_COLOURS, MEET_SPOTS, MEET_STATUS } from '@/api/chat';
 import { formatTime, relativeDay } from '@/lib/dates';
+import { formatINR } from '@/lib/money';
 import { errorMessage } from '@/lib/useAsync';
 import { colors, fonts, radius } from '@/theme/tokens';
 
@@ -118,6 +119,16 @@ export function MatchChat({ invite, onClose, onChanged }: { invite: OneOnOneInvi
           keyboardShouldPersistTaps="handled">
           {!chat && !loadError ? <T variant="caption" color={colors.onDarkMuted} align="center">Opening chat…</T> : null}
           {loadError && !chat ? <Notice tone="error"><T variant="caption">{loadError}</T></Notice> : null}
+          {chat?.reservation ? (
+            <View style={styles.booked}>
+              <Icon name={chat.reservation.kind === 'movie' ? 'film' : 'check'} size={18} color={colors.pink} strokeWidth={2.2} />
+              <View style={{ flex: 1, gap: 1 }}>
+                <T variant="captionStrong" color={colors.white}>Reserved: {chat.reservation.title}</T>
+                {chat.reservation.detail ? <T variant="small" color={colors.onDarkMuted}>{chat.reservation.detail}</T> : null}
+                <T variant="small" color={colors.onDarkMuted}>{chat.reservation.reference ? `Booking ${chat.reservation.reference} · ` : ''}{formatINR(chat.reservation.amount)} paid</T>
+              </View>
+            </View>
+          ) : null}
           {chat?.messages.map((m) => <Bubble key={m.id} m={m} />)}
           {api.demo && open ? (
             <Button
@@ -206,6 +217,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.nearBlack },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.darkSurface },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.pink, alignItems: 'center', justifyContent: 'center' },
+  booked: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, backgroundColor: colors.darkSurface, borderWidth: 1, borderColor: colors.pink },
   counter: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: colors.darkSurface },
   row: { flexDirection: 'row' },
   bubble: { maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },

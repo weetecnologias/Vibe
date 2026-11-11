@@ -9,7 +9,7 @@
  */
 import { ApiError, type VibeApi } from '../client';
 import type {
-  BusinessDetail, BusinessQuery, BusinessSummary, ChatMessage, OneOnOneChat, EventDetail, EventSummary, ID, MemberCard, Membership, OfferSummary, OneOnOneInvite, Payment,
+  BusinessDetail, BusinessQuery, BusinessSummary, ChatMessage, OneOnOneChat, EventDetail, EventSummary, ID, MeetReservation, MeetReservationOption, MemberCard, Membership, OfferSummary, OneOnOneInvite, Payment,
   PaymentMethod, PaymentRequest, Redemption, SocialActivity, SocialProfile, Ticket, TicketReservation, User,
 } from '../types';
 import * as C from './catalog';
@@ -22,6 +22,8 @@ import { matchesFilter } from './socialFilter';
 import { AGE_BANDS, canMeet } from './matching';
 import { formatINR } from '../../lib/money';
 import { CHECKOUT_KINDS, checkoutOffers, type CheckoutKind, type CheckoutOfferDef } from './checkoutOffers';
+import { istDayKey } from '../../lib/dates';
+import { reservationOptions, RESERVATION_POLICY, seededReservations } from './meetReservations';
 import { quote } from './pricing';
 import * as S from './social';
 
@@ -38,7 +40,7 @@ export type DemoOptions = {
 };
 
 /** Which kind of VIBE business suits each one-on-one activity. */
-const VENUE_CATEGORY: Record<string, string> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants' };
+const VENUE_CATEGORY: Record<string, string> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants', movie: 'movies.cinemas' };
 
 export function createDemoApi(opts: DemoOptions = {}): VibeApi {
   const latency = opts.latency ?? 350;
@@ -105,6 +107,27 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
 
   const blocked = new Set<string>();
 
+  // ---- Venue reservations for one-on-one meets (host pays; shared in the chat once verified) ----
+  type MeetBooking = MeetReservation & { reference: string };
+  const meetBookings = new Map<string, MeetBooking>(Object.entries(seededReservations).map(([k, v]) => [k, { ...v, reference: v.reference ?? '' }]));
+  const meetPayments = new Map<string, string>(); // invite -> its open payment request
+  const meetHolds = new Map<string, string>(); // seat hold -> invite
+  /** Everyone sees that a plan is reserved; the reference and seat details go only to the two people involved. */
+  const reservationView = (i: OneOnOneInvite): MeetReservation | null => {
+    const b = meetBookings.get(i.id);
+    if (!b) return null;
+    const involved = i.myStatus === 'host' || i.myStatus === 'confirmed';
+    return { ...b, detail: involved ? b.detail : null, reference: involved ? b.reference : null };
+  };
+  const reservationOptionFor = (i: OneOnOneInvite): MeetReservationOption | null => {
+    if (i.myStatus !== 'host' || meetBookings.has(i.id) || !(i.status === 'open' || i.status === 'matched')) return null;
+    if (Date.parse(i.startsAt) < now() + 30 * 60_000) return null;
+    return reservationOptions[i.kind] ?? null;
+  };
+  const reservedNote = (i: OneOnOneInvite, b: MeetBooking) =>
+    `${i.host.firstName} has reserved ${b.title.toLowerCase()} at ${i.venueName} for ${when(i.startsAt)}${b.detail ? ` · ${b.detail}` : ''}. Booking ${b.reference}.`;
+  const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+
   // ---- One-on-one chat state ----
   type ChatState = { counterpart: MemberCard; venueName: string; messages: ChatMessage[]; closedReason: OneOnOneChat['closedReason']; digitStreak: number };
   const chats = new Map<string, ChatState>();
@@ -124,16 +147,17 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     return {
       inviteId: iid, counterpart: st.counterpart, venueName: st.venueName, startsAt: i.startsAt,
       status: st.closedReason ? 'closed' : used >= CHAT_LIMIT ? 'limit_reached' : 'open',
-      closedReason: st.closedReason, messages: st.messages, used, limit: CHAT_LIMIT, closesAt,
+      closedReason: st.closedReason, messages: st.messages, used, limit: CHAT_LIMIT, closesAt, reservation: reservationView(i),
     };
   };
   /** Starts the chat the moment a match is accepted, so cancelling or blocking can always close it. */
   const openChat = (i: OneOnOneInvite) => {
     if (chats.has(i.id) || i.status !== 'matched' || !i.matchedWith) return;
     const them = i.matchedWith;
+    const booked = meetBookings.get(i.id);
     chats.set(i.id, {
       counterpart: them, venueName: i.venueName, digitStreak: 0, closedReason: null,
-      messages: [sys(`You’re matched with ${them.firstName}. Use this chat only to find each other at ${i.venueName}: dress colours, table or seat numbers, where you’re sitting. Sharing a phone number, email or social handle ends the chat and blocks you both. ${CHAT_LIMIT} messages in total.`)],
+      messages: [sys(`You’re matched with ${them.firstName}. Use this chat only to find each other at ${i.venueName}: dress colours, table or seat numbers, where you’re sitting. Sharing a phone number, email or social handle ends the chat and blocks you both. ${CHAT_LIMIT} messages in total.`), ...(booked ? [sys(reservedNote(i, booked))] : [])],
     });
   };
   /** The invite behind a chat. A chat exists only once the plan is accepted, and stays readable after it ends. */
@@ -165,6 +189,8 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     ...i,
     requests: i.myStatus === 'host' ? i.requests : [],
     matchedWith: i.myStatus === 'host' || i.myStatus === 'confirmed' ? i.matchedWith : null,
+    reservation: reservationView(i),
+    reservationOption: reservationOptionFor(i),
   });
 
   const requireUser = () => {
@@ -199,6 +225,13 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         r.status = 'released';
       }
     }
+  };
+
+  /** Records the booking and tells both people in the chat, so table or seat numbers are right there. */
+  const confirmMeetBooking = (inv: OneOnOneInvite, b: MeetBooking) => {
+    meetBookings.set(inv.id, b);
+    const st = chats.get(inv.id);
+    if (st && !st.closedReason) st.messages.push(sys(reservedNote(inv, b)));
   };
 
   /** Mimics the signed provider webhook: verifies once, then applies side effects exactly once. */
@@ -256,6 +289,22 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         tickets.push(t);
         p.ticketIds.push(t.id);
       });
+      const inviteId = meetHolds.get(pr.context);
+      const inv = inviteId ? oneOnOnes.find((x) => x.id === inviteId) : undefined;
+      if (inv && inv.status !== 'cancelled' && !meetBookings.has(inv.id)) {
+        inv.startsAt = paid.show.startsAt;
+        inv.durationMin = 150;
+        confirmMeetBooking(inv, {
+          kind: 'movie', title: `${paid.show.movieTitle} · ${paid.seats.length} seats`, detail: `Seats ${paid.seats.map((s) => s.label).join(', ')} · ${paid.show.screenName}`,
+          amount: pr.req.payable, reference: p.reference, confirmedAt: p.verifiedAt!, policy: RESERVATION_POLICY,
+        });
+      }
+    } else if (pr.kind === 'meetup') {
+      const inv = oneOnOnes.find((x) => x.id === pr.context);
+      const opt = inv ? reservationOptions[inv.kind] : null;
+      if (inv && opt && inv.status !== 'cancelled' && !meetBookings.has(inv.id)) {
+        confirmMeetBooking(inv, { kind: opt.kind, title: opt.title, detail: null, amount: pr.req.payable, reference: p.reference, confirmedAt: p.verifiedAt!, policy: RESERVATION_POLICY });
+      }
     } else if (pr.kind === 'membership') {
       const plan = D.membershipPlans.find((pl) => pl.id === pr.context)!;
       const days = plan.interval === 'year' ? 365 : 30;
@@ -437,9 +486,20 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     async getSeatMap(sid) {
       return wait(cinema.seatMap(sid, user?.id));
     },
-    async holdSeats(sid, seatIds) {
+    async holdSeats(sid, seatIds, opts) {
       const u = requireUser();
+      if (opts?.meetId) {
+        const inv = oneOnOnes.find((x) => x.id === opts.meetId && x.myStatus === 'host') ?? fail(404, 'not_found', 'Plan not found.');
+        if (inv!.kind !== 'movie') fail(409, 'not_movie_plan', 'This plan isn’t a movie plan.');
+        if (meetBookings.has(inv!.id)) fail(409, 'already_reserved', 'This plan is already reserved.');
+        if (!(inv!.status === 'open' || inv!.status === 'matched')) fail(409, 'cancelled', 'This plan was cancelled.');
+        const sh = cinema.seatMap(sid, u.id).show;
+        if (sh.cinemaId !== inv!.venueBusinessId) fail(409, 'wrong_cinema', `This plan is at ${inv!.venueName}. Choose a show there.`);
+        if (istDayKey(sh.startsAt) !== istDayKey(inv!.startsAt)) fail(409, 'wrong_day', 'Choose a show on the day of your plan.');
+        if (new Set(seatIds).size !== 2) fail(400, 'two_seats', 'A plan for two needs exactly 2 seats.');
+      }
       const h = cinema.hold(sid, seatIds, u.id);
+      if (opts?.meetId) meetHolds.set(h.holdId, opts.meetId);
       const byClass = new Map<string, { labels: string[]; amount: number }>();
       for (const s of h.seats) {
         const cur = byClass.get(s.className) ?? { labels: [], amount: 0 };
@@ -745,17 +805,37 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       if (!(at > now() + 30 * 60_000)) fail(400, 'time', 'Pick a time at least 30 minutes from now.');
       if (at > now() + 30 * 86_400_000) fail(400, 'time', 'Pick a time within the next 30 days.');
       if (oneOnOnes.filter((i) => i.myStatus === 'host' && i.status === 'open').length >= 3) fail(409, 'limit', 'You can have up to 3 open invites at a time.');
-      const KIND_IMAGE: Record<string, string> = { coffee: 'coffee', sport: 'badminton', food: 'dinner' };
+      const KIND_IMAGE: Record<string, string> = { coffee: 'coffee', sport: 'badminton', food: 'dinner', movie: 'movie' };
       if (!KIND_IMAGE[input.kind]) fail(400, 'kind', 'Choose an activity.');
       const inv: OneOnOneInvite = {
         id: id('oo'), kind: input.kind, activity, note, venueName: venue!.name, venueBusinessId: venue!.id, area: venue!.area, distanceKm: venue!.distanceKm, startsAt: input.startsAt,
-        durationMin: 60, costNote: input.kind === 'sport' ? 'Court cost split equally' : 'Each pays their own',
+        durationMin: input.kind === 'movie' ? 150 : 60, costNote: input.kind === 'sport' ? 'Court cost split equally' : 'Each pays their own',
+        reservation: null, reservationOption: null,
         host: { id: u.id, firstName: p.firstName, ageBand: p.ageBand, gender: p.gender, verified: true },
         openTo: input.openTo, status: 'open', myStatus: 'host', requests: [], matchedWith: null,
         coverUrl: venue!.photos[0] ?? venue!.coverUrl ?? img(KIND_IMAGE[input.kind], 960),
       };
       oneOnOnes.push(inv);
       return wait(viewOf(inv));
+    },
+    async reserveMeetVenue(oid) {
+      requireSocial();
+      const i = oneOnOnes.find((x) => x.id === oid && x.myStatus === 'host') ?? fail(404, 'not_found', 'Invite not found.');
+      if (meetBookings.has(oid)) fail(409, 'already_reserved', 'This plan is already reserved.');
+      if (!(i!.status === 'open' || i!.status === 'matched')) fail(409, 'cancelled', 'This plan was cancelled.');
+      if (Date.parse(i!.startsAt) < now() + 30 * 60_000) fail(409, 'too_late', 'Reservations close 30 minutes before the start.');
+      const opt = reservationOptions[i!.kind];
+      if (opt.fee === null) fail(409, 'use_movie_flow', 'Choose a film and two seats to reserve this plan.');
+      const open = meetPayments.get(oid);
+      const existing = open ? paymentRequests.get(open) : undefined;
+      if (existing && Date.parse(existing.req.expiresAt) > now()) return wait({ paymentRequestId: existing.req.id });
+      const pr = newPaymentRequest('meetup', i!.venueName, oid, {
+        billRef: `RSV-${code(6)}`, raisedBy: 'VIBE Reservations', raisedAt: new Date(now()).toISOString(),
+        lines: [{ label: `${opt.title} · ${i!.venueName}, ${when(i!.startsAt)}`, amount: opt.fee! }],
+        eligibleAmount: opt.fee!, discount: 0, discountLabel: '', taxes: null, vibeFee: 0, payable: opt.fee!, expiresAt: new Date(now() + 10 * 60_000).toISOString(),
+      });
+      meetPayments.set(oid, pr.id);
+      return wait({ paymentRequestId: pr.id });
     },
     async requestOneOnOne(oid) {
       const { p } = requireSocial();

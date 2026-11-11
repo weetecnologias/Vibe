@@ -1,12 +1,13 @@
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  api, type Gender, type MeetPreference, type MemberCard, type OneOnOneInput, type OneOnOneInvite, type OneOnOneKind, type SocialFilter, type SocialProfile,
+  api, type Gender, type MeetPreference, type MemberCard, type MeetReservation, type OneOnOneInput, type OneOnOneInvite, type OneOnOneKind, type SocialFilter, type SocialProfile,
 } from '@/api';
 import { istAt, formatTime, relativeDay, startsInLabel } from '@/lib/dates';
+import { formatINR } from '@/lib/money';
 import { errorMessage, useAsync } from '@/lib/useAsync';
 import { colors, fonts, radius } from '@/theme/tokens';
 
@@ -27,12 +28,13 @@ export const KINDS: { key: OneOnOneKind; label: string; icon: IconName; example:
   { key: 'coffee', label: 'Coffee & chat', icon: 'food', example: 'Coffee & conversation' },
   { key: 'sport', label: 'Sports partner', icon: 'fitness', example: 'Shuttle badminton · singles' },
   { key: 'food', label: 'Meal for two', icon: 'food', example: 'Dinner for two' },
+  { key: 'movie', label: 'Movie date', icon: 'film', example: 'Movie night, two seats' },
 ];
 const openToLabel = (p: MeetPreference) => (p === 'anyone' ? 'Open to anyone' : p === 'women' ? 'Women only' : 'Men only');
 const kindIcon = (k: OneOnOneKind) => KINDS.find((x) => x.key === k)?.icon ?? 'social';
 
 /** Which kind of VIBE business suits each activity. Places come only from the app's own listings. */
-const KIND_CATEGORY: Record<OneOnOneKind, string> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants' };
+const KIND_CATEGORY: Record<OneOnOneKind, string> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants', movie: 'movies.cinemas' };
 
 // ---------- small pieces ----------
 function Avatar({ m, size = 40 }: { m: MemberCard; size?: number }) {
@@ -243,11 +245,98 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
   );
 }
 
+// ---------- reserve the venue ----------
+const reservationIcon = (k: MeetReservation['kind']): IconName => (k === 'movie' ? 'film' : k === 'slot' ? 'fitness' : 'food');
+
+/** Offered right after posting, and any time from the host's own plan. Paying locks the spot and is shared in the chat. */
+function ReserveSheet({ invite, onClose }: { invite: OneOnOneInvite | null; onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const opt = invite?.reservationOption ?? null;
+  if (!invite || !opt) return <Sheet visible={false} onClose={onClose} title="Reserve your spot">{null}</Sheet>;
+
+  const go = async () => {
+    setError(null);
+    if (opt.kind === 'movie') {
+      onClose();
+      router.push(`/cinema/${invite.venueBusinessId}?meet=${invite.id}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const { paymentRequestId } = await api.reserveMeetVenue(invite.id);
+      onClose();
+      router.push(`/checkout/${paymentRequestId}`);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet visible onClose={onClose} title="Reserve your spot">
+      <View style={styles.reserveCard}>
+        <View style={styles.reserveIcon}><Icon name={reservationIcon(opt.kind)} size={22} color={colors.white} /></View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <T variant="headline" color={colors.white}>{opt.title}</T>
+          <T variant="small" color={colors.onDarkMuted}>{invite.venueName}, {invite.area} · {relativeDay(invite.startsAt)} {formatTime(invite.startsAt)}</T>
+        </View>
+        {opt.fee !== null ? <T variant="title3" color={colors.white}>{formatINR(opt.fee)}</T> : null}
+      </View>
+      <T variant="caption" color={colors.onDarkMuted}>{opt.description}</T>
+      <View style={{ gap: 8 }}>
+        {[
+          'Your spot is held, so you’re not left waiting or turned away.',
+          'It shows as Reserved on your invite, so people can see you’re serious.',
+          'The details are shared in your chat once you’re matched.',
+        ].map((t) => (
+          <View key={t} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+            <Icon name="check" size={15} color={colors.pink} strokeWidth={2.6} />
+            <T variant="small" color="rgba(255,255,255,0.86)" style={{ flex: 1 }}>{t}</T>
+          </View>
+        ))}
+      </View>
+      <Notice tone="warning" icon="info"><T variant="small">{opt.policy}</T></Notice>
+      {error ? <Notice tone="error"><T variant="caption">{error}</T></Notice> : null}
+      <Button label={opt.kind === 'movie' ? 'Choose film and seats' : `Reserve for ${formatINR(opt.fee ?? 0)}`} icon={opt.kind === 'movie' ? 'film' : 'lock'} loading={busy} onPress={go} />
+      <Button label="Not now" variant="outline" onPress={onClose} />
+    </Sheet>
+  );
+}
+
+/** Asked before a host cancels a plan they have already paid to reserve. */
+function CancelReservedSheet({ invite, onClose, onConfirm }: { invite: OneOnOneInvite | null; onClose: () => void; onConfirm: () => void }) {
+  const res = invite?.reservation ?? null;
+  return (
+    <Sheet visible={!!invite && !!res} onClose={onClose} title="Cancel a reserved plan?">
+      <T variant="caption" color={colors.onDarkMuted}>
+        You’ve reserved {res?.title.toLowerCase()} at {invite?.venueName}. {res?.policy}
+      </T>
+      <Button label="Keep my plan" onPress={onClose} />
+      <Button label="Cancel anyway" variant="outline" onPress={onConfirm} />
+    </Sheet>
+  );
+}
+
+function ReservationCard({ r, mine }: { r: MeetReservation; mine: boolean }) {
+  return (
+    <View style={styles.booked}>
+      <Icon name={reservationIcon(r.kind)} size={18} color={colors.pink} strokeWidth={2.2} />
+      <View style={{ flex: 1, gap: 1 }}>
+        <T variant="captionStrong" color={colors.white}>{mine ? 'You’ve reserved ' : 'Reserved: '}{r.title}</T>
+        {r.detail ? <T variant="small" color={colors.onDarkMuted}>{r.detail}</T> : null}
+        {r.reference ? <T variant="small" color={colors.onDarkMuted}>Booking {r.reference} · {formatINR(r.amount)} paid</T> : null}
+      </View>
+    </View>
+  );
+}
+
 // ---------- invite card ----------
-function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onReport, onChat, onDemoAccept, onDemoRequest }: {
+function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onReport, onChat, onReserve, onDemoAccept, onDemoRequest }: {
   i: OneOnOneInvite; busy: boolean;
   onRequest: () => void; onWithdraw: () => void; onCancel: () => void; onRespond: (m: MemberCard, accept: boolean) => void;
-  onReport: () => void; onChat: () => void; onDemoAccept?: () => void; onDemoRequest?: () => void;
+  onReport: () => void; onChat: () => void; onReserve: () => void; onDemoAccept?: () => void; onDemoRequest?: () => void;
 }) {
   const when = `${relativeDay(i.startsAt)} · ${formatTime(i.startsAt)}`;
   return (
@@ -255,7 +344,10 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
       <Photo uri={i.coverUrl} seed={i.id} style={{ height: 120 }} scrim={0.25}>
         <View style={styles.cardTop}>
           <View style={styles.kindPill}><Icon name={kindIcon(i.kind)} size={13} color={colors.white} strokeWidth={2.2} /><T variant="small" color={colors.white} style={{ fontFamily: fonts.semibold }}>{KINDS.find((k) => k.key === i.kind)?.label}</T></View>
-          <Badge label={openToLabel(i.openTo)} tone={i.openTo === 'anyone' ? 'dark' : 'pink'} />
+          <View style={{ gap: 6, alignItems: 'flex-end' }}>
+            <Badge label={openToLabel(i.openTo)} tone={i.openTo === 'anyone' ? 'dark' : 'pink'} />
+            {i.reservation ? <Badge label="Reserved" tone="success" /> : null}
+          </View>
         </View>
       </Photo>
       <View style={{ padding: 14, gap: 10 }}>
@@ -278,6 +370,8 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
         <Pressable accessibilityRole="link" accessibilityLabel={`View ${i.venueName} on VIBE`} onPress={() => router.push(`/business/${i.venueBusinessId}`)} hitSlop={8} style={{ alignSelf: 'flex-start' }}>
           <T variant="captionStrong" color={colors.white} style={{ textDecorationLine: 'underline' }}>View {i.venueName} on VIBE</T>
         </Pressable>
+
+        {i.reservation ? <ReservationCard r={i.reservation} mine={i.myStatus === 'host'} /> : null}
 
         {i.myStatus === 'none' ? <Button label="Ask to join" size="md" onPress={onRequest} loading={busy} /> : null}
 
@@ -303,6 +397,15 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
           <View style={{ gap: 8 }}>
             {i.status === 'matched' && i.matchedWith ? (
               <Notice tone="success" icon="check"><T variant="small">You’re meeting {i.matchedWith.firstName} ({i.matchedWith.ageBand}) at {i.venueName}.</T></Notice>
+            ) : null}
+            {i.reservationOption ? (
+              <Button
+                label={i.reservationOption.fee !== null ? `Reserve ${i.reservationOption.title.toLowerCase()} · ${formatINR(i.reservationOption.fee)}` : 'Reserve seats at the cinema'}
+                icon={i.reservationOption.kind === 'movie' ? 'film' : 'lock'}
+                variant="light"
+                size="md"
+                onPress={onReserve}
+              />
             ) : null}
             {i.status === 'matched' && i.matchedWith ? <Button label="Open chat" icon="social" size="md" onPress={onChat} /> : null}
             {i.requests.map((m) => (
@@ -346,6 +449,10 @@ export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }:
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [chatInvite, setChatInvite] = useState<OneOnOneInvite | null>(null);
+  const [reserveId, setReserveId] = useState<string | null>(null);
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  // Coming back from paying: show the reservation.
+  useFocusEffect(useCallback(() => { invites.reload(); }, [invites.reload])); // eslint-disable-line react-hooks/exhaustive-deps
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   const replace = (n: OneOnOneInvite) => invites.setData((list) => list?.some((x) => x.id === n.id) ? list.map((x) => (x.id === n.id ? n : x)) : [n, ...(list ?? [])]);
@@ -363,6 +470,9 @@ export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }:
     }
   };
 
+  const reserving = invites.data?.find((x) => x.id === reserveId) ?? null;
+  const cancelling = invites.data?.find((x) => x.id === cancelId) ?? null;
+  const cancelInvite = (i: OneOnOneInvite) => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes(filter)).then((l) => { invites.setData(() => l); }), 'Invite cancelled. Anyone who asked to join has been told.');
   const list = (invites.data ?? []).filter((i) => kind === 'all' || i.kind === kind);
   const mine = list.filter((i) => i.myStatus !== 'none');
   const open = list.filter((i) => i.myStatus === 'none');
@@ -434,7 +544,8 @@ export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }:
                   busy={busyId === i.id}
                   onRequest={() => run(i.id, () => api.requestOneOnOne(i.id))}
                   onWithdraw={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes(filter)).then((l) => { invites.setData(() => l); }))}
-                  onCancel={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes(filter)).then((l) => { invites.setData(() => l); }), 'Invite cancelled. Anyone who asked to join has been told.')}
+                  onCancel={() => (i.reservation ? setCancelId(i.id) : cancelInvite(i))}
+                  onReserve={() => setReserveId(i.id)}
                   onRespond={(m, accept) => run(i.id, () => api.respondOneOnOne(i.id, m.id, accept), accept ? `You’re meeting ${m.firstName}. You’ll both see the plan here.` : undefined)}
                   onReport={() => onReport({ type: 'user', id: i.host.id, name: i.host.firstName, hostId: i.host.id })}
                   onChat={() => setChatInvite(i)}
@@ -457,11 +568,13 @@ export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }:
         onClose={() => setEditing(false)}
         onSaved={(np) => { profile.setData(() => np); setEditing(false); }}
       />
+      <ReserveSheet key={reserveId ?? 'none'} invite={reserving} onClose={() => setReserveId(null)} />
+      <CancelReservedSheet invite={cancelling} onClose={() => setCancelId(null)} onConfirm={() => { const c = cancelling; setCancelId(null); if (c) cancelInvite(c); }} />
       {chatInvite ? <MatchChat key={chatInvite.id} invite={chatInvite} onClose={() => setChatInvite(null)} onChanged={() => invites.reload()} /> : null}
       <PostSheet
         visible={posting}
         onClose={() => setPosting(false)}
-        onPosted={(inv) => { replace(inv); setPosting(false); setNotice({ tone: 'success', text: 'Invite posted. Matching members can ask to join now.' }); }}
+        onPosted={(inv) => { replace(inv); setPosting(false); setNotice({ tone: 'success', text: 'Invite posted. Matching members can ask to join now.' }); if (inv.reservationOption) setReserveId(inv.id); }}
       />
     </View>
   );
@@ -482,6 +595,9 @@ const styles = StyleSheet.create({
   kindPill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(23,21,27,0.75)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   request: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 16, backgroundColor: colors.nearBlack },
   safety: { marginHorizontal: 20, padding: 14, borderRadius: 16, backgroundColor: colors.darkSurface, gap: 8 },
+  reserveCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, backgroundColor: colors.darkSurface },
+  reserveIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.pink, alignItems: 'center', justifyContent: 'center' },
+  booked: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, backgroundColor: colors.nearBlack, borderWidth: 1, borderColor: colors.pink },
   setup: { marginHorizontal: 20, padding: 18, borderRadius: 20, borderWidth: 1.5, borderColor: colors.pink, gap: 10 },
   prefRow: { marginHorizontal: 20, padding: 12, borderRadius: 16, backgroundColor: colors.darkSurface, flexDirection: 'row', alignItems: 'center', gap: 10 },
 });
