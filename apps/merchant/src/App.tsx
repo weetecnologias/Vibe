@@ -2,14 +2,21 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { LoginPage, Shell, useAuth } from '@kit';
 
+import { EventEditPage } from './pages/EventEditPage';
+import { EventsPage } from './pages/EventsPage';
 import { MenuPage } from './pages/MenuPage';
 import { OffersPage } from './pages/OffersPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ReservationsPage } from './pages/ReservationsPage';
+import { TeamPage } from './pages/TeamPage';
 
 const NAV = [
   { to: '/profile', label: 'My business' },
   { to: '/menu', label: 'Menu' },
   { to: '/offers', label: 'Offers' },
+  { to: '/events', label: 'Events' },
+  { to: '/reservations', label: 'Reservations' },
+  { to: '/team', label: 'Team' },
 ];
 
 export function App() {
@@ -22,6 +29,10 @@ export function App() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="menu" element={<MenuPage />} />
         <Route path="offers" element={<OffersPage />} />
+        <Route path="events" element={<EventsPage />} />
+        <Route path="events/:id" element={<EventEditPage />} />
+        <Route path="reservations" element={<ReservationsPage />} />
+        <Route path="team" element={<TeamPage />} />
         <Route path="*" element={<Navigate to="/profile" replace />} />
       </Route>
     </Routes>

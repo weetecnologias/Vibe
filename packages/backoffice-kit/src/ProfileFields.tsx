@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+
+import { errorText } from './api';
+import { useAuth } from './auth';
 
 import { type ProfileDraft } from './draft';
 import { DAYS } from './types';
+import { ImageField } from './ImageField';
 import { Field } from './ui';
 
 export function ProfileFields({ draft, onChange }: { draft: ProfileDraft; onChange: (d: ProfileDraft) => void }) {
@@ -49,13 +53,46 @@ export function ProfileFields({ draft, onChange }: { draft: ProfileDraft; onChan
       {showMore ? (
         <div className="stack">
           <div className="grid2">
-            <Field label="Logo link" hint="https://…  An uploaded image link. Upload storage arrives with the media service."><input value={draft.logoUrl} onChange={(e) => set('logoUrl', e.target.value)} /></Field>
-            <Field label="Cover photo link"><input value={draft.coverUrl} onChange={(e) => set('coverUrl', e.target.value)} /></Field>
+            <ImageField label="Logo" value={draft.logoUrl} onChange={(v) => set('logoUrl', v)} />
+            <ImageField label="Cover photo" value={draft.coverUrl} onChange={(v) => set('coverUrl', v)} />
           </div>
-          <Field label="Photo links" hint="One per line. The first is the main photo. Up to 12."><textarea rows={3} value={draft.photos} onChange={(e) => set('photos', e.target.value)} /></Field>
+          <PhotoList value={draft.photos} onChange={(v) => set('photos', v)} />
           <Field label="Terms shown to customers" hint="One per line. Up to 10."><textarea rows={3} value={draft.terms} onChange={(e) => set('terms', e.target.value)} /></Field>
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** The gallery: one link per line, with an Upload button that adds lines. The first photo is the main one. */
+function PhotoList({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { client } = useAuth();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const add = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const urls: string[] = [];
+      for (const f of Array.from(files)) urls.push((await client.upload(f)).url);
+      onChange([value.trim(), ...urls].filter(Boolean).join('\n'));
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  };
+  return (
+    <Field label="Photos" hint="One link per line. The first is the main photo. Up to 12.">
+      <textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)} />
+      <div className="row">
+        <button type="button" className="btn sm" disabled={busy} onClick={() => input.current?.click()}>{busy ? 'Uploading…' : 'Upload photos'}</button>
+        <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(e) => void add(e.target.files)} />
+        {error ? <small style={{ color: 'var(--error)' }} role="alert">{error}</small> : null}
+      </div>
+    </Field>
   );
 }

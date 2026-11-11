@@ -36,7 +36,8 @@ public class StaffService {
 
     public record PasswordReset(@NotBlank @Size(min = MIN_PASSWORD, max = 100) String password) {}
 
-    public record Staff(String id, String email, String name, String role, String businessId, boolean active) {}
+    /** owner: the first login for a business. Only an owner can add and manage the rest of the team. */
+    public record Staff(String id, String email, String name, String role, String businessId, boolean active, boolean owner) {}
 
     public record Session(String token, Instant expiresAt, Staff staff) {}
 
@@ -58,12 +59,12 @@ public class StaffService {
         this.dummyHash = encoder.encode("not-a-real-password");
     }
 
-    private record Row(UUID id, String email, String name, String hash, String role, UUID businessId, boolean active) {}
+    private record Row(UUID id, String email, String name, String hash, String role, UUID businessId, boolean active, boolean owner) {}
 
     private java.util.Optional<Row> byEmail(String email) {
         return jdbc.sql("select * from staff_users where email = :e").param("e", email)
                 .query((rs, i) -> new Row((UUID) rs.getObject("id"), rs.getString("email"), rs.getString("name"), rs.getString("password_hash"), rs.getString("role"),
-                        (UUID) rs.getObject("business_id"), rs.getBoolean("active"))).optional();
+                        (UUID) rs.getObject("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"))).optional();
     }
 
     public Session login(String rawEmail, String password) {
@@ -88,13 +89,13 @@ public class StaffService {
 
     public Staff me(StaffPrincipal who) {
         return jdbc.sql("select * from staff_users where id = :id and active").param("id", who.id())
-                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active")))
+                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner")))
                 .optional().orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "unauthorized", "Please sign in."));
     }
 
     public List<Staff> list() {
         return jdbc.sql("select * from staff_users order by role, lower(email)")
-                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"))).list();
+                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"))).list();
     }
 
     @Transactional
@@ -103,8 +104,9 @@ public class StaffService {
         String email = in.email().trim().toLowerCase(Locale.ROOT);
         if (byEmail(email).isPresent()) throw ApiException.conflict("duplicate", "That email already has an account.");
         UUID id = UUID.randomUUID();
-        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id) values (:id, :e, :n, :h, 'MERCHANT', :b)")
-                .param("id", id).param("e", email).param("n", in.name().trim()).param("h", encoder.encode(in.password())).param("b", businessId).update();
+        boolean first = jdbc.sql("select count(*) from staff_users where business_id = :b").param("b", businessId).query(Integer.class).single() == 0;
+        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner) values (:id, :e, :n, :h, 'MERCHANT', :b, :o)")
+                .param("id", id).param("e", email).param("n", in.name().trim()).param("h", encoder.encode(in.password())).param("b", businessId).param("o", first).update();
         audit.record(who, "create", "staff", id, email);
         return me(new StaffPrincipal(id, "MERCHANT", businessId));
     }
@@ -122,6 +124,54 @@ public class StaffService {
         audit.record(who, "reset_password", "staff", id, "");
     }
 
+    // ---------- a merchant's own team ----------
+    private Staff requireOwner(StaffPrincipal who) {
+        Staff me = me(who);
+        if (!me.owner()) throw ApiException.forbidden("Only the account owner can manage the team.");
+        return me;
+    }
+
+    /** Everyone with a login for this business. */
+    public List<Staff> team(StaffPrincipal who) {
+        UUID b = who.requireBusiness();
+        return jdbc.sql("select * from staff_users where business_id = :b order by owner desc, lower(email)").param("b", b)
+                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"))).list();
+    }
+
+    @Transactional
+    public Staff addTeamMember(StaffPrincipal who, NewMerchant in) {
+        requireOwner(who);
+        String email = in.email().trim().toLowerCase(Locale.ROOT);
+        if (byEmail(email).isPresent()) throw ApiException.conflict("duplicate", "That email already has an account.");
+        UUID id = UUID.randomUUID();
+        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner) values (:id, :e, :n, :h, 'MERCHANT', :b, false)")
+                .param("id", id).param("e", email).param("n", in.name().trim()).param("h", encoder.encode(in.password())).param("b", who.requireBusiness()).update();
+        audit.record(who, "create", "staff", id, email);
+        return me(new StaffPrincipal(id, "MERCHANT", who.requireBusiness()));
+    }
+
+    /** The target must be on the owner's own team. The owner can't switch themselves off, and nobody can touch another owner. */
+    private Staff teamTarget(StaffPrincipal who, UUID id) {
+        requireOwner(who);
+        return team(who).stream().filter(s -> s.id().equals(id.toString())).findFirst().orElseThrow(() -> ApiException.notFound("Account not found."));
+    }
+
+    @Transactional
+    public void setTeamActive(StaffPrincipal who, UUID id, boolean active) {
+        Staff t = teamTarget(who, id);
+        if (t.owner()) throw ApiException.conflict("owner", "The owner’s account can’t be switched off here. Ask the VIBE team.");
+        jdbc.sql("update staff_users set active = :a where id = :id").param("a", active).param("id", id).update();
+        audit.record(who, active ? "activate" : "deactivate", "staff", id, t.email());
+    }
+
+    @Transactional
+    public void resetTeamPassword(StaffPrincipal who, UUID id, String password) {
+        Staff t = teamTarget(who, id);
+        if (t.owner() && !id.equals(who.id())) throw ApiException.forbidden("You can’t change another owner’s password.");
+        jdbc.sql("update staff_users set password_hash = :h where id = :id").param("h", encoder.encode(password)).param("id", id).update();
+        audit.record(who, "reset_password", "staff", id, t.email());
+    }
+
     /** Used by the dev seed. */
     @Transactional
     public UUID createAdmin(String email, String name, String password) {
@@ -132,6 +182,6 @@ public class StaffService {
     }
 
     private static Staff view(Row r) {
-        return new Staff(r.id().toString(), r.email(), r.name(), r.role(), r.businessId() == null ? null : r.businessId().toString(), r.active());
+        return new Staff(r.id().toString(), r.email(), r.name(), r.role(), r.businessId() == null ? null : r.businessId().toString(), r.active(), r.owner());
     }
 }

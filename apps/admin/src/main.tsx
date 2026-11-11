@@ -7,7 +7,7 @@ import { AuthProvider } from '@kit';
 import '../../../packages/backoffice-kit/src/styles.css';
 import { App } from './App';
 
-const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8090';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

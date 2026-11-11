@@ -48,7 +48,7 @@ export function StaffPage() {
                 <tr key={s.id} className={s.active ? '' : 'dim'}>
                   <td><strong>{s.name}</strong></td>
                   <td>{s.email}</td>
-                  <td><Badge tone={s.role === 'ADMIN' ? 'pink' : 'muted'}>{s.role === 'ADMIN' ? 'Admin' : 'Merchant'}</Badge></td>
+                  <td><Badge tone={s.role === 'ADMIN' ? 'pink' : 'muted'}>{s.role === 'ADMIN' ? 'Admin' : s.owner ? 'Merchant owner' : 'Merchant staff'}</Badge></td>
                   <td>{s.active ? <Badge tone="success">Active</Badge> : <Badge>Switched off</Badge>}</td>
                   <td className="actions">
                     <button className="btn ghost sm" onClick={() => { setError(null); setReset(s); }}>Reset password</button>

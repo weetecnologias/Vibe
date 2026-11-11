@@ -78,7 +78,7 @@ public class Businesses {
         }
         String distance = "(case when b.lat is null or b.lng is null then 9999 else 6371 * acos(least(1, cos(radians(" + REF_LAT + ")) * cos(radians(b.lat)) * cos(radians(b.lng) - radians(" + REF_LNG
                 + ")) + sin(radians(" + REF_LAT + ")) * sin(radians(b.lat)))) end)";
-        String order = "nearest".equals(sort) ? distance + ", lower(b.name)" : "lower(b.name)";
+        String order = "nearest".equals(sort) ? distance + ", lower(b.name)" : "newest".equals(sort) ? "b.created_at desc, lower(b.name)" : "lower(b.name)";
         String from = " from businesses b join categories c on c.id = b.primary_category_id";
 
         JdbcClient.StatementSpec count = jdbc.sql(cte + "select count(*)" + from + where);
@@ -143,23 +143,64 @@ public class Businesses {
         return out;
     }
 
-    /** Offers that are on right now (active and inside their dates), best first. */
+    /** Offers that are on right now (active, approved by VIBE, inside their dates), best first, grouped by business. */
     private Map<UUID, List<OfferView>> activeOffers(List<UUID> businessIds) {
         Map<UUID, List<OfferView>> out = new HashMap<>();
-        jdbc.sql("select o.*, b.name bname, b.area, b.logo_url, b.cover_url from offers o join businesses b on b.id = o.business_id "
-                        + "where o.business_id in (:ids) and o.active and o.starts_at <= :now and o.ends_at > :now order by o.member_only desc, coalesce(o.rate_bps, 0) desc, o.flat_amount desc nulls last")
-                .param("ids", businessIds).param("now", OffsetDateTime.now(clock))
-                .query((rs, i) -> {
-                    UUID bid = (UUID) rs.getObject("business_id");
-                    boolean pct = "percentage".equals(rs.getString("kind"));
-                    String headline = pct ? trim(rs.getInt("rate_bps") / 100.0) + "%" : "₹" + (rs.getLong("flat_amount") / 100);
-                    Object max = rs.getObject("max_discount"), min = rs.getObject("min_bill");
-                    out.computeIfAbsent(bid, k -> new ArrayList<>()).add(new OfferView(rs.getString("id"), bid.toString(), rs.getString("bname"), rs.getString("logo_url"), rs.getString("area"),
-                            rs.getString("title"), rs.getString("kind"), headline, "OFF", rs.getBoolean("member_only"), rs.getString("cover_url"), rs.getString("schedule_label"),
-                            rs.getObject("ends_at", OffsetDateTime.class), max == null ? null : ((Number) max).longValue(), min == null ? null : ((Number) min).longValue()));
-                    return 0;
-                }).list();
+        for (OfferView o : liveOffers("and o.business_id in (:ids)", Map.of("ids", businessIds), "o.member_only desc, coalesce(o.rate_bps, 0) desc, o.flat_amount desc nulls last", 1000)) {
+            out.computeIfAbsent(UUID.fromString(o.businessId()), k -> new ArrayList<>()).add(o);
+        }
         return out;
+    }
+
+    private List<OfferView> liveOffers(String extraWhere, Map<String, Object> params, String orderBy, int limit) {
+        JdbcClient.StatementSpec spec = jdbc.sql("select o.*, b.name bname, b.area, b.logo_url, b.cover_url from offers o join businesses b on b.id = o.business_id "
+                + "where b.active and o.active and o.review_status = 'approved' and o.starts_at <= :now and o.ends_at > :now " + extraWhere + " order by " + orderBy + " limit " + limit).param("now", OffsetDateTime.now(clock));
+        params.forEach(spec::param);
+        return spec.query((rs, i) -> {
+            UUID bid = (UUID) rs.getObject("business_id");
+            boolean pct = "percentage".equals(rs.getString("kind"));
+            String headline = pct ? trim(rs.getInt("rate_bps") / 100.0) + "%" : "₹" + (rs.getLong("flat_amount") / 100);
+            Object max = rs.getObject("max_discount"), min = rs.getObject("min_bill");
+            return new OfferView(rs.getString("id"), bid.toString(), rs.getString("bname"), rs.getString("logo_url"), rs.getString("area"), rs.getString("title"), rs.getString("kind"), headline, "OFF",
+                    rs.getBoolean("member_only"), rs.getString("cover_url"), rs.getString("schedule_label"), rs.getObject("ends_at", OffsetDateTime.class),
+                    max == null ? null : ((Number) max).longValue(), min == null ? null : ((Number) min).longValue());
+        }).list();
+    }
+
+    /**
+     * The offers list the customer app shows. view: all, member (members only), new (recently added), ending (within 7 days),
+     * trending (the ones VIBE pinned, in order; falls back to the biggest discounts).
+     */
+    public List<OfferView> offers(String view, List<UUID> pinned, int limit) {
+        int lim = Math.min(Math.max(limit, 1), 100);
+        String v = view == null ? "all" : view;
+        switch (v) {
+            case "member": return liveOffers("and o.member_only", Map.of(), "o.ends_at", lim);
+            case "new": return liveOffers("", Map.of(), "o.created_at desc", lim);
+            case "ending": return liveOffers("and o.ends_at < :soon", Map.of("soon", OffsetDateTime.now(clock).plusDays(7)), "o.ends_at", lim);
+            case "trending": {
+                if (!pinned.isEmpty()) return pinnedOffers(pinned);
+                return liveOffers("", Map.of(), "coalesce(o.rate_bps, 0) desc, o.flat_amount desc nulls last", lim);
+            }
+            default: return liveOffers("", Map.of(), "o.member_only desc, coalesce(o.rate_bps, 0) desc, o.flat_amount desc nulls last", lim);
+        }
+    }
+
+    /** Pinned offers, in the order VIBE set. An offer that is no longer live is skipped. */
+    public List<OfferView> pinnedOffers(List<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        Map<String, OfferView> byId = new HashMap<>();
+        for (OfferView o : liveOffers("and o.id in (:oids)", Map.of("oids", ids), "o.created_at", 100)) byId.put(o.id(), o);
+        return ids.stream().map(u -> byId.get(u.toString())).filter(java.util.Objects::nonNull).toList();
+    }
+
+    /** Active businesses in the given order (for pinned trending places). */
+    public List<Summary> byIds(List<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        List<Row> rows = jdbc.sql("select b.*, c.name as category_label from businesses b join categories c on c.id = b.primary_category_id where b.active and b.id in (:ids)").param("ids", ids).query(Businesses::row).list();
+        Map<String, Summary> byId = new HashMap<>();
+        for (Summary s : summaries(rows)) byId.put(s.id(), s);
+        return ids.stream().map(u -> byId.get(u.toString())).filter(java.util.Objects::nonNull).toList();
     }
 
     private static String trim(double v) { return v == Math.floor(v) ? String.valueOf((long) v) : String.valueOf(v); }

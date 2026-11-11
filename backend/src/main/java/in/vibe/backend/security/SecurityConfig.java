@@ -91,7 +91,8 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/actuator/health", "/v1/health", "/v1/staff/login").permitAll()
-                .requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/businesses", "/v1/businesses/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/businesses", "/v1/businesses/*", "/v1/home", "/v1/membership/plans", "/v1/events", "/v1/events/*", "/v1/offers", "/media/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/media").hasAnyRole("ADMIN", "MERCHANT")
                 .requestMatchers("/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/v1/merchant/**").hasRole("MERCHANT")
                 .requestMatchers("/v1/staff/**").hasAnyRole("ADMIN", "MERCHANT")

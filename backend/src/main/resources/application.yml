@@ -7,9 +7,13 @@ spring:
     password: ${VIBE_DB_PASSWORD:vibe}
   flyway:
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8090}
 
 management:
   endpoints:
@@ -25,7 +29,11 @@ vibe:
     token-minutes: 480
   cors:
     # Dashboards in development. Set explicit origins in staging and production.
-    allowed-origins: ${VIBE_CORS_ORIGINS:http://localhost:5173,http://localhost:5174}
+    allowed-origins: ${VIBE_CORS_ORIGINS:http://localhost:5180,http://localhost:5181}
+  media:
+    # Development keeps uploads on disk. Production uses object storage behind a CDN.
+    dir: ${VIBE_MEDIA_DIR:./data/media}
+    public-base-url: ${VIBE_PUBLIC_URL:http://localhost:${server.port}}
   dev:
     # Dev seed accounts. Used only when the `dev` profile is active; never load in production.
     seed-password: ${VIBE_DEV_PASSWORD:vibe-dev-only}

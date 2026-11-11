@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, paiseToRupees, rupeesToPaise, useAsync, useAuth, type MenuInput, type MenuRow } from '@kit';
+import { Badge, Field, ImageField, Loading, Modal, Notice, PageHead, errorText, formatINR, paiseToRupees, rupeesToPaise, useAsync, useAuth, type MenuInput, type MenuRow } from '@kit';
 
 type Draft = { id: string | null; name: string; note: string; price: string; section: string; imageUrl: string; sortOrder: string; active: boolean };
 const blank: Draft = { id: null, name: '', note: '', price: '', section: '', imageUrl: '', sortOrder: '0', active: true };
@@ -93,7 +93,7 @@ export function MenuPage() {
               <Field label="Section"><input value={draft.section} maxLength={60} placeholder="Mains" onChange={(e) => setDraft({ ...draft, section: e.target.value })} /></Field>
             </div>
             <div className="grid2">
-              <Field label="Photo link (optional)"><input value={draft.imageUrl} onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })} placeholder="https://…" /></Field>
+              <ImageField label="Photo (optional)" value={draft.imageUrl} onChange={(v) => setDraft({ ...draft, imageUrl: v })} />
               <Field label="Order" hint="Smaller numbers come first."><input inputMode="numeric" value={draft.sortOrder} onChange={(e) => setDraft({ ...draft, sortOrder: e.target.value })} /></Field>
             </div>
             <label className="check"><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /> Show to customers</label>

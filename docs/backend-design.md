@@ -1,6 +1,6 @@
 # VIBE Hyderabad — backend design
 
-Status: **proposal, partly built.** Phase B0 and the catalogue half of B1 exist in `backend/` (see its README); admin and merchant dashboards exist in `apps/admin` and `apps/merchant`. The rest is still a plan. The customer app already runs against a demo backend (`apps/customer/src/api/demo/`) that behaves the way this design says the real one must. The app talks only to the `VibeApi` interface, so the real backend replaces the demo without changes to the screens.
+Status: **proposal, partly built.** Phase B0 and the catalogue half of B1 exist in `backend/` (see its README); the content tools (offer and event review, home content, membership plans, checkout coupons, reservation settings, merchant teams, image upload) are built too, and the admin and merchant dashboards exist in `apps/admin` and `apps/merchant`. Everything involving customers, money and tickets sold is still a plan. The customer app already runs against a demo backend (`apps/customer/src/api/demo/`) that behaves the way this design says the real one must. The app talks only to the `VibeApi` interface, so the real backend replaces the demo without changes to the screens.
 
 ## 1. Principles (already true in the demo, must stay true)
 

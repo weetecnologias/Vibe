@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { BUILT_IN_ICONS, Badge, Field, Loading, Modal, Notice, PageHead, errorText, useAsync, useAuth, type CategoryInput, type CategoryRow } from '@kit';
+import { BUILT_IN_ICONS, Badge, Field, ImageField, Loading, Modal, Notice, PageHead, errorText, useAsync, useAuth, type CategoryInput, type CategoryRow } from '@kit';
 
 type Ordered = CategoryRow & { depth: number };
 
@@ -139,8 +139,8 @@ export function CategoriesPage() {
               </Field>
               <Field label="Order" hint="Smaller numbers come first."><input inputMode="numeric" value={draft.sortOrder} onChange={(e) => setDraft({ ...draft, sortOrder: e.target.value })} /></Field>
             </div>
-            <Field label="Uploaded icon link (optional)" hint="An SVG or PNG link. Used instead of the built-in icon when set."><input value={draft.iconUrl} onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })} placeholder="https://…" /></Field>
-            <Field label="Picture link (optional)"><input value={draft.imageUrl} onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })} placeholder="https://…" /></Field>
+            <ImageField label="Uploaded icon (optional)" value={draft.iconUrl} onChange={(v) => setDraft({ ...draft, iconUrl: v })} hint="PNG, JPEG or WebP. Used instead of the built-in icon when set." />
+            <ImageField label="Picture (optional)" value={draft.imageUrl} onChange={(v) => setDraft({ ...draft, imageUrl: v })} />
             <label className="check"><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /> Live in the customer app</label>
             {error ? <Notice tone="error">{error}</Notice> : null}
             <div className="modal-foot">

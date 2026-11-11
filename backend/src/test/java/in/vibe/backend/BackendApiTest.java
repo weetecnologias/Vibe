@@ -28,68 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** The public catalogue and the admin and merchant APIs, against a real PostgreSQL with the real migrations. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("dev")
-class BackendApiTest {
-    static final String PASSWORD = "a-long-test-password";
-
-    @Autowired MockMvc mvc;
-    @Autowired StaffService staff;
-
-    String adminToken;
-
-    @BeforeAll
-    static void noop() {}
-
-    // ---------- helpers ----------
-    static String uniq() { return UUID.randomUUID().toString().substring(0, 8); }
-
-    String adminToken() throws Exception {
-        if (adminToken == null) {
-            String email = "admin-" + uniq() + "@test.local";
-            staff.createAdmin(email, "Test Admin", PASSWORD);
-            adminToken = login(email, PASSWORD);
-        }
-        return adminToken;
-    }
-
-    String login(String email, String password) throws Exception {
-        MvcResult r = mvc.perform(post("/v1/staff/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}")).andExpect(status().isOk()).andReturn();
-        return JsonPath.read(r.getResponse().getContentAsString(), "$.token");
-    }
-
-    MockHttpServletRequestBuilder as(String token, MockHttpServletRequestBuilder b) {
-        return b.header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON);
-    }
-
-    String id(MvcResult r) throws Exception { return JsonPath.read(r.getResponse().getContentAsString(), "$.id"); }
-
-    String category(String parent, String name) throws Exception {
-        String slug = name.toLowerCase().replace(' ', '-') + "-" + uniq();
-        String body = "{\"parentId\":" + (parent == null ? "null" : "\"" + parent + "\"") + ",\"slug\":\"" + slug + "\",\"name\":\"" + name + "\",\"icon\":\"food\",\"sortOrder\":1}";
-        return id(mvc.perform(as(adminToken(), post("/v1/admin/categories")).content(body)).andExpect(status().isCreated()).andReturn());
-    }
-
-    String business(String categoryId, String name) throws Exception {
-        String body = """
-            {"primaryCategoryId":"%s","categoryIds":["%s"],"verified":true,"active":true,
-             "profile":{"name":"%s","area":"Jubilee Hills","address":"Road 1","lat":17.43,"lng":78.41,"priceLevel":2,"costForTwo":120000,
-               "hours":[{"dow":0,"opens":"09:00","closes":"22:00"},{"dow":1,"opens":"09:00","closes":"22:00"}]}}
-            """.formatted(categoryId, categoryId, name);
-        return id(mvc.perform(as(adminToken(), post("/v1/admin/businesses")).content(body)).andExpect(status().isCreated()).andReturn());
-    }
-
-    /** A merchant account for a business, signed in. */
-    String merchant(String businessId) throws Exception {
-        String email = "m-" + uniq() + "@test.local";
-        mvc.perform(as(adminToken(), post("/v1/admin/businesses/" + businessId + "/staff"))
-                .content("{\"email\":\"" + email + "\",\"name\":\"Manager\",\"password\":\"" + PASSWORD + "\"}")).andExpect(status().isCreated());
-        return login(email, PASSWORD);
-    }
-
+class BackendApiTest extends ApiTestSupport {
     // ---------- browser access (CORS) ----------
     @Test
     void dashboardsOnTheAllowedOriginCanCallTheApiAndOtherSitesCannot() throws Exception {
@@ -348,14 +287,19 @@ class BackendApiTest {
     }
 
     @Test
-    void liveOffersShowOnTheBusinessWithAHeadlineAndExpiredOnesDoNot() throws Exception {
+    void liveApprovedOffersShowOnTheBusinessWithAHeadlineAndExpiredOnesDoNot() throws Exception {
         String biz = business(category(null, "Offer live"), "Offer live place");
         String token = merchant(biz);
-        mvc.perform(as(token, post("/v1/merchant/offers")).content("""
+        String live = id(mvc.perform(as(token, post("/v1/merchant/offers")).content("""
             {"title":"Members save 30%","kind":"percentage","rateBps":3000,"maxDiscount":50000,"minBill":50000,"memberOnly":true,
-             "startsAt":"2026-01-01T00:00:00Z","endsAt":"2030-01-01T00:00:00Z"}""")).andExpect(status().isCreated()).andExpect(jsonPath("$.rateBps", is(3000)));
-        mvc.perform(as(token, post("/v1/merchant/offers")).content("""
-            {"title":"Old deal","kind":"flat","flatAmount":10000,"startsAt":"2020-01-01T00:00:00Z","endsAt":"2021-01-01T00:00:00Z"}""")).andExpect(status().isCreated());
+             "startsAt":"2026-01-01T00:00:00Z","endsAt":"2030-01-01T00:00:00Z"}""")).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.rateBps", is(3000))).andExpect(jsonPath("$.reviewStatus", is("pending"))).andReturn());
+        String old = id(mvc.perform(as(token, post("/v1/merchant/offers")).content("""
+            {"title":"Old deal","kind":"flat","flatAmount":10000,"startsAt":"2020-01-01T00:00:00Z","endsAt":"2021-01-01T00:00:00Z"}""")).andExpect(status().isCreated()).andReturn());
+        // Nothing is shown to customers until VIBE approves it.
+        mvc.perform(get("/v1/businesses/" + biz)).andExpect(jsonPath("$.offers", hasSize(0))).andExpect(jsonPath("$.hasMemberOffer", is(false)));
+        mvc.perform(as(adminToken(), post("/v1/admin/offers/" + live + "/approve"))).andExpect(status().isOk());
+        mvc.perform(as(adminToken(), post("/v1/admin/offers/" + old + "/approve"))).andExpect(status().isOk());
         mvc.perform(get("/v1/businesses/" + biz)).andExpect(jsonPath("$.offers", hasSize(1))).andExpect(jsonPath("$.offers[0].headline", is("30%")))
                 .andExpect(jsonPath("$.offers[0].memberOnly", is(true))).andExpect(jsonPath("$.offers[0].maxDiscount", is(50000))).andExpect(jsonPath("$.hasMemberOffer", is(true)))
                 .andExpect(jsonPath("$.offerBadge", is("30% off")));

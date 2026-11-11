@@ -6,7 +6,7 @@ export class ApiError extends Error {
 }
 
 export type Role = 'ADMIN' | 'MERCHANT';
-export type Staff = { id: string; email: string; name: string; role: Role; businessId: string | null; active: boolean };
+export type Staff = { id: string; email: string; name: string; role: Role; businessId: string | null; active: boolean; owner: boolean };
 export type Session = { token: string; expiresAt: string; staff: Staff };
 
 export type Client = {
@@ -15,17 +15,21 @@ export type Client = {
   put<T>(path: string, body?: unknown): Promise<T>;
   del(path: string): Promise<void>;
   login(email: string, password: string): Promise<Session>;
+  /** Uploads an image (PNG, JPEG or WebP, up to 5 MB) and returns the link to save. */
+  upload(file: File): Promise<{ id: string; url: string }>;
 };
 
 export function createClient(opts: { baseUrl: string; token: () => string | null; onUnauthorized: () => void }): Client {
   async function request<T>(method: string, path: string, body?: unknown, auth = true): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+    // A file upload sets its own multipart boundary, so no Content-Type is sent for it.
+    if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
     const token = opts.token();
     if (auth && token) headers.Authorization = `Bearer ${token}`;
     let res: Response;
     try {
-      res = await fetch(`${opts.baseUrl}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+      res = await fetch(`${opts.baseUrl}${path}`, { method, headers, body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body) });
     } catch {
       throw new ApiError(0, 'network', 'Can’t reach the server. Check your connection and try again.');
     }
@@ -50,6 +54,11 @@ export function createClient(opts: { baseUrl: string; token: () => string | null
     put: (p, b) => request('PUT', p, b ?? {}),
     del: (p) => request('DELETE', p),
     login: (email, password) => request('POST', '/v1/staff/login', { email, password }, false),
+    upload: (file) => {
+      const form = new FormData();
+      form.append('file', file);
+      return request('POST', '/v1/media', form);
+    },
   };
 }
 

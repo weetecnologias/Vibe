@@ -31,8 +31,9 @@ public class MenuAndOffers {
                              @Min(1) @Max(9000) Integer rateBps, @Min(1) Long flatAmount, @Min(1) Long maxDiscount, @Min(0) Long minBill, Boolean memberOnly,
                              @Size(max = 80) String scheduleLabel, @NotNull OffsetDateTime startsAt, @NotNull OffsetDateTime endsAt, Boolean active) {}
 
+    /** reviewStatus: pending (waiting for VIBE), approved (can go live) or rejected (see reviewNote). */
     public record OfferRow(String id, String title, String kind, Integer rateBps, Long flatAmount, Long maxDiscount, Long minBill, boolean memberOnly, String scheduleLabel,
-                           OffsetDateTime startsAt, OffsetDateTime endsAt, boolean active) {}
+                           OffsetDateTime startsAt, OffsetDateTime endsAt, boolean active, String reviewStatus, String reviewNote) {}
 
     private final JdbcClient jdbc;
     private final AuditService audit;
@@ -87,7 +88,7 @@ public class MenuAndOffers {
                     Object bps = rs.getObject("rate_bps"), flat = rs.getObject("flat_amount"), max = rs.getObject("max_discount"), min = rs.getObject("min_bill");
                     return new OfferRow(rs.getString("id"), rs.getString("title"), rs.getString("kind"), bps == null ? null : ((Number) bps).intValue(), flat == null ? null : ((Number) flat).longValue(),
                             max == null ? null : ((Number) max).longValue(), min == null ? null : ((Number) min).longValue(), rs.getBoolean("member_only"), rs.getString("schedule_label"),
-                            rs.getObject("starts_at", OffsetDateTime.class), rs.getObject("ends_at", OffsetDateTime.class), rs.getBoolean("active"));
+                            rs.getObject("starts_at", OffsetDateTime.class), rs.getObject("ends_at", OffsetDateTime.class), rs.getBoolean("active"), rs.getString("review_status"), rs.getString("review_note"));
                 }).list();
     }
 
@@ -109,8 +110,15 @@ public class MenuAndOffers {
     public OfferRow updateOffer(StaffPrincipal who, UUID id, OfferInput in) {
         UUID b = who.requireBusiness();
         check(in);
+        OfferRow before = offerRow(b, id);
+        String sl = in.scheduleLabel() == null || in.scheduleLabel().isBlank() ? "Every day" : in.scheduleLabel().trim();
+        // Changing what the offer is sends it back for review. Only switching it on or off does not.
+        boolean changed = !before.title().equals(in.title().trim()) || !before.kind().equals(in.kind()) || !java.util.Objects.equals(before.rateBps(), in.rateBps())
+                || !java.util.Objects.equals(before.flatAmount(), in.flatAmount()) || !java.util.Objects.equals(before.maxDiscount(), in.maxDiscount())
+                || !java.util.Objects.equals(before.minBill(), in.minBill()) || before.memberOnly() != (in.memberOnly() != null && in.memberOnly()) || !before.scheduleLabel().equals(sl)
+                || !before.startsAt().toInstant().equals(in.startsAt().toInstant()) || !before.endsAt().toInstant().equals(in.endsAt().toInstant());
         int n = jdbc.sql("update offers set title = :t, kind = :k, rate_bps = :bps, flat_amount = :flat, max_discount = :max, min_bill = :min, member_only = :m, schedule_label = :sl, "
-                        + "starts_at = :s, ends_at = :e, active = :a, updated_at = now() where id = :id and business_id = :b")
+                        + "starts_at = :s, ends_at = :e, active = :a, updated_at = now()" + (changed ? ", review_status = 'pending', review_note = null, reviewed_at = null, reviewed_by = null" : "") + " where id = :id and business_id = :b")
                 .param("id", id).param("b", b).param("t", in.title().trim()).param("k", in.kind()).param("bps", in.rateBps(), Types.INTEGER).param("flat", in.flatAmount(), Types.BIGINT)
                 .param("max", in.maxDiscount(), Types.BIGINT).param("min", in.minBill(), Types.BIGINT).param("m", in.memberOnly() != null && in.memberOnly())
                 .param("sl", in.scheduleLabel() == null || in.scheduleLabel().isBlank() ? "Every day" : in.scheduleLabel().trim()).param("s", in.startsAt()).param("e", in.endsAt())
@@ -133,15 +141,7 @@ public class MenuAndOffers {
 
     /** The rule must be complete and the dates sensible: a percentage needs a rate, a flat offer needs an amount, and a cap only makes sense on a percentage. */
     private static void check(OfferInput in) {
-        if ("percentage".equals(in.kind())) {
-            if (in.rateBps() == null) throw ApiException.badRequest("offer_rule", "A percentage offer needs a percentage.");
-            if (in.flatAmount() != null) throw ApiException.badRequest("offer_rule", "A percentage offer can’t also have a flat amount.");
-        } else {
-            if (in.flatAmount() == null) throw ApiException.badRequest("offer_rule", "A flat offer needs an amount.");
-            if (in.rateBps() != null || in.maxDiscount() != null) throw ApiException.badRequest("offer_rule", "A flat offer has no percentage or cap.");
-            if (in.minBill() != null && in.flatAmount() > in.minBill()) throw ApiException.badRequest("offer_rule", "The flat discount can’t be more than the minimum bill.");
-        }
-        if (!in.endsAt().isAfter(in.startsAt())) throw ApiException.badRequest("offer_dates", "The offer must end after it starts.");
+        OfferRules.check(in.kind(), in.rateBps(), in.flatAmount(), in.maxDiscount(), in.minBill(), in.startsAt(), in.endsAt());
     }
 
     private static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }
