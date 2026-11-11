@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -91,16 +92,20 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/actuator/health", "/v1/health", "/v1/staff/login").permitAll()
-                .requestMatchers(HttpMethod.POST, "/v1/auth/otp", "/v1/auth/otp/verify", "/v1/auth/refresh", "/v1/webhooks/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/auth/otp", "/v1/auth/otp/verify", "/v1/auth/refresh", "/v1/webhooks/*", "/v1/business-applications").permitAll()
+                // A business applying to join checks on their application with the secret they were given, so no sign-in is needed.
+                .requestMatchers(HttpMethod.GET, "/v1/business-applications/*").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/v1/business-applications/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/v1/offers/*/eligibility").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/businesses", "/v1/businesses/*", "/v1/home", "/v1/membership/plans", "/v1/events", "/v1/events/*", "/v1/offers", "/v1/offers/*", "/media/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/v1/media").hasAnyRole("ADMIN", "MERCHANT")
-                .requestMatchers("/v1/auth/logout", "/v1/me", "/v1/me/**", "/v1/redemptions", "/v1/redemptions/**", "/v1/payment-requests/**", "/v1/payments/**").hasRole("CUSTOMER")
+                .requestMatchers("/v1/auth/logout", "/v1/me", "/v1/me/**", "/v1/redemptions", "/v1/redemptions/**", "/v1/payment-requests/**", "/v1/payments/**", "/v1/membership", "/v1/membership/subscriptions", "/v1/membership/plan-change", "/v1/membership/cancel").hasRole("CUSTOMER")
                 .requestMatchers("/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/v1/merchant/**").hasRole("MERCHANT")
                 .requestMatchers("/v1/staff/**").hasAnyRole("ADMIN", "MERCHANT")
                 .anyRequest().denyAll())
             .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter)))
+            .addFilterAfter(new PasswordChangeGate(json), BearerTokenAuthenticationFilter.class)
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((req, res, ex) -> write(res, json, 401, new ApiError("unauthorized", "Please sign in.")))
                 .accessDeniedHandler((req, res, ex) -> write(res, json, 403, new ApiError("forbidden", "You don’t have access to this."))));

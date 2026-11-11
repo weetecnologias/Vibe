@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -29,6 +30,11 @@ public class GlobalExceptionHandler {
         String msg = e.getBindingResult().getFieldErrors().stream()
                 .map(f -> f.getField() + " " + f.getDefaultMessage()).sorted().collect(Collectors.joining("; "));
         return ResponseEntity.badRequest().body(new ApiError("validation", msg.isEmpty() ? "The request isn’t valid." : msg));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ResponseEntity<ApiError> missingParam(MissingServletRequestParameterException e) {
+        return ResponseEntity.badRequest().body(new ApiError("validation", e.getParameterName() + " is required"));
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})

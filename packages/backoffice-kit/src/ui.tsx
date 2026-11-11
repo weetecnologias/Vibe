@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 
 import { useAuth } from './auth';
+import { NotificationBell } from './NotificationBell';
 
 /** Loads data when `deps` change and lets the caller reload it. Ignores answers that arrive after the screen moved on. */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
@@ -23,13 +24,16 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
   return { data: state.data, error: state.key === key ? state.error : undefined, loading: state.key !== key, reload, setData };
 }
 
-export function Shell({ title, nav }: { title: string; nav: { to: string; label: string }[] }) {
+export type NavItem = { to: string; label: string } | { heading: string };
+
+export function Shell({ title, nav }: { title: string; nav: NavItem[] }) {
   const { staff, signOut } = useAuth();
   return (
     <div className="shell">
       <aside className="side">
         <div className="brand"><span className="brand-vibe">VIBE</span> <span>{title}</span></div>
-        <nav>{nav.map((n) => <NavLink key={n.to} to={n.to} className={({ isActive }) => (isActive ? 'active' : '')}>{n.label}</NavLink>)}</nav>
+        <NotificationBell />
+        <nav>{nav.map((n) => ('heading' in n ? <div key={n.heading} className="nav-heading">{n.heading}</div> : <NavLink key={n.to} to={n.to} className={({ isActive }) => (isActive ? 'active' : '')}>{n.label}</NavLink>))}</nav>
         <div className="side-foot">
           <div className="small">{staff?.name}</div>
           <div className="small muted">{staff?.email}</div>

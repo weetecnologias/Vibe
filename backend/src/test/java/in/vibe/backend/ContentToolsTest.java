@@ -238,7 +238,7 @@ class ContentToolsTest extends ApiTestSupport {
         mvc.perform(as(ownerA, post("/v1/merchant/team")).content("{\"email\":\"s2-" + uniq() + "@test.local\",\"name\":\"Short\",\"password\":\"short\"}")).andExpect(status().isBadRequest());
 
         // Staff can sign in and work on the business, but can't add people.
-        String staffToken = login(email, PASSWORD);
+        String staffToken = signInSettled(email, PASSWORD);
         mvc.perform(as(staffToken, get("/v1/merchant/business"))).andExpect(jsonPath("$.id", is(bizA)));
         mvc.perform(as(staffToken, post("/v1/merchant/team")).content("{\"email\":\"s3-" + uniq() + "@test.local\",\"name\":\"X\",\"password\":\"" + PASSWORD + "\"}")).andExpect(status().isForbidden());
         mvc.perform(as(staffToken, post("/v1/merchant/team/" + staffId + "/deactivate"))).andExpect(status().isForbidden());

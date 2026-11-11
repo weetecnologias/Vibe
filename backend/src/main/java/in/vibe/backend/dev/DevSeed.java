@@ -90,7 +90,7 @@ class DevSeed implements ApplicationRunner {
         // A fictional customer who is a member, so the customer app can sign in with 98765 43210 and the code 123456 (development only).
         UUID customer = UUID.randomUUID();
         jdbc.sql("insert into customers (id, phone, name, vibe_id, area) values (:id, '9876543210', 'Aarav Reddy', '482173', 'Jubilee Hills')").param("id", customer).update();
-        jdbc.sql("insert into memberships (customer_id, status, valid_until, plan_id) values (:c, 'active', now() + interval '30 days', (select id from membership_plans where interval = 'month' order by sort_order limit 1))").param("c", customer).update();
+        jdbc.sql("insert into memberships (customer_id, status, valid_until, plan_id, member_no) values (:c, 'active', now() + interval '30 days', (select id from membership_plans where interval = 'month' order by sort_order limit 1), 'VB 482173 7730')").param("c", customer).update();
         home.createBanner(admin, new HomeContent.BannerInput("MEMBERS", "Save 30% at Saffron Courtyard", "Every day for VIBE members", "See offer", null, "offer", offer.id(), 1, true, null, null));
         home.setPicks(admin, "offers", List.of(offer.id()));
 
@@ -103,12 +103,13 @@ class DevSeed implements ApplicationRunner {
         OffsetDateTime from = OffsetDateTime.now().minusDays(1), to = OffsetDateTime.now().plusMonths(6);
         coupons.create(admin, new Coupons.Input("MEMBERFLIX", "Members: 15% off movie tickets", "Up to ₹150 off bookings of ₹300 or more", true, List.of("movie"), "percentage", 1500, null, 15000L, 30000L, false, 4, List.of("For active VIBE members."), from, to, true));
         coupons.create(admin, new Coupons.Input("WELCOME50", "₹50 off your first booking", "Movies and events, on bookings of ₹250 or more", false, List.of("movie", "tickets"), "flat", null, 5000L, null, 25000L, true, 1, List.of(), from, to, true));
+        jdbc.sql("update staff_users set must_change_password = false").update();
         log.warn("DEV SEED loaded: admin@vibe.local and merchant@vibe.local with the dev seed password. Development only.");
         log.info("Seeded businesses: {} and {}", saffron.name(), brew.name());
     }
 
     private static Categories.Input cat(String parent, String slug, String name, String icon, int sort) {
-        return new Categories.Input(parent, slug, name, icon, null, null, sort, true);
+        return new Categories.Input(parent, slug, name, icon, null, null, sort, true, !slug.startsWith("movies"), slug.equals("food") ? "Menu" : null);
     }
 
     private static BusinessStore.Profile profile(String name, String area, double lat, double lng, int price, String opens, String closes) {

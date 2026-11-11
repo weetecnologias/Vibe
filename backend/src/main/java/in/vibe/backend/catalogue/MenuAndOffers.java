@@ -37,10 +37,14 @@ public class MenuAndOffers {
 
     private final JdbcClient jdbc;
     private final AuditService audit;
+    private final BillingRules rules;
+    private final in.vibe.backend.notify.StaffNotifications staffNotifications;
 
-    MenuAndOffers(JdbcClient jdbc, AuditService audit) {
+    MenuAndOffers(JdbcClient jdbc, AuditService audit, BillingRules rules, in.vibe.backend.notify.StaffNotifications staffNotifications) {
         this.jdbc = jdbc;
         this.audit = audit;
+        this.rules = rules;
+        this.staffNotifications = staffNotifications;
     }
 
     // ---------- menu ----------
@@ -96,6 +100,7 @@ public class MenuAndOffers {
     public OfferRow addOffer(StaffPrincipal who, OfferInput in) {
         UUID b = who.requireBusiness(), id = UUID.randomUUID();
         check(in);
+        if (!rules.forBusiness(b).payRedeem()) throw ApiException.conflict("not_applicable", "Offers with bills aren’t used for this type of business. Tickets and bookings are set up under Events.");
         jdbc.sql("insert into offers (id, business_id, title, kind, rate_bps, flat_amount, max_discount, min_bill, member_only, schedule_label, starts_at, ends_at, active) "
                         + "values (:id, :b, :t, :k, :bps, :flat, :max, :min, :m, :sl, :s, :e, :a)")
                 .param("id", id).param("b", b).param("t", in.title().trim()).param("k", in.kind()).param("bps", in.rateBps(), Types.INTEGER).param("flat", in.flatAmount(), Types.BIGINT)
@@ -103,6 +108,7 @@ public class MenuAndOffers {
                 .param("sl", in.scheduleLabel() == null || in.scheduleLabel().isBlank() ? "Every day" : in.scheduleLabel().trim()).param("s", in.startsAt()).param("e", in.endsAt())
                 .param("a", in.active() == null || in.active()).update();
         audit.record(who, "create", "offer", id, in.title());
+        staffNotifications.toAdmins("offer_review", "Offer waiting for review", businessName(b) + ": " + in.title(), "/offers");
         return offerRow(b, id);
     }
 
@@ -125,6 +131,7 @@ public class MenuAndOffers {
                 .param("a", in.active() == null || in.active()).update();
         if (n == 0) throw ApiException.notFound("Offer not found.");
         audit.record(who, "update", "offer", id, in.title());
+        if (changed) staffNotifications.toAdmins("offer_review", "Offer changed, waiting for review", businessName(b) + ": " + in.title(), "/offers");
         return offerRow(b, id);
     }
 
@@ -143,6 +150,8 @@ public class MenuAndOffers {
     private static void check(OfferInput in) {
         OfferRules.check(in.kind(), in.rateBps(), in.flatAmount(), in.maxDiscount(), in.minBill(), in.startsAt(), in.endsAt());
     }
+
+    private String businessName(UUID b) { return jdbc.sql("select name from businesses where id = :id").param("id", b).query(String.class).single(); }
 
     private static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }
 }

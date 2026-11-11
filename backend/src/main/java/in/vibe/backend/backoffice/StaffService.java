@@ -34,10 +34,12 @@ public class StaffService {
 
     public record NewMerchant(@NotBlank @Email @Size(max = 200) String email, @NotBlank @Size(max = 120) String name, @NotBlank @Size(min = MIN_PASSWORD, max = 100) String password) {}
 
+    public record PasswordChange(@NotBlank String current, @NotBlank @Size(min = MIN_PASSWORD, max = 100) String next) {}
+
     public record PasswordReset(@NotBlank @Size(min = MIN_PASSWORD, max = 100) String password) {}
 
     /** owner: the first login for a business. Only an owner can add and manage the rest of the team. */
-    public record Staff(String id, String email, String name, String role, String businessId, boolean active, boolean owner) {}
+    public record Staff(String id, String email, String name, String role, String businessId, boolean active, boolean owner, boolean mustChangePassword) {}
 
     public record Session(String token, Instant expiresAt, Staff staff) {}
 
@@ -59,12 +61,12 @@ public class StaffService {
         this.dummyHash = encoder.encode("not-a-real-password");
     }
 
-    private record Row(UUID id, String email, String name, String hash, String role, UUID businessId, boolean active, boolean owner) {}
+    private record Row(UUID id, String email, String name, String hash, String role, UUID businessId, boolean active, boolean owner, boolean mustChange) {}
 
     private java.util.Optional<Row> byEmail(String email) {
         return jdbc.sql("select * from staff_users where email = :e").param("e", email)
                 .query((rs, i) -> new Row((UUID) rs.getObject("id"), rs.getString("email"), rs.getString("name"), rs.getString("password_hash"), rs.getString("role"),
-                        (UUID) rs.getObject("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"))).optional();
+                        (UUID) rs.getObject("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"), rs.getBoolean("must_change_password"))).optional();
     }
 
     public Session login(String rawEmail, String password) {
@@ -83,19 +85,19 @@ public class StaffService {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "bad_credentials", "That email and password don’t match.");
         }
         failures.remove(email);
-        JwtService.Issued token = jwt.issue(row.id(), row.role(), row.businessId());
+        JwtService.Issued token = jwt.issue(row.id(), row.role(), row.businessId(), row.mustChange());
         return new Session(token.token(), token.expiresAt(), view(row));
     }
 
     public Staff me(StaffPrincipal who) {
         return jdbc.sql("select * from staff_users where id = :id and active").param("id", who.id())
-                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner")))
+                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"), rs.getBoolean("must_change_password")))
                 .optional().orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "unauthorized", "Please sign in."));
     }
 
     public List<Staff> list() {
         return jdbc.sql("select * from staff_users order by role, lower(email)")
-                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"))).list();
+                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"), rs.getBoolean("must_change_password"))).list();
     }
 
     @Transactional
@@ -105,7 +107,7 @@ public class StaffService {
         if (byEmail(email).isPresent()) throw ApiException.conflict("duplicate", "That email already has an account.");
         UUID id = UUID.randomUUID();
         boolean first = jdbc.sql("select count(*) from staff_users where business_id = :b").param("b", businessId).query(Integer.class).single() == 0;
-        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner) values (:id, :e, :n, :h, 'MERCHANT', :b, :o)")
+        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner, must_change_password) values (:id, :e, :n, :h, 'MERCHANT', :b, :o, true)")
                 .param("id", id).param("e", email).param("n", in.name().trim()).param("h", encoder.encode(in.password())).param("b", businessId).param("o", first).update();
         audit.record(who, "create", "staff", id, email);
         return me(new StaffPrincipal(id, "MERCHANT", businessId));
@@ -120,7 +122,7 @@ public class StaffService {
 
     @Transactional
     public void resetPassword(StaffPrincipal who, UUID id, String password) {
-        if (jdbc.sql("update staff_users set password_hash = :h where id = :id").param("h", encoder.encode(password)).param("id", id).update() == 0) throw ApiException.notFound("Account not found.");
+        if (jdbc.sql("update staff_users set password_hash = :h, must_change_password = true where id = :id").param("h", encoder.encode(password)).param("id", id).update() == 0) throw ApiException.notFound("Account not found.");
         audit.record(who, "reset_password", "staff", id, "");
     }
 
@@ -135,7 +137,7 @@ public class StaffService {
     public List<Staff> team(StaffPrincipal who) {
         UUID b = who.requireBusiness();
         return jdbc.sql("select * from staff_users where business_id = :b order by owner desc, lower(email)").param("b", b)
-                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"))).list();
+                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"), rs.getBoolean("must_change_password"))).list();
     }
 
     @Transactional
@@ -144,7 +146,7 @@ public class StaffService {
         String email = in.email().trim().toLowerCase(Locale.ROOT);
         if (byEmail(email).isPresent()) throw ApiException.conflict("duplicate", "That email already has an account.");
         UUID id = UUID.randomUUID();
-        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner) values (:id, :e, :n, :h, 'MERCHANT', :b, false)")
+        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner, must_change_password) values (:id, :e, :n, :h, 'MERCHANT', :b, false, true)")
                 .param("id", id).param("e", email).param("n", in.name().trim()).param("h", encoder.encode(in.password())).param("b", who.requireBusiness()).update();
         audit.record(who, "create", "staff", id, email);
         return me(new StaffPrincipal(id, "MERCHANT", who.requireBusiness()));
@@ -172,6 +174,34 @@ public class StaffService {
         audit.record(who, "reset_password", "staff", id, t.email());
     }
 
+    /** The person signed in chooses their own password. Everything else is refused until they do, so a password someone else knew can't be used for long. */
+    @Transactional
+    public Session changePassword(StaffPrincipal who, String current, String next) {
+        Row row = jdbc.sql("select * from staff_users where id = :id and active").param("id", who.id())
+                .query((rs, i) -> new Row((UUID) rs.getObject("id"), rs.getString("email"), rs.getString("name"), rs.getString("password_hash"), rs.getString("role"), (UUID) rs.getObject("business_id"),
+                        rs.getBoolean("active"), rs.getBoolean("owner"), rs.getBoolean("must_change_password"))).optional().orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "unauthorized", "Please sign in."));
+        if (!encoder.matches(current, row.hash())) throw ApiException.badRequest("wrong_password", "That isn’t your current password.");
+        if (current.equals(next)) throw ApiException.badRequest("same_password", "Choose a password you haven’t used here.");
+        jdbc.sql("update staff_users set password_hash = :h, must_change_password = false where id = :id").param("h", encoder.encode(next)).param("id", who.id()).update();
+        audit.record(who, "change_password", "staff", who.id(), "");
+        JwtService.Issued token = jwt.issue(row.id(), row.role(), row.businessId(), false);
+        return new Session(token.token(), token.expiresAt(), view(new Row(row.id(), row.email(), row.name(), row.hash(), row.role(), row.businessId(), row.active(), row.owner(), false)));
+    }
+
+    /** The first login for a business, made when VIBE approves it. The password is shown once to the admin, who passes it on; it must be changed at first sign-in. */
+    @Transactional
+    public Staff createOwner(StaffPrincipal who, UUID businessId, String email, String name, String password) {
+        String e = email.trim().toLowerCase(Locale.ROOT);
+        if (byEmail(e).isPresent()) throw ApiException.conflict("duplicate", "That email already has an account.");
+        UUID id = UUID.randomUUID();
+        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner, must_change_password) values (:id, :e, :n, :h, 'MERCHANT', :b, true, true)")
+                .param("id", id).param("e", e).param("n", name.trim()).param("h", encoder.encode(password)).param("b", businessId).update();
+        audit.record(who, "create", "staff", id, e);
+        return me(new StaffPrincipal(id, "MERCHANT", businessId));
+    }
+
+    public boolean emailTaken(String email) { return byEmail(email.trim().toLowerCase(Locale.ROOT)).isPresent(); }
+
     /** Used by the dev seed. */
     @Transactional
     public UUID createAdmin(String email, String name, String password) {
@@ -182,6 +212,6 @@ public class StaffService {
     }
 
     private static Staff view(Row r) {
-        return new Staff(r.id().toString(), r.email(), r.name(), r.role(), r.businessId() == null ? null : r.businessId().toString(), r.active(), r.owner());
+        return new Staff(r.id().toString(), r.email(), r.name(), r.role(), r.businessId() == null ? null : r.businessId().toString(), r.active(), r.owner(), r.mustChange());
     }
 }

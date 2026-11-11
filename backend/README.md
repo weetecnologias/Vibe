@@ -2,7 +2,7 @@
 
 Spring Boot (Java 25, Maven) modular monolith on PostgreSQL. See [docs/backend-design.md](../docs/backend-design.md) for the full plan.
 
-## What exists today (phase B0, the catalogue, the content tools, and Pay & Redeem)
+## What exists today (the catalogue, content tools, Pay & Redeem, membership, alerts, onboarding and admin oversight)
 
 | Area | Endpoints | Who |
 | --- | --- | --- |
@@ -14,14 +14,18 @@ Spring Boot (Java 25, Maven) modular monolith on PostgreSQL. See [docs/backend-d
 | Notifications | `GET /v1/me/notifications`, `POST /v1/me/notifications/read`, `PUT /v1/me/devices` | customer |
 | **Pay & Redeem (customer)** | `GET /v1/offers/{id}` (public), `GET /v1/offers/{id}/eligibility`, `POST /v1/redemptions`, `GET /v1/redemptions/{id}`, `POST /v1/redemptions/{id}/cancel`, `GET /v1/payment-requests/{id}`, `POST /v1/payment-requests/{id}/payments` (needs `Idempotency-Key`), `GET /v1/payments/{reference}` | customer |
 | **Pay & Redeem (merchant)** | `GET /v1/merchant/bills` (`view=open\|today`, `q`), `POST /v1/merchant/bills/{id}/preview`, `POST /v1/merchant/bills/{id}` (raise the bill), `POST /v1/merchant/bills/{id}/withdraw` | `MERCHANT`, own business only |
+| **Membership (customer)** | `GET /v1/membership`, `POST /v1/membership/subscriptions` (returns a bill, paid through the normal payment flow), `POST /v1/membership/plan-change`, `POST /v1/membership/cancel` | customer |
+| **Business applications (public)** | `POST /v1/business-applications`, `GET`/`PUT /v1/business-applications/{id}?token=` (check status, resubmit when changes are requested) | anyone with the private token |
+| **Staff alerts** | `GET /v1/staff/notifications`, `POST /v1/staff/notifications/read`, `POST /v1/staff/password`, `GET /v1/merchant/settings` (does this kind of business use bills, and what is its item list called) | admin, merchant |
 | Payment partner webhook | `POST /v1/webhooks/{provider}` (signed with `X-Vibe-Signature`) | the payment partner |
 | Staff sign-in | `POST /v1/staff/login`, `GET /v1/staff/me` | admin, merchant |
+| **Admin oversight** | `GET /v1/admin/overview`, `/customers` (+ detail, reveal phone with an audit entry, grant membership), `/transactions` (+ detail), `/members`, `/deletion-requests`, `/applications` (approve, ask for changes, reject) | `ADMIN` |
 | Admin | categories, businesses, merchant logins, audit log; **offer review** (approve or reject with a note); **events** (create, edit, publish, reject, cancel); **home banners and pinned sections**; **membership plans**; **checkout coupons** | `ADMIN` |
 | Merchant | own business profile, menu, offers, **events with ticket types**, **reservation fees and policy**, **team logins** (owner only) | `MERCHANT`, own business only |
 
 Responses match the customer app's `CategoryNode`, `BusinessSummary`, `BusinessDetail` and `OfferSummary` types.
 
-**Not built yet** (later phases in the design doc): ticket sales and holds, movies, membership subscriptions (a customer can be made a member in the database, nobody can buy it yet), social, and the real SMS, push and payment providers (see below). Checkout coupons and reservation fees are stored and managed, but nothing applies them until payments and social exist. Image upload stores files on local disk in development; production needs object storage behind a CDN. Ratings, reviews and branches are empty or zero until their modules exist. The customer app can't switch to `http` mode yet because it needs those endpoints too.
+**Not built yet** (later phases in `docs/platform-workflows.md`): ticket sales and holds, movies and seat maps, the hosting programme and the rest of social, reservations with split payment, home collections, settlements and refunds, automatic membership renewal (needs the payment partner's recurring payments), and the real SMS, push and payment providers (see below). Checkout coupons and reservation fees are stored and managed, but nothing applies them until payments and social exist. Image upload stores files on local disk in development; production needs object storage behind a CDN. Ratings, reviews and branches are empty or zero until their modules exist. The customer app can't switch to `http` mode yet because it needs those endpoints too.
 
 ## Rules the server enforces
 
@@ -40,6 +44,11 @@ Responses match the customer app's `CategoryNode`, `BusinessSummary`, `BusinessD
 - **Redeeming:** member-only offers need an active membership; one paid redemption per offer per day (India time); tapping Redeem again while one is open returns the same one.
 - **Payments:** every payment needs an `Idempotency-Key` (the same key returns the same payment; reusing it for another bill is refused). The database allows only one live payment per bill and only one open redemption per customer per offer, so a double tap or a race can't charge twice. A bill past its time can't be paid.
 - **A payment counts only when the payment partner says so.** The webhook is checked against its signature first, every accepted event is kept (a repeated event is ignored), the amount must match, and the effects (redemption paid, savings recorded, customer notified) happen exactly once. A failed payment leaves the bill open for another try.
+- **Staff are told, not left to look:** a customer tapping Redeem or cancelling, a bill being paid, and offers or events being sent for review or decided all create an alert for the right people (the business team, or admins). Dashboards poll every few seconds, and show a bell, a toast, a sound and the count in the tab title.
+- **What a business sees follows its category:** each category says whether Pay & Redeem bills apply (a cinema, for example, sells tickets instead) and what its item list is called (Menu, Price list, Services). The rule is inherited down the tree and enforced by the server, not just hidden in the dashboard.
+- **Membership:** bought through the same payment flow as a bill. It starts only when the partner confirms. Time stacks if bought again before it ends; cancelling keeps the benefits to the end date. Switching plan while active is refused (`use_subscribe`). An admin can grant membership, but must give a reason, and it is audited.
+- **Onboarding:** a new business applies with no login. VIBE approves it, asks for changes, or rejects it with a reason. Approving creates the listing (switched off) and the owner's login with a one-time temporary password; until the owner chooses their own password, every call except changing it is refused.
+- **Admins see a customer's phone only on request**, and each reveal is written to the audit log.
 - Every admin and merchant change is written to the audit log.
 
 ## Run it
@@ -87,6 +96,7 @@ Production must never run the `dev` profile.
 | SMS sign-in codes | Always 123456, nothing sent | An SMS provider with DLT-registered templates |
 | Payments | A simulated partner confirms a payment about 2 seconds after it starts, through the same code a real webhook uses. No money moves | An RBI-authorised payment partner with split settlement, and its webhook secret |
 | Push notifications | Saved to the customer's inbox only; the app also checks every few seconds | Firebase and Apple push accounts |
-| Membership | The dev customer is seeded as a member; nobody can buy a plan yet | The membership module (backend phase B4) |
+| Membership | Bought with the simulated partner; the dev customer is also seeded as a member | Recurring payments from the real partner for automatic renewal |
+| Email to new merchants | The temporary password is shown to the admin once, to pass on by hand | An email provider |
 
 Dev customer: sign in to the customer app with `98765 43210` and the code `123456`.

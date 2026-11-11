@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 
 import {
   Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, rupeesToPaise, useAsync, useAuth,
-  type BillBoard, type BillInput, type BillPreview, type BillRow,
+  type BillBoard, type BillInput, type BillPreview, type BillRow, type MenuRow,
 } from '@kit';
+
+import { useSettings } from '../settings';
 
 const REFRESH_MS = 4000;
 
@@ -127,8 +129,19 @@ function RaiseBill({ row, onClose, onSent }: { row: BillRow; onClose: () => void
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const seq = useRef(0);
+  const { menuLabel } = useSettings();
+  const menu = useAsync(() => client.get<MenuRow[]>('/v1/merchant/menu'), [client]);
+  const items = (menu.data ?? []).filter((m) => m.active);
+  const [qty, setQty] = useState<Record<string, number>>({});
+  const [mode, setMode] = useState<'pick' | 'type'>('pick');
+  const picked = items.filter((m) => (qty[m.id] ?? 0) > 0);
+  const useMenu = mode === 'pick' && items.length > 0;
+  const sections = [...new Set(items.map((m) => m.section ?? ''))];
+  const bump = (id: string, d: number) => { setConfirmed(false); setQty({ ...qty, [id]: Math.max(0, Math.min(50, (qty[id] ?? 0) + d)) }); };
 
-  const parsed = lines.map((l) => ({ label: l.label.trim(), amount: rupeesToPaise(l.amount) }));
+  const parsed: { label: string; amount: number | null }[] = useMenu
+    ? picked.map((m) => ({ label: (qty[m.id] ?? 0) > 1 ? `${m.name} × ${qty[m.id]}` : m.name, amount: m.price * (qty[m.id] ?? 0) }))
+    : lines.map((l) => ({ label: l.label.trim(), amount: rupeesToPaise(l.amount) }));
   const valid = parsed.length > 0 && parsed.every((l) => l.label && l.amount !== null && l.amount > 0);
   const total = valid ? parsed.reduce((n, l) => n + (l.amount ?? 0), 0) : 0;
   const body: BillInput | null = valid ? { lines: parsed.map((l) => ({ label: l.label, amount: l.amount as number })), billRef: billRef.trim() || undefined } : null;
@@ -171,18 +184,43 @@ function RaiseBill({ row, onClose, onSent }: { row: BillRow; onClose: () => void
     <Modal title={`Bill for ${row.customerName}`} onClose={onClose} wide>
       <div className="stack">
         <p className="muted small" style={{ margin: 0 }}>VIBE ID {row.vibeId} · {row.offerTitle}. Enter what they ordered. VIBE works out the discount.</p>
-        {lines.map((l, i) => (
+        {items.length > 0 ? (
+          <div className="tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={mode === 'pick'} className={`tab${mode === 'pick' ? ' on' : ''}`} onClick={() => { setConfirmed(false); setMode('pick'); }}>From the {menuLabel.toLowerCase()}</button>
+            <button type="button" role="tab" aria-selected={mode === 'type'} className={`tab${mode === 'type' ? ' on' : ''}`} onClick={() => { setConfirmed(false); setMode('type'); }}>Type amounts</button>
+          </div>
+        ) : null}
+        {useMenu ? (
+          <div className="stack" style={{ maxHeight: 280, overflow: 'auto' }}>
+            {sections.map((sec) => (
+              <div key={sec || 'other'} className="stack" style={{ gap: 4 }}>
+                {sec ? <strong className="small">{sec}</strong> : null}
+                {items.filter((m) => (m.section ?? '') === sec).map((m) => (
+                  <div key={m.id} className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                    <span>{m.name} <span className="muted small">{formatINR(m.price)}</span></span>
+                    <span className="row" style={{ flexWrap: 'nowrap', gap: 6 }}>
+                      <button type="button" className="btn sm" aria-label={`Fewer ${m.name}`} disabled={!(qty[m.id] ?? 0)} onClick={() => bump(m.id, -1)}>−</button>
+                      <span style={{ minWidth: 20, textAlign: 'center' }} aria-live="polite">{qty[m.id] ?? 0}</span>
+                      <button type="button" className="btn sm" aria-label={`More ${m.name}`} onClick={() => bump(m.id, 1)}>+</button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {!useMenu ? lines.map((l, i) => (
           <div key={i} className="row" style={{ flexWrap: 'nowrap' }}>
             <input aria-label={`Item ${i + 1} name`} value={l.label} maxLength={80} placeholder="Item" onChange={(e) => setLine(i, { label: e.target.value })} />
             <input aria-label={`Item ${i + 1} amount in rupees`} style={{ maxWidth: 140 }} inputMode="decimal" value={l.amount} placeholder="₹" onChange={(e) => setLine(i, { amount: e.target.value })} autoFocus={i === 0} />
             {lines.length > 1 ? <button type="button" className="btn ghost sm" aria-label={`Remove item ${i + 1}`} onClick={() => { setConfirmed(false); setLines(lines.filter((_, j) => j !== i)); }}>✕</button> : null}
           </div>
-        ))}
-        <div className="row"><button type="button" className="btn sm" disabled={lines.length >= 30} onClick={() => setLines([...lines, { label: '', amount: '' }])}>Add another item</button></div>
+        )) : null}
+        {!useMenu ? <div className="row"><button type="button" className="btn sm" disabled={lines.length >= 30} onClick={() => setLines([...lines, { label: '', amount: '' }])}>Add another item</button></div> : null}
         <Field label="Your bill number (optional)" hint="For example the table or the number on your own bill."><input style={{ maxWidth: 260 }} value={billRef} maxLength={40} onChange={(e) => setBillRef(e.target.value)} /></Field>
 
         <div className="card" style={{ background: 'var(--soft-white)' }} aria-live="polite">
-          {!body ? <span className="muted">Enter an amount for every item.</span> : previewError ? <span style={{ color: 'var(--error)' }}>{previewError}</span> : !fresh ? <span className="muted">Checking…</span> : (
+          {!body ? <span className="muted">{useMenu ? 'Pick what they ordered.' : 'Enter an amount for every item.'}</span> : previewError ? <span style={{ color: 'var(--error)' }}>{previewError}</span> : !fresh ? <span className="muted">Checking…</span> : (
             <div className="stack" style={{ gap: 6 }}>
               <div className="row" style={{ justifyContent: 'space-between' }}><span>Bill</span><strong>{formatINR(preview.eligibleAmount)}</strong></div>
               <div className="row" style={{ justifyContent: 'space-between' }}><span>{preview.discountLabel}</span><strong style={{ color: 'var(--pink-deep)' }}>{preview.discount > 0 ? `− ${formatINR(preview.discount)}` : '₹0'}</strong></div>

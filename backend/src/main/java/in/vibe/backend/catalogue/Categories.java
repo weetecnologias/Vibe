@@ -30,7 +30,7 @@ public class Categories {
     public record Node(String id, String slug, String name, String icon, String iconUrl, String imageUrl, List<Node> children) {}
 
     /** The admin's flat view, including inactive categories. */
-    public record Row(String id, String parentId, int level, String slug, String name, String icon, String iconUrl, String imageUrl, int sortOrder, boolean active, int businessCount) {}
+    public record Row(String id, String parentId, int level, String slug, String name, String icon, String iconUrl, String imageUrl, int sortOrder, boolean active, int businessCount, boolean payRedeem, String menuLabel) {}
 
     public record Input(
             String parentId,
@@ -40,7 +40,11 @@ public class Categories {
             @Pattern(regexp = HTTP_URL, message = "must be an http(s) link") String iconUrl,
             @Pattern(regexp = HTTP_URL, message = "must be an http(s) link") String imageUrl,
             @Min(0) Integer sortOrder,
-            Boolean active) {}
+            Boolean active,
+            /** Whether businesses here use Pay & Redeem bills. Off for cinemas and event organisers. Default on. */
+            Boolean payRedeem,
+            /** What the item list is called: Menu, Price list, Services. Empty means the parent's, or Menu. */
+            @Size(max = 30) String menuLabel) {}
 
     private final JdbcClient jdbc;
     private final AuditService audit;
@@ -50,13 +54,13 @@ public class Categories {
         this.audit = audit;
     }
 
-    private record Flat(UUID id, UUID parentId, String slug, String name, String icon, String iconUrl, String imageUrl, int sortOrder, boolean active) {}
+    private record Flat(UUID id, UUID parentId, String slug, String name, String icon, String iconUrl, String imageUrl, int sortOrder, boolean active, boolean payRedeem, String menuLabel) {}
 
     private List<Flat> flat(boolean activeOnly) {
-        return jdbc.sql("select id, parent_id, slug, name, icon, icon_url, image_url, sort_order, active from categories "
+        return jdbc.sql("select id, parent_id, slug, name, icon, icon_url, image_url, sort_order, active, pay_redeem, menu_label from categories "
                         + (activeOnly ? "where active " : "") + "order by sort_order, name")
                 .query((rs, i) -> new Flat((UUID) rs.getObject("id"), (UUID) rs.getObject("parent_id"), rs.getString("slug"), rs.getString("name"),
-                        rs.getString("icon"), rs.getString("icon_url"), rs.getString("image_url"), rs.getInt("sort_order"), rs.getBoolean("active")))
+                        rs.getString("icon"), rs.getString("icon_url"), rs.getString("image_url"), rs.getInt("sort_order"), rs.getBoolean("active"), rs.getBoolean("pay_redeem"), rs.getString("menu_label")))
                 .list();
     }
 
@@ -84,7 +88,7 @@ public class Categories {
         jdbc.sql("select category_id, count(*) n from business_categories group by category_id")
                 .query((rs, i) -> { counts.put((UUID) rs.getObject(1), rs.getInt(2)); return 0; }).list();
         return all.stream().map(f -> new Row(f.id().toString(), f.parentId() == null ? null : f.parentId().toString(), levelOf(f.id(), byId), f.slug(), f.name(),
-                f.icon(), f.iconUrl(), f.imageUrl(), f.sortOrder(), f.active(), counts.getOrDefault(f.id(), 0))).toList();
+                f.icon(), f.iconUrl(), f.imageUrl(), f.sortOrder(), f.active(), counts.getOrDefault(f.id(), 0), f.payRedeem(), f.menuLabel())).toList();
     }
 
     private static int levelOf(UUID id, Map<UUID, Flat> byId) {
@@ -98,10 +102,10 @@ public class Categories {
         UUID parent = parse(in.parentId());
         checkDepth(parent, null);
         UUID id = UUID.randomUUID();
-        jdbc.sql("insert into categories (id, parent_id, slug, name, icon, icon_url, image_url, sort_order, active) values (:id, :p, :s, :n, :i, :iu, :im, :o, :a)")
+        jdbc.sql("insert into categories (id, parent_id, slug, name, icon, icon_url, image_url, sort_order, active, pay_redeem, menu_label) values (:id, :p, :s, :n, :i, :iu, :im, :o, :a, :pr, :ml)")
                 .param("id", id).param("p", parent, java.sql.Types.OTHER).param("s", in.slug()).param("n", in.name().trim()).param("i", blank(in.icon()))
                 .param("iu", blank(in.iconUrl())).param("im", blank(in.imageUrl())).param("o", in.sortOrder() == null ? 0 : in.sortOrder())
-                .param("a", in.active() == null || in.active()).update();
+                .param("a", in.active() == null || in.active()).param("pr", in.payRedeem() == null || in.payRedeem()).param("ml", blank(in.menuLabel())).update();
         audit.record(who, "create", "category", id, in.slug());
         return row(id);
     }
@@ -111,10 +115,10 @@ public class Categories {
         row(id);
         UUID parent = parse(in.parentId());
         checkDepth(parent, id);
-        jdbc.sql("update categories set parent_id = :p, slug = :s, name = :n, icon = :i, icon_url = :iu, image_url = :im, sort_order = :o, active = :a, updated_at = now() where id = :id")
+        jdbc.sql("update categories set parent_id = :p, slug = :s, name = :n, icon = :i, icon_url = :iu, image_url = :im, sort_order = :o, active = :a, pay_redeem = :pr, menu_label = :ml, updated_at = now() where id = :id")
                 .param("id", id).param("p", parent, java.sql.Types.OTHER).param("s", in.slug()).param("n", in.name().trim()).param("i", blank(in.icon()))
                 .param("iu", blank(in.iconUrl())).param("im", blank(in.imageUrl())).param("o", in.sortOrder() == null ? 0 : in.sortOrder())
-                .param("a", in.active() == null || in.active()).update();
+                .param("a", in.active() == null || in.active()).param("pr", in.payRedeem() == null || in.payRedeem()).param("ml", blank(in.menuLabel())).update();
         audit.record(who, "update", "category", id, in.slug());
         return row(id);
     }

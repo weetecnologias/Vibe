@@ -70,11 +70,13 @@ public class Events {
     private final JdbcClient jdbc;
     private final AuditService audit;
     private final Clock clock;
+    private final in.vibe.backend.notify.StaffNotifications staffNotifications;
 
-    Events(JdbcClient jdbc, AuditService audit, Clock clock) {
+    Events(JdbcClient jdbc, AuditService audit, Clock clock, in.vibe.backend.notify.StaffNotifications staffNotifications) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.clock = clock;
+        this.staffNotifications = staffNotifications;
     }
 
     // ---------- reads ----------
@@ -129,6 +131,7 @@ public class Events {
         UUID id = UUID.randomUUID();
         insert(id, business, name, in, "pending", false);
         audit.record(who, "create", "event", id, in.title());
+        staffNotifications.toAdmins("event_review", "Event waiting for review", name + ": " + in.title(), "/events");
         return get(id);
     }
 
@@ -140,6 +143,7 @@ public class Events {
         check(in, false);
         update(id, before.organiser(), in, "pending", before.featured());
         audit.record(who, "update", "event", id, in.title());
+        staffNotifications.toAdmins("event_review", "Event changed, waiting for review", before.organiser() + ": " + in.title(), "/events");
         return get(id);
     }
 
@@ -177,6 +181,7 @@ public class Events {
         if (!approve && (note == null || note.isBlank())) throw ApiException.badRequest("note_required", "Tell the organiser what to change.");
         setStatus(id, approve ? "published" : "rejected", approve ? null : note.trim());
         audit.record(who, approve ? "approve" : "reject", "event", id, r.title());
+        if (r.businessId() != null) staffNotifications.toBusiness(UUID.fromString(r.businessId()), "event_decision", approve ? "Event published" : "Event not approved", r.title() + (approve ? " is live in the app." : ": " + note.trim()), "/events");
         return get(id);
     }
 

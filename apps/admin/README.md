@@ -4,7 +4,14 @@ React + Vite + TypeScript. For VIBE staff. Shares its UI, API client and money h
 
 ## What it does
 
-- **Categories:** add, edit, reorder, switch off and delete categories and subcategories (3 levels). Icons are a built-in name or an uploaded icon link. New categories appear in the customer app the next time it loads.
+- **Overview:** money collected, redemptions, customers, members, what members saved, and what is waiting for you (applications, offers and events to review, deletion requests).
+- **Customers:** search everyone, see their membership, payments and redemptions, reveal a phone number (audited), grant membership with a reason.
+- **Transactions:** every payment, who paid, where, how much, and whether the payment partner confirmed it.
+- **Members:** who holds a plan, from which date, and how they got it (bought or granted).
+- **Applications:** businesses that applied to join. Approve (creates the listing, switched off, and the owner's login), ask for changes, or reject with a reason.
+- **Deletion requests:** customers who asked for their account to be deleted.
+- **Alerts:** a bell with a count, a toast and a sound when something needs you.
+- **Categories:** add, edit, reorder, switch off and delete categories and subcategories (3 levels), and set whether bills apply to them and what their item list is called. Icons are a built-in name or an uploaded icon link. New categories appear in the customer app the next time it loads.
 - **Businesses:** search, create and edit listings (profile, hours, photos, categories, verified, live), and create merchant logins.
 - **Offer review:** approve or reject merchant offers (rejecting needs a note the merchant sees). Only approved offers reach customers.
 - **Events:** review merchant events and publish or reject them, create your own (they publish straight away), edit, cancel. Ticket types and prices are set on the event.

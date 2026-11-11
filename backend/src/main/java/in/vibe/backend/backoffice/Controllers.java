@@ -75,6 +75,10 @@ public class Controllers {
 
         @GetMapping("/me")
         StaffService.Staff me(@AuthenticationPrincipal Jwt jwt) { return staff.me(StaffPrincipal.from(jwt)); }
+
+        /** Choosing a new password returns a fresh session. Required first thing for a login that someone else created. */
+        @PostMapping("/password")
+        StaffService.Session password(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody StaffService.PasswordChange in) { return staff.changePassword(StaffPrincipal.from(jwt), in.current(), in.next()); }
     }
 
     // ---------- admin ----------

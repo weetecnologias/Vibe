@@ -10,3 +10,5 @@ export * from './rule';
 export * from './time';
 export * from './types';
 export * from './ui';
+export { ChangePasswordPage } from './ChangePasswordPage';
+export { NotificationBell } from './NotificationBell';

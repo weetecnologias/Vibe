@@ -19,10 +19,12 @@ public class OfferReview {
 
     private final JdbcClient jdbc;
     private final AuditService audit;
+    private final in.vibe.backend.notify.StaffNotifications staffNotifications;
 
-    OfferReview(JdbcClient jdbc, AuditService audit) {
+    OfferReview(JdbcClient jdbc, AuditService audit, in.vibe.backend.notify.StaffNotifications staffNotifications) {
         this.jdbc = jdbc;
         this.audit = audit;
+        this.staffNotifications = staffNotifications;
     }
 
     private static Row map(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
@@ -50,6 +52,7 @@ public class OfferReview {
         jdbc.sql("update offers set review_status = :st, review_note = :n, reviewed_at = now(), reviewed_by = :by where id = :id")
                 .param("st", approve ? "approved" : "rejected").param("n", approve ? null : note.trim()).param("by", who.id()).param("id", id).update();
         audit.record(who, approve ? "approve" : "reject", "offer", id, before.businessName() + ": " + before.title());
+        staffNotifications.toBusiness(UUID.fromString(before.businessId()), "offer_decision", approve ? "Offer approved" : "Offer not approved", before.title() + (approve ? " is approved and goes live in its dates." : ": " + note.trim()), "/offers");
         return jdbc.sql("select o.*, b.name bname from offers o join businesses b on b.id = o.business_id where o.id = :id").param("id", id).query(OfferReview::map).single();
     }
 }

@@ -2,6 +2,9 @@ package in.vibe.backend.billing;
 
 import in.vibe.backend.billing.PaymentProviders.PaymentProvider;
 import in.vibe.backend.common.ApiException;
+import in.vibe.backend.customer.Customers;
+import in.vibe.backend.membership.Memberships;
+import in.vibe.backend.notify.StaffNotifications;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import org.slf4j.Logger;
@@ -51,6 +54,8 @@ public class Payments {
     private final JdbcClient jdbc;
     private final Redemptions redemptions;
     private final Notifications notifications;
+    private final StaffNotifications staffNotifications;
+    private final Memberships memberships;
     private final PaymentProvider provider;
     private final JsonMapper json;
     private final Clock clock;
@@ -58,11 +63,13 @@ public class Payments {
     private final long simulateAfterMs;
     private final SecureRandom random = new SecureRandom();
 
-    Payments(JdbcClient jdbc, Redemptions redemptions, Notifications notifications, PaymentProvider provider, JsonMapper json, Clock clock,
+    Payments(JdbcClient jdbc, Redemptions redemptions, Notifications notifications, StaffNotifications staffNotifications, Memberships memberships, PaymentProvider provider, JsonMapper json, Clock clock,
              @Value("${vibe.payments.webhook-secret:}") String webhookSecret, @Value("${vibe.payments.simulate-after-ms:0}") long simulateAfterMs) {
         this.jdbc = jdbc;
         this.redemptions = redemptions;
         this.notifications = notifications;
+        this.staffNotifications = staffNotifications;
+        this.memberships = memberships;
         this.provider = provider;
         this.json = json;
         this.clock = clock;
@@ -74,11 +81,11 @@ public class Payments {
 
     // ---------- the bill, as the checkout screen reads it ----------
     public CheckoutRequest paymentRequest(UUID customer, UUID id) {
-        var owner = jdbc.sql("select p.status, b.name from payment_requests p join businesses b on b.id = p.business_id where p.id = :id and p.customer_id = :c").param("id", id).param("c", customer)
-                .query((rs, i) -> new String[]{rs.getString(1), rs.getString(2)}).optional().orElseThrow(() -> ApiException.notFound("This bill is no longer available."));
+        var owner = jdbc.sql("select p.status, coalesce(b.name, 'VIBE Membership'), p.kind from payment_requests p left join businesses b on b.id = p.business_id where p.id = :id and p.customer_id = :c").param("id", id).param("c", customer)
+                .query((rs, i) -> new String[]{rs.getString(1), rs.getString(2), rs.getString(3)}).optional().orElseThrow(() -> ApiException.notFound("This bill is no longer available."));
         if ("void".equals(owner[0])) throw ApiException.notFound("This bill was withdrawn.");
         Redemptions.PaymentRequestView v = redemptions.paymentRequest(id);
-        return new CheckoutRequest(v.id(), v.billRef(), v.raisedBy(), v.raisedAt(), v.lines(), v.eligibleAmount(), v.discount(), v.discountLabel(), v.taxes(), v.vibeFee(), v.payable(), v.currency(), v.appliedOffer(), v.expiresAt(), owner[1], "redemption");
+        return new CheckoutRequest(v.id(), v.billRef(), v.raisedBy(), v.raisedAt(), v.lines(), v.eligibleAmount(), v.discount(), v.discountLabel(), v.taxes(), v.vibeFee(), v.payable(), v.currency(), v.appliedOffer(), v.expiresAt(), owner[1], owner[2]);
     }
 
     // ---------- start paying ----------
@@ -122,8 +129,8 @@ public class Payments {
         if (provider.simulated() && "pending".equals(p[1]) && provider.name().equals(p[3]) && ((OffsetDateTime) p[2]).plusNanos(simulateAfterMs * 1_000_000).isBefore(now())) {
             applyVerified((UUID) p[0], "pay_sim_" + code(10));
         }
-        return jdbc.sql("select p.*, b.name bname, pr.discount_label, pr.id prid from payments p join payment_requests pr on pr.id = p.payment_request_id join businesses b on b.id = pr.business_id where p.reference = :r").param("r", reference)
-                .query((rs, i) -> new PaymentView(rs.getString("reference"), "redemption", rs.getString("status"), rs.getString("method"), rs.getLong("amount"), rs.getLong("savings"), rs.getString("bname"), rs.getString("provider_payment_id"),
+        return jdbc.sql("select p.*, coalesce(b.name, 'VIBE Membership') bname, pr.discount_label, pr.id prid, pr.kind prkind from payments p join payment_requests pr on pr.id = p.payment_request_id left join businesses b on b.id = pr.business_id where p.reference = :r").param("r", reference)
+                .query((rs, i) -> new PaymentView(rs.getString("reference"), rs.getString("prkind"), rs.getString("status"), rs.getString("method"), rs.getLong("amount"), rs.getLong("savings"), rs.getString("bname"), rs.getString("provider_payment_id"),
                         rs.getObject("verified_at", OffsetDateTime.class), rs.getString("failure_reason"), redemptions.paymentRequest((UUID) rs.getObject("prid")).lines(), List.of(), rs.getLong("savings") > 0 ? rs.getString("discount_label") : null)).single();
     }
 
@@ -139,15 +146,23 @@ public class Payments {
         record P(UUID pr, UUID customer, long amount, long savings) {}
         P p = jdbc.sql("select payment_request_id, customer_id, amount, savings from payments where id = :id").param("id", paymentId)
                 .query((rs, i) -> new P((UUID) rs.getObject(1), (UUID) rs.getObject(2), rs.getLong(3), rs.getLong(4))).single();
-        var pr = jdbc.sql("select redemption_id, business_id from payment_requests where id = :id").param("id", p.pr()).query((rs, i) -> new UUID[]{(UUID) rs.getObject(1), (UUID) rs.getObject(2)}).single();
+        var pr = jdbc.sql("select kind, redemption_id, business_id, plan_id from payment_requests where id = :id").param("id", p.pr()).query((rs, i) -> new Object[]{rs.getString(1), rs.getObject(2), rs.getObject(3), rs.getObject(4)}).single();
         jdbc.sql("update payment_requests set status = 'paid' where id = :id").param("id", p.pr()).update();
-        if (pr[0] != null) jdbc.sql("update redemptions set status = 'paid', paid_at = now(), updated_at = now() where id = :id").param("id", pr[0]).update();
+        if ("membership".equals(pr[0])) {
+            OffsetDateTime until = memberships.activate(p.customer(), (UUID) pr[3], paymentId, p.amount(), "paid", null);
+            notifications.notify(p.customer(), "membership_started", "Welcome to VIBE membership", "Your membership is active until " + until.toLocalDate() + ". Member offers are now open to you.", "membership", null);
+            return true;
+        }
+        UUID business = (UUID) pr[2];
+        if (pr[1] != null) jdbc.sql("update redemptions set status = 'paid', paid_at = now(), updated_at = now() where id = :id").param("id", pr[1]).update();
         if (p.savings() > 0) {
-            jdbc.sql("insert into savings_events (id, customer_id, business_id, payment_id, paid, saved) values (:id, :c, :b, :p, :paid, :s)").param("id", UUID.randomUUID()).param("c", p.customer()).param("b", pr[1])
+            jdbc.sql("insert into savings_events (id, customer_id, business_id, payment_id, paid, saved) values (:id, :c, :b, :p, :paid, :s)").param("id", UUID.randomUUID()).param("c", p.customer()).param("b", business)
                     .param("p", paymentId).param("paid", p.amount()).param("s", p.savings()).update();
         }
-        String biz = jdbc.sql("select name from businesses where id = :id").param("id", pr[1]).query(String.class).single();
+        String biz = jdbc.sql("select name from businesses where id = :id").param("id", business).query(String.class).single();
         notifications.notify(p.customer(), "payment_verified", "Payment received", "₹" + Redemptions.rupees(p.amount()) + " paid to " + biz + (p.savings() > 0 ? ". You saved ₹" + Redemptions.rupees(p.savings()) + "." : "."), "payment", paymentId.toString());
+        String who = jdbc.sql("select name, vibe_id from customers where id = :id").param("id", p.customer()).query((rs, i) -> Customers.displayName(rs.getString(1)) + " (VIBE ID " + rs.getString(2) + ")").single();
+        staffNotifications.toBusiness(business, "payment_received", "Payment received: ₹" + Redemptions.rupees(p.amount()), who + " paid their bill" + (p.savings() > 0 ? " and saved ₹" + Redemptions.rupees(p.savings()) : "") + ".", "/bills");
         return true;
     }
 

@@ -6,7 +6,7 @@ export class ApiError extends Error {
 }
 
 export type Role = 'ADMIN' | 'MERCHANT';
-export type Staff = { id: string; email: string; name: string; role: Role; businessId: string | null; active: boolean; owner: boolean };
+export type Staff = { id: string; email: string; name: string; role: Role; businessId: string | null; active: boolean; owner: boolean; mustChangePassword: boolean };
 export type Session = { token: string; expiresAt: string; staff: Staff };
 
 export type Client = {

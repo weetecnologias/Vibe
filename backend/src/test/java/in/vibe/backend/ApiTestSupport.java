@@ -75,7 +75,14 @@ abstract class ApiTestSupport {
         String email = "m-" + uniq() + "@test.local";
         mvc.perform(as(adminToken(), post("/v1/admin/businesses/" + businessId + "/staff"))
                 .content("{\"email\":\"" + email + "\",\"name\":\"Manager\",\"password\":\"" + PASSWORD + "\"}")).andExpect(status().isCreated());
-        return login(email, PASSWORD);
+        return signInSettled(email, PASSWORD);
+    }
+
+    /** A login made by someone else must choose its own password first. This signs in, does that, and returns the working token. */
+    String signInSettled(String email, String password) throws Exception {
+        String first = login(email, password);
+        MvcResult r = mvc.perform(as(first, post("/v1/staff/password")).content("{\"current\":\"" + password + "\",\"next\":\"" + password + "-chosen\"}")).andExpect(status().isOk()).andReturn();
+        return JsonPath.read(r.getResponse().getContentAsString(), "$.token");
     }
 
 

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 
 import { createClient, errorText, type Client, type Role, type Session, type Staff } from './api';
 
-type Auth = { staff: Staff | null; client: Client; signIn(email: string, password: string): Promise<void>; signOut(): void };
+type Auth = { staff: Staff | null; client: Client; signIn(email: string, password: string): Promise<void>; signOut(): void; adopt(session: Session): void };
 
 const Ctx = createContext<Auth | null>(null);
 
@@ -43,7 +43,13 @@ export function AuthProvider({ role, baseUrl, children }: { role: Role; baseUrl:
     setSession(s);
   }, [baseUrl, role]);
 
-  const value = useMemo<Auth>(() => ({ staff: session?.staff ?? null, client, signIn, signOut }), [session, client, signIn, signOut]);
+  /** Replaces the session, for example after choosing a new password returns a fresh one. */
+  const adopt = useCallback((s: Session) => {
+    try { sessionStorage.setItem(`${KEY}.${role}`, JSON.stringify(s)); } catch { /* storage blocked */ }
+    setSession(s);
+  }, [role]);
+
+  const value = useMemo<Auth>(() => ({ staff: session?.staff ?? null, client, signIn, signOut, adopt }), [session, client, signIn, signOut, adopt]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -53,7 +59,7 @@ export function useAuth(): Auth {
   return v;
 }
 
-export function LoginPage({ title, hint }: { title: string; hint?: string }) {
+export function LoginPage({ title, hint, footer }: { title: string; hint?: string; footer?: ReactNode }) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -88,6 +94,7 @@ export function LoginPage({ title, hint }: { title: string; hint?: string }) {
         {error ? <div className="notice error" role="alert">{error}</div> : null}
         <button className="btn primary" disabled={busy || !email || !password}>{busy ? 'Signing in…' : 'Sign in'}</button>
         {hint ? <p className="muted small">{hint}</p> : null}
+        {footer}
       </form>
     </div>
   );

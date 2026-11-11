@@ -3,6 +3,7 @@ package in.vibe.backend.billing;
 import in.vibe.backend.audit.AuditService;
 import in.vibe.backend.common.ApiException;
 import in.vibe.backend.customer.Customers;
+import in.vibe.backend.notify.StaffNotifications;
 import in.vibe.backend.security.StaffPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -63,16 +64,20 @@ public class Redemptions {
     private final JdbcClient jdbc;
     private final AuditService audit;
     private final Notifications notifications;
+    private final StaffNotifications staffNotifications;
+    private final in.vibe.backend.catalogue.BillingRules billingRules;
     private final Clock clock;
     private final int redemptionMinutes, billMinutes;
     private final long largeBill, vibeFee;
     private final SecureRandom random = new SecureRandom();
 
-    Redemptions(JdbcClient jdbc, AuditService audit, Notifications notifications, Clock clock, @Value("${vibe.billing.redemption-minutes}") int redemptionMinutes,
+    Redemptions(JdbcClient jdbc, AuditService audit, Notifications notifications, StaffNotifications staffNotifications, in.vibe.backend.catalogue.BillingRules billingRules, Clock clock, @Value("${vibe.billing.redemption-minutes}") int redemptionMinutes,
                 @Value("${vibe.billing.bill-minutes}") int billMinutes, @Value("${vibe.billing.large-bill}") long largeBill, @Value("${vibe.billing.vibe-fee}") long vibeFee) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.notifications = notifications;
+        this.staffNotifications = staffNotifications;
+        this.billingRules = billingRules;
         this.clock = clock;
         this.redemptionMinutes = redemptionMinutes;
         this.billMinutes = billMinutes;
@@ -112,6 +117,7 @@ public class Redemptions {
 
     public Eligibility eligibility(UUID customer, UUID offerId) {
         OfferRow o = liveOffer(offerId);
+        if (!billingRules.forBusiness(o.businessId()).payRedeem()) return new Eligibility(false, "Bills aren’t used at this place.", null, null);
         OffsetDateTime until = memberUntil(customer);
         if (o.memberOnly() && until == null) return new Eligibility(false, "This offer is for VIBE members.", null, null);
         int used = jdbc.sql("select count(*) from redemptions where customer_id = :c and offer_id = :o and status = 'paid' and paid_at >= :d").param("c", customer).param("o", offerId).param("d", startOfToday()).query(Integer.class).single();
@@ -142,6 +148,8 @@ public class Redemptions {
         UUID id = UUID.randomUUID();
         jdbc.sql("insert into redemptions (id, customer_id, offer_id, business_id, status, expires_at) values (:id, :c, :o, :b, 'awaiting_bill', :e)").param("id", id).param("c", customer).param("o", offerId)
                 .param("b", o.businessId()).param("e", now().plusMinutes(redemptionMinutes)).update();
+        String who = jdbc.sql("select name, vibe_id from customers where id = :id").param("id", customer).query((rs, i) -> Customers.displayName(rs.getString(1)) + " (VIBE ID " + rs.getString(2) + ")").single();
+        staffNotifications.toBusiness(o.businessId(), "redeem_started", who + " wants to redeem", o.title() + ". Open Bills to raise their bill.", "/bills");
         return view(customer, id);
     }
 
@@ -175,6 +183,8 @@ public class Redemptions {
             jdbc.sql("update payment_requests set status = 'void' where id = :id and status = 'open'").param("id", r.prId()).update();
         }
         jdbc.sql("update redemptions set status = 'cancelled', updated_at = now() where id = :id").param("id", id).update();
+        var info = jdbc.sql("select r.business_id, c.name from redemptions r join customers c on c.id = r.customer_id where r.id = :id").param("id", id).query((rs, i) -> new Object[]{rs.getObject(1), rs.getString(2)}).single();
+        staffNotifications.toBusiness((UUID) info[0], "redeem_cancelled", Customers.displayName((String) info[1]) + " cancelled", "The customer left without a bill. They are off your Bills list.", "/bills");
     }
 
     // ---------- payment request view ----------

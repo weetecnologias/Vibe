@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 
 import { BUILT_IN_ICONS, Badge, Field, ImageField, Loading, Modal, Notice, PageHead, errorText, useAsync, useAuth, type CategoryInput, type CategoryRow } from '@kit';
 
-type Ordered = CategoryRow & { depth: number };
+export type Ordered = CategoryRow & { depth: number };
 
 /** Parents first, children underneath, each level in sort order. */
-function order(rows: CategoryRow[]): Ordered[] {
+export function order(rows: CategoryRow[]): Ordered[] {
   const byParent = new Map<string | null, CategoryRow[]>();
   for (const r of rows) byParent.set(r.parentId, [...(byParent.get(r.parentId) ?? []), r]);
   const out: Ordered[] = [];
@@ -21,7 +21,7 @@ function order(rows: CategoryRow[]): Ordered[] {
 
 const slugify = (s: string) => s.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-type Draft = { id: string | null; parentId: string; name: string; slug: string; slugTouched: boolean; icon: string; iconUrl: string; imageUrl: string; sortOrder: string; active: boolean };
+type Draft = { id: string | null; parentId: string; name: string; slug: string; slugTouched: boolean; icon: string; iconUrl: string; imageUrl: string; sortOrder: string; active: boolean; payRedeem: boolean; menuLabel: string };
 
 export function CategoriesPage() {
   const { client } = useAuth();
@@ -47,8 +47,8 @@ export function CategoriesPage() {
   const open = (row: CategoryRow | null, parentId = '') => {
     setError(null);
     setDraft(row
-      ? { id: row.id, parentId: row.parentId ?? '', name: row.name, slug: row.slug, slugTouched: true, icon: row.icon ?? '', iconUrl: row.iconUrl ?? '', imageUrl: row.imageUrl ?? '', sortOrder: String(row.sortOrder), active: row.active }
-      : { id: null, parentId, name: '', slug: '', slugTouched: false, icon: 'food', iconUrl: '', imageUrl: '', sortOrder: '0', active: true });
+      ? { id: row.id, parentId: row.parentId ?? '', name: row.name, slug: row.slug, slugTouched: true, icon: row.icon ?? '', iconUrl: row.iconUrl ?? '', imageUrl: row.imageUrl ?? '', sortOrder: String(row.sortOrder), active: row.active, payRedeem: row.payRedeem, menuLabel: row.menuLabel ?? '' }
+      : { id: null, parentId, name: '', slug: '', slugTouched: false, icon: 'food', iconUrl: '', imageUrl: '', sortOrder: '0', active: true, payRedeem: true, menuLabel: '' });
   };
 
   const save = async () => {
@@ -57,7 +57,7 @@ export function CategoriesPage() {
     setError(null);
     const body: CategoryInput = {
       parentId: draft.parentId || null, slug: draft.slug.trim(), name: draft.name.trim(), icon: draft.icon || null, iconUrl: draft.iconUrl.trim() || null,
-      imageUrl: draft.imageUrl.trim() || null, sortOrder: Math.max(0, parseInt(draft.sortOrder, 10) || 0), active: draft.active,
+      imageUrl: draft.imageUrl.trim() || null, sortOrder: Math.max(0, parseInt(draft.sortOrder, 10) || 0), active: draft.active, payRedeem: draft.payRedeem, menuLabel: draft.menuLabel.trim() || null,
     };
     try {
       if (draft.id) await client.put(`/v1/admin/categories/${draft.id}`, body); else await client.post('/v1/admin/categories', body);
@@ -101,7 +101,7 @@ export function CategoriesPage() {
                 <tr key={r.id} className={r.active ? '' : 'dim'}>
                   <td><span className={`indent-${r.depth + 1}`}>{r.depth > 0 ? '↳ ' : ''}<strong>{r.name}</strong></span></td>
                   <td className="muted small">{r.slug}</td>
-                  <td className="small">{r.iconUrl ? 'Uploaded' : r.icon ?? '—'}</td>
+                  <td className="small">{r.iconUrl ? 'Uploaded' : r.icon ?? '—'}{!r.payRedeem ? <div><Badge>No bills</Badge></div> : null}</td>
                   <td>{r.businessCount}</td>
                   <td>{r.active ? <Badge tone="success">Live</Badge> : <Badge>Hidden</Badge>}</td>
                   <td className="actions">
@@ -141,6 +141,12 @@ export function CategoriesPage() {
             </div>
             <ImageField label="Uploaded icon (optional)" value={draft.iconUrl} onChange={(v) => setDraft({ ...draft, iconUrl: v })} hint="PNG, JPEG or WebP. Used instead of the built-in icon when set." />
             <ImageField label="Picture (optional)" value={draft.imageUrl} onChange={(v) => setDraft({ ...draft, imageUrl: v })} />
+            <fieldset className="hours">
+              <legend>How customers pay businesses here</legend>
+              <label className="check"><input type="checkbox" checked={draft.payRedeem} onChange={(e) => setDraft({ ...draft, payRedeem: e.target.checked })} /> Pay & Redeem bills (the merchant raises a bill, the customer pays in the app)</label>
+              <small className="muted">Switch off for cinemas and event organisers, which sell tickets instead. Applies to subcategories too.</small>
+              <Field label="What the item list is called" hint="Shown to merchants, for example Menu, Price list or Services. Empty uses the parent category’s, or Menu."><input value={draft.menuLabel} maxLength={30} onChange={(e) => setDraft({ ...draft, menuLabel: e.target.value })} placeholder="Menu" /></Field>
+            </fieldset>
             <label className="check"><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /> Live in the customer app</label>
             {error ? <Notice tone="error">{error}</Notice> : null}
             <div className="modal-foot">
