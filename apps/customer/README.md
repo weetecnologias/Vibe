@@ -30,6 +30,10 @@ The app talks only to the `VibeApi` interface in `src/api/client.ts`. Two adapte
 
 Copy `.env.example` to `.env` to switch modes. Release builds never fall back to demo data silently.
 
+### Running against the real backend (Pay & Redeem)
+
+Start the backend (see [backend/README.md](../../backend/README.md)), then run the app with `EXPO_PUBLIC_API_MODE=http` and `EXPO_PUBLIC_API_URL=http://localhost:8090`. Sign in with `98765 43210` and the code `123456` (development only). Home, offers, redeeming, the merchant's bill and paying work against the real backend. Raise the bill from the merchant dashboard's **Bills** screen (`merchant@vibe.local`). Social, movies, tickets, membership and the other tabs still need backend modules that don't exist yet, so only the Pay & Redeem path is expected to work in this mode.
+
 ### Demo walkthrough
 
 1. Onboarding → **Get started** → enter any valid Indian mobile (e.g. `98765 43210`), tick the consent box → **Send OTP**.

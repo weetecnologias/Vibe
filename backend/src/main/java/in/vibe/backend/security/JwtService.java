@@ -17,19 +17,30 @@ public class JwtService {
     private final JwtEncoder encoder;
     private final Clock clock;
     private final Duration ttl;
+    private final Duration customerTtl;
 
     JwtService(JwtEncoder encoder, Clock clock, SecurityProps props) {
         this.encoder = encoder;
         this.clock = clock;
         this.ttl = Duration.ofMinutes(props.tokenMinutes());
+        this.customerTtl = Duration.ofMinutes(props.customerTokenMinutes());
     }
 
     public record Issued(String token, Instant expiresAt) {}
 
     public Issued issue(UUID staffId, String role, UUID businessId) {
+        return issue(staffId, role, businessId, ttl);
+    }
+
+    /** A customer's access token. Customers renew it with their refresh token. */
+    public Issued issueCustomer(UUID customerId) {
+        return issue(customerId, "CUSTOMER", null, customerTtl);
+    }
+
+    private Issued issue(UUID subject, String role, UUID businessId, Duration lifetime) {
         Instant now = clock.instant();
-        Instant exp = now.plus(ttl);
-        JwtClaimsSet.Builder claims = JwtClaimsSet.builder().issuer("vibe-backend").subject(staffId.toString())
+        Instant exp = now.plus(lifetime);
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder().issuer("vibe-backend").subject(subject.toString())
                 .issuedAt(now).expiresAt(exp).claim("role", role);
         if (businessId != null) claims.claim("bid", businessId.toString());
         String token = encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims.build())).getTokenValue();

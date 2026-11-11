@@ -91,8 +91,11 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/actuator/health", "/v1/health", "/v1/staff/login").permitAll()
-                .requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/businesses", "/v1/businesses/*", "/v1/home", "/v1/membership/plans", "/v1/events", "/v1/events/*", "/v1/offers", "/media/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/auth/otp", "/v1/auth/otp/verify", "/v1/auth/refresh", "/v1/webhooks/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v1/offers/*/eligibility").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/businesses", "/v1/businesses/*", "/v1/home", "/v1/membership/plans", "/v1/events", "/v1/events/*", "/v1/offers", "/v1/offers/*", "/media/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/v1/media").hasAnyRole("ADMIN", "MERCHANT")
+                .requestMatchers("/v1/auth/logout", "/v1/me", "/v1/me/**", "/v1/redemptions", "/v1/redemptions/**", "/v1/payment-requests/**", "/v1/payments/**").hasRole("CUSTOMER")
                 .requestMatchers("/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/v1/merchant/**").hasRole("MERCHANT")
                 .requestMatchers("/v1/staff/**").hasAnyRole("ADMIN", "MERCHANT")

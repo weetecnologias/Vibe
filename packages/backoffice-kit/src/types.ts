@@ -134,3 +134,13 @@ export type EventInput = {
 
 // ---------- reservation settings ----------
 export type ReservationSettings = { enabled: boolean; tableFee: number | null; slotFee: number | null; policy: string };
+
+// ---------- Pay & Redeem: the merchant's bills screen ----------
+export type BillStatus = 'awaiting_bill' | 'bill_ready' | 'paid' | 'expired' | 'cancelled';
+export type BillPaymentStatus = 'not_started' | 'pending' | 'failed' | 'paid';
+export type BillInfo = { billRef: string; eligibleAmount: number; discount: number; payable: number; raisedAt: string; expiresAt: string; raisedBy: string; paymentStatus: BillPaymentStatus };
+export type BillRow = { id: string; customerName: string; vibeId: string; offerTitle: string; status: BillStatus; requestedAt: string; expiresAt: string; paidAt: string | null; bill: BillInfo | null };
+export type BillSummary = { paidToday: number; paidTodayAmount: number; savedTodayAmount: number };
+export type BillBoard = { rows: BillRow[]; summary: BillSummary };
+export type BillPreview = { eligibleAmount: number; discount: number; discountLabel: string; reason: string | null; vibeFee: number; customerPays: number; needsConfirmation: boolean };
+export type BillInput = { lines: { label: string; amount: number }[]; billRef?: string; confirmLarge?: boolean };

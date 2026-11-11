@@ -87,6 +87,10 @@ class DevSeed implements ApplicationRunner {
 
         plans.create(admin, new Plans.Input("Monthly", "month", 29900L, "Billed every month. Cancel anytime.", null, List.of("Member-only offers at partner places", "Member prices on movie and event tickets"), 1, true));
         plans.create(admin, new Plans.Input("Yearly", "year", 299900L, "Billed once a year.", "Save 17%", List.of("Everything in Monthly", "Two months free"), 2, true));
+        // A fictional customer who is a member, so the customer app can sign in with 98765 43210 and the code 123456 (development only).
+        UUID customer = UUID.randomUUID();
+        jdbc.sql("insert into customers (id, phone, name, vibe_id, area) values (:id, '9876543210', 'Aarav Reddy', '482173', 'Jubilee Hills')").param("id", customer).update();
+        jdbc.sql("insert into memberships (customer_id, status, valid_until, plan_id) values (:c, 'active', now() + interval '30 days', (select id from membership_plans where interval = 'month' order by sort_order limit 1))").param("c", customer).update();
         home.createBanner(admin, new HomeContent.BannerInput("MEMBERS", "Save 30% at Saffron Courtyard", "Every day for VIBE members", "See offer", null, "offer", offer.id(), 1, true, null, null));
         home.setPicks(admin, "offers", List.of(offer.id()));
 

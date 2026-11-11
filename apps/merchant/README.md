@@ -6,6 +6,7 @@ React + Vite + TypeScript. For the businesses listed on VIBE. Shares its UI, API
 
 A merchant sees and edits **only their own business** (the server takes the business from the sign-in token, never from the request).
 
+- **Bills** (the screen for the table): customers who tapped **Redeem** in the app appear here by first name and VIBE ID. Click **Raise bill**, enter what they ordered (one total, or item by item), check the amount VIBE shows the customer will pay, and send it. The customer's app shows it within a few seconds and they pay there. You see it turn to **Paid**, with today's totals. A wrong bill can be withdrawn until the customer starts paying. Bills of ₹50,000 or more ask you to confirm the amount. The list refreshes by itself.
 - **My business:** name, area, address, location, about, price level, hours (India time), photos, terms, online booking. Categories, verification and visibility are managed by the VIBE team.
 - **Menu:** add, edit, hide and delete items, grouped by section. Prices are typed in rupees and stored in paise.
 - **Offers:** create Pay & Redeem offers (percentage with an optional cap, or a flat amount; optional minimum bill; members only; start and end in India time). **VIBE reviews each offer before customers see it**, and changing an offer sends it back for review. Offers show as Waiting for VIBE, Not approved (with VIBE's note), Live, Scheduled, Ended or Switched off.
@@ -14,7 +15,7 @@ A merchant sees and edits **only their own business** (the server takes the busi
 - **Team:** the owner adds staff logins for this business, resets their passwords or switches them off. Staff can do everything else but can't manage the team.
 - **Image upload** for the logo, cover, photos, menu pictures and event covers.
 
-**Not built yet:** entering a customer's bill, seeing redemptions and settlements, ticket sales and door check-in, cinema showtimes and reviews. They need the customer sign-in, redemption, payment and ticketing modules (backend phases B2 and later).
+**Not built yet:** settlements and payout statements, refunds, ticket sales and door check-in, cinema showtimes and reviews. Push notifications to the customer need the notification service (until then the app checks every few seconds). QR scanning to find a customer is a later addition; for now search by VIBE ID or first name.
 
 ## Run it
 

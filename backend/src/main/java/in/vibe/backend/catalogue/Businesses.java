@@ -52,6 +52,12 @@ public class Businesses {
 
     public record Page<T>(List<T> items, int total, Integer nextOffset) {}
 
+    public record Example(long bill, long discount, long payable) {}
+
+    /** The customer app's OfferDetail: the offer, how it applies, and a worked example priced by the same code that prices real bills. */
+    public record OfferDetail(String id, String businessId, String businessName, String businessLogoUrl, String area, String title, String type, String headline, String headlineSub, boolean memberOnly,
+                              String coverUrl, String scheduleLabel, OffsetDateTime endsAt, Long maxDiscount, Long minBill, String appliesTo, String excludes, List<String> channels, List<String> terms, Example example) {}
+
     private final JdbcClient jdbc;
     private final Clock clock;
 
@@ -184,6 +190,20 @@ public class Businesses {
             }
             default: return liveOffers("", Map.of(), "o.member_only desc, coalesce(o.rate_bps, 0) desc, o.flat_amount desc nulls last", lim);
         }
+    }
+
+    public OfferDetail offerDetail(UUID id) {
+        OfferView o = liveOffers("and o.id = :oid", Map.of("oid", id), "o.created_at", 1).stream().findFirst().orElseThrow(() -> ApiException.notFound("This offer has ended or was withdrawn."));
+        Example example = jdbc.sql("select kind, rate_bps, flat_amount, max_discount, min_bill from offers where id = :id").param("id", id).query((rs, i) -> {
+            Object bps = rs.getObject(2), flat = rs.getObject(3), max = rs.getObject(4), min = rs.getObject(5);
+            Long minBill = min == null ? null : ((Number) min).longValue();
+            long bill = Math.max(100_000L, minBill == null ? 0 : minBill);
+            var q = in.vibe.backend.billing.Pricing.quote(rs.getString(1), bps == null ? null : ((Number) bps).intValue(), flat == null ? null : ((Number) flat).longValue(), max == null ? null : ((Number) max).longValue(), minBill, bill);
+            return new Example(bill, q.discount(), bill - q.discount());
+        }).single();
+        List<String> terms = List.of((String[]) jdbc.sql("select terms from businesses where id = :id").param("id", UUID.fromString(o.businessId())).query((rs, i) -> rs.getArray(1).getArray()).single());
+        return new OfferDetail(o.id(), o.businessId(), o.businessName(), o.businessLogoUrl(), o.area(), o.title(), o.type(), o.headline(), o.headlineSub(), o.memberOnly(), o.coverUrl(), o.scheduleLabel(), o.endsAt(),
+                o.maxDiscount(), o.minBill(), "Your bill at " + o.businessName(), "", List.of("In store"), terms, example);
     }
 
     /** Pinned offers, in the order VIBE set. An offer that is no longer live is skipped. */

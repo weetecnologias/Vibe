@@ -27,6 +27,8 @@ vibe:
     # Production MUST set VIBE_JWT_SECRET from a secrets manager; the dev default only works with the `dev` profile.
     jwt-secret: ${VIBE_JWT_SECRET:}
     token-minutes: 480
+    # Customers renew with a refresh token; the app signs them in again when it expires.
+    customer-token-minutes: 1440
   cors:
     # Dashboards in development. Set explicit origins in staging and production.
     allowed-origins: ${VIBE_CORS_ORIGINS:http://localhost:5180,http://localhost:5181}
@@ -34,6 +36,17 @@ vibe:
     # Development keeps uploads on disk. Production uses object storage behind a CDN.
     dir: ${VIBE_MEDIA_DIR:./data/media}
     public-base-url: ${VIBE_PUBLIC_URL:http://localhost:${server.port}}
+  billing:
+    # How long a redemption waits for the merchant to raise the bill, and how long a raised bill can be paid.
+    redemption-minutes: 30
+    bill-minutes: 15
+    # Bills at or above this need the merchant to confirm the amount (paise).
+    large-bill: 5000000
+    # Added to every bill (paise). VIBE's fee model is a business decision; none until it is settled.
+    vibe-fee: 0
+  payments:
+    # Signs webhooks from the payment partner. Webhooks are refused until this is set.
+    webhook-secret: ${VIBE_WEBHOOK_SECRET:}
   dev:
     # Dev seed accounts. Used only when the `dev` profile is active; never load in production.
     seed-password: ${VIBE_DEV_PASSWORD:vibe-dev-only}

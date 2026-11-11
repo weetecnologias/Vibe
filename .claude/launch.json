@@ -4,26 +4,65 @@
     {
       "name": "customer-web",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["apps/customer/node_modules/expo/bin/cli", "start", "apps/customer", "--web", "--port", "8082"],
+      "runtimeArgs": [
+        "apps/customer/node_modules/expo/bin/cli",
+        "start",
+        "apps/customer",
+        "--web",
+        "--port",
+        "8082"
+      ],
       "port": 8082
     },
     {
       "name": "backend-dev",
       "runtimeExecutable": "mvn.cmd",
-      "runtimeArgs": ["-f", "backend/pom.xml", "spring-boot:test-run", "-Dspring-boot.run.profiles=dev"],
+      "runtimeArgs": [
+        "-f",
+        "backend/pom.xml",
+        "spring-boot:test-run",
+        "-Dspring-boot.run.profiles=dev"
+      ],
       "port": 8090
     },
     {
       "name": "admin-web",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["apps/admin/node_modules/vite/bin/vite.js", "apps/admin", "--port", "5180"],
+      "runtimeArgs": [
+        "apps/admin/node_modules/vite/bin/vite.js",
+        "apps/admin",
+        "--port",
+        "5180"
+      ],
       "port": 5180
     },
     {
       "name": "merchant-web",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["apps/merchant/node_modules/vite/bin/vite.js", "apps/merchant", "--port", "5181"],
+      "runtimeArgs": [
+        "apps/merchant/node_modules/vite/bin/vite.js",
+        "apps/merchant",
+        "--port",
+        "5181"
+      ],
       "port": 5181
+    },
+    {
+      "name": "customer-live",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "apps/customer/node_modules/expo/bin/cli",
+        "start",
+        "apps/customer",
+        "--web",
+        "--port",
+        "8083"
+      ],
+      "port": 8083,
+      "env": {
+        "EXPO_PUBLIC_API_MODE": "http",
+        "EXPO_PUBLIC_API_URL": "http://localhost:8090"
+      }
     }
   ]
 }

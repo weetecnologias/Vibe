@@ -2,7 +2,7 @@
 
 Spring Boot (Java 25, Maven) modular monolith on PostgreSQL. See [docs/backend-design.md](../docs/backend-design.md) for the full plan.
 
-## What exists today (phase B0, the catalogue part of B1, and the content tools)
+## What exists today (phase B0, the catalogue, the content tools, and Pay & Redeem)
 
 | Area | Endpoints | Who |
 | --- | --- | --- |
@@ -10,13 +10,18 @@ Spring Boot (Java 25, Maven) modular monolith on PostgreSQL. See [docs/backend-d
 | Catalogue (what the customer app reads) | `GET /v1/categories`, `GET /v1/businesses` (`q`, `categoryId`, `sort`, `limit`, `offset`), `GET /v1/businesses/{id}` | anyone |
 | Home, plans, events, offers (what the customer app reads) | `GET /v1/home`, `GET /v1/membership/plans`, `GET /v1/events`, `GET /v1/events/{id}`, `GET /v1/offers?view=` | anyone |
 | Images | `POST /v1/media` (PNG, JPEG or WebP, up to 5 MB), served at `GET /media/{file}` | upload: admin, merchant. Serving: anyone |
+| Customer sign-in | `POST /v1/auth/otp`, `POST /v1/auth/otp/verify`, `POST /v1/auth/refresh`, `POST /v1/auth/logout`, `GET/PATCH /v1/me`, `POST /v1/me/deletion-request` | phone + one-time code |
+| Notifications | `GET /v1/me/notifications`, `POST /v1/me/notifications/read`, `PUT /v1/me/devices` | customer |
+| **Pay & Redeem (customer)** | `GET /v1/offers/{id}` (public), `GET /v1/offers/{id}/eligibility`, `POST /v1/redemptions`, `GET /v1/redemptions/{id}`, `POST /v1/redemptions/{id}/cancel`, `GET /v1/payment-requests/{id}`, `POST /v1/payment-requests/{id}/payments` (needs `Idempotency-Key`), `GET /v1/payments/{reference}` | customer |
+| **Pay & Redeem (merchant)** | `GET /v1/merchant/bills` (`view=open\|today`, `q`), `POST /v1/merchant/bills/{id}/preview`, `POST /v1/merchant/bills/{id}` (raise the bill), `POST /v1/merchant/bills/{id}/withdraw` | `MERCHANT`, own business only |
+| Payment partner webhook | `POST /v1/webhooks/{provider}` (signed with `X-Vibe-Signature`) | the payment partner |
 | Staff sign-in | `POST /v1/staff/login`, `GET /v1/staff/me` | admin, merchant |
 | Admin | categories, businesses, merchant logins, audit log; **offer review** (approve or reject with a note); **events** (create, edit, publish, reject, cancel); **home banners and pinned sections**; **membership plans**; **checkout coupons** | `ADMIN` |
 | Merchant | own business profile, menu, offers, **events with ticket types**, **reservation fees and policy**, **team logins** (owner only) | `MERCHANT`, own business only |
 
 Responses match the customer app's `CategoryNode`, `BusinessSummary`, `BusinessDetail` and `OfferSummary` types.
 
-**Not built yet** (later phases in the design doc): customer sign-in (phone + OTP), Pay & Redeem and redemptions, payments, ticket sales and holds, movies, membership subscriptions, social, notifications. Checkout coupons and reservation fees are stored and managed, but nothing applies them until payments and social exist. Image upload stores files on local disk in development; production needs object storage behind a CDN. Ratings, reviews and branches are empty or zero until their modules exist. The customer app can't switch to `http` mode yet because it needs those endpoints too.
+**Not built yet** (later phases in the design doc): ticket sales and holds, movies, membership subscriptions (a customer can be made a member in the database, nobody can buy it yet), social, and the real SMS, push and payment providers (see below). Checkout coupons and reservation fees are stored and managed, but nothing applies them until payments and social exist. Image upload stores files on local disk in development; production needs object storage behind a CDN. Ratings, reviews and branches are empty or zero until their modules exist. The customer app can't switch to `http` mode yet because it needs those endpoints too.
 
 ## Rules the server enforces
 
@@ -29,6 +34,12 @@ Responses match the customer app's `CategoryNode`, `BusinessSummary`, `BusinessD
 - **Home content:** only live items (approved, switched on, published) can be pinned, up to 12 per section; with nothing pinned the app falls back to automatic picks.
 - **Team:** the first login for a business is its owner. Only the owner can add staff, reset their passwords or switch them off, and only for their own business. The owner's own account can't be switched off by staff.
 - **Images:** only real PNG, JPEG or WebP files (checked by their first bytes, not the file name), up to 5 MB, 100 uploads per person per day. Files get a random name and are served with the detected type and `nosniff`. SVG is refused because it can carry scripts.
+- **Customer sign-in:** the code is 6 digits, stored only as a keyed hash, expires in 5 minutes and allows 3 tries (the try is counted even when the error is thrown); 5 codes per number per hour, 30 seconds between codes. Refresh tokens work once, and a replayed one signs the customer out everywhere. **Without an SMS provider only the `dev` profile can sign anyone in** (code 123456); other profiles refuse with `sms_not_configured` instead of pretending a text was sent.
+- **Staff never see a customer's phone or surname:** only a first name, an initial and a 6-digit VIBE ID.
+- **Bills:** a merchant can only bill a customer who tapped Redeem at *their* place, once per request, and an expired request can't be billed. The discount is worked out by the server from the offer's rule (never typed), rounded down to the paisa, with the cap and minimum applied. Bills of ₹50,000 or more need the amount confirmed. A wrong bill can be withdrawn until the customer starts paying; after that it can't.
+- **Redeeming:** member-only offers need an active membership; one paid redemption per offer per day (India time); tapping Redeem again while one is open returns the same one.
+- **Payments:** every payment needs an `Idempotency-Key` (the same key returns the same payment; reusing it for another bill is refused). The database allows only one live payment per bill and only one open redemption per customer per offer, so a double tap or a race can't charge twice. A bill past its time can't be paid.
+- **A payment counts only when the payment partner says so.** The webhook is checked against its signature first, every accepted event is kept (a repeated event is ignored), the amount must match, and the effects (redemption paid, savings recorded, customer notified) happen exactly once. A failed payment leaves the bill open for another try.
 - Every admin and merchant change is written to the audit log.
 
 ## Run it
@@ -64,6 +75,18 @@ Tests start a real PostgreSQL in Docker (Testcontainers) and apply the real migr
 | `VIBE_CORS_ORIGINS` | Exact origins allowed to call the API from a browser, comma separated | `http://localhost:5180,http://localhost:5181` |
 | `VIBE_MEDIA_DIR` | Where uploaded images are stored in development | `./data/media` |
 | `VIBE_PUBLIC_URL` | Public address used in image links | `http://localhost:<PORT>` |
+| `VIBE_WEBHOOK_SECRET` | Signs payment-partner webhooks. Webhooks are refused until it is set (the dev profile sets a development-only one) | none |
 | `VIBE_DEV_PASSWORD` | Password for the dev seed accounts | `vibe-dev-only` |
 
 Production must never run the `dev` profile.
+
+## What is simulated in development, and what is not connected
+
+| Piece | Development (`dev` profile only) | Needed for real use |
+| --- | --- | --- |
+| SMS sign-in codes | Always 123456, nothing sent | An SMS provider with DLT-registered templates |
+| Payments | A simulated partner confirms a payment about 2 seconds after it starts, through the same code a real webhook uses. No money moves | An RBI-authorised payment partner with split settlement, and its webhook secret |
+| Push notifications | Saved to the customer's inbox only; the app also checks every few seconds | Firebase and Apple push accounts |
+| Membership | The dev customer is seeded as a member; nobody can buy a plan yet | The membership module (backend phase B4) |
+
+Dev customer: sign in to the customer app with `98765 43210` and the code `123456`.

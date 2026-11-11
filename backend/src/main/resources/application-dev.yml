@@ -5,3 +5,8 @@ vibe:
   cors:
     # Any local port, so the dashboards work wherever the dev server lands.
     allowed-origins: http://localhost:*
+  payments:
+    # Development only.
+    webhook-secret: ${VIBE_WEBHOOK_SECRET:dev-only-webhook-secret-do-not-use}
+    # The simulated payment partner confirms a payment this long after it starts.
+    simulate-after-ms: 1800

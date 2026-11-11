@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { LoginPage, Shell, useAuth } from '@kit';
 
+import { BillsPage } from './pages/BillsPage';
 import { EventEditPage } from './pages/EventEditPage';
 import { EventsPage } from './pages/EventsPage';
 import { MenuPage } from './pages/MenuPage';
@@ -11,6 +12,7 @@ import { ReservationsPage } from './pages/ReservationsPage';
 import { TeamPage } from './pages/TeamPage';
 
 const NAV = [
+  { to: '/bills', label: 'Bills' },
   { to: '/profile', label: 'My business' },
   { to: '/menu', label: 'Menu' },
   { to: '/offers', label: 'Offers' },
@@ -25,7 +27,8 @@ export function App() {
   return (
     <Routes>
       <Route element={<Shell title="Merchant" nav={NAV} />}>
-        <Route index element={<Navigate to="/profile" replace />} />
+        <Route index element={<Navigate to="/bills" replace />} />
+        <Route path="bills" element={<BillsPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="menu" element={<MenuPage />} />
         <Route path="offers" element={<OffersPage />} />
@@ -33,7 +36,7 @@ export function App() {
         <Route path="events/:id" element={<EventEditPage />} />
         <Route path="reservations" element={<ReservationsPage />} />
         <Route path="team" element={<TeamPage />} />
-        <Route path="*" element={<Navigate to="/profile" replace />} />
+        <Route path="*" element={<Navigate to="/bills" replace />} />
       </Route>
     </Routes>
   );

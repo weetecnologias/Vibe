@@ -3,6 +3,7 @@ package in.vibe.backend;
 import com.jayway.jsonpath.JsonPath;
 import in.vibe.backend.backoffice.StaffService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
@@ -18,7 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Shared setup for the API tests: one Spring context and one real PostgreSQL, plus helpers to create staff, categories and businesses. */
-@SpringBootTest(properties = "vibe.media.dir=target/test-media")
+@SpringBootTest(properties = {"vibe.media.dir=target/test-media", "vibe.payments.simulate-after-ms=0"})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("dev")
@@ -27,6 +28,7 @@ abstract class ApiTestSupport {
 
     @Autowired MockMvc mvc;
     @Autowired StaffService staff;
+    @Autowired JdbcClient jdbc;
 
     String adminToken;
 
@@ -76,4 +78,29 @@ abstract class ApiTestSupport {
         return login(email, PASSWORD);
     }
 
+
+    // ---------- customers ----------
+    /** A valid Indian mobile number nobody else in this test run is using. */
+    static String phone() { return "9" + String.format("%09d", (long) (Math.random() * 1_000_000_000L)); }
+
+    /** Signs a customer in through the real OTP endpoints (the dev profile accepts 123456). Returns the access token. */
+    String customerToken(String phone) throws Exception {
+        MvcResult c = mvc.perform(post("/v1/auth/otp").contentType(MediaType.APPLICATION_JSON).content("{\"phone\":\"" + phone + "\"}")).andExpect(status().isOk()).andReturn();
+        String requestId = JsonPath.read(c.getResponse().getContentAsString(), "$.requestId");
+        MvcResult v = mvc.perform(post("/v1/auth/otp/verify").contentType(MediaType.APPLICATION_JSON).content("{\"requestId\":\"" + requestId + "\",\"code\":\"123456\"}")).andExpect(status().isOk()).andReturn();
+        return JsonPath.read(v.getResponse().getContentAsString(), "$.accessToken");
+    }
+
+    void makeMember(String phone) {
+        jdbc.sql("insert into memberships (customer_id, status, valid_until) select id, 'active', now() + interval '30 days' from customers where phone = :p on conflict (customer_id) do update set valid_until = now() + interval '30 days'").param("p", phone).update();
+    }
+
+    /** A live offer at a business: 30% off up to ₹500 on bills of ₹500 or more. Created by the merchant and approved by VIBE. */
+    String liveOffer(String merchantToken, boolean memberOnly) throws Exception {
+        String id = id(mvc.perform(as(merchantToken, post("/v1/merchant/offers")).content("""
+            {"title":"30%% off","kind":"percentage","rateBps":3000,"maxDiscount":50000,"minBill":50000,"memberOnly":%s,"startsAt":"2026-01-01T00:00:00Z","endsAt":"2031-01-01T00:00:00Z"}""".formatted(memberOnly)))
+                .andExpect(status().isCreated()).andReturn());
+        mvc.perform(as(adminToken(), post("/v1/admin/offers/" + id + "/approve"))).andExpect(status().isOk());
+        return id;
+    }
 }
