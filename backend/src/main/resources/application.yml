@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: vibe-backend
+  datasource:
+    url: ${VIBE_DB_URL:jdbc:postgresql://localhost:5432/vibe}
+    username: ${VIBE_DB_USER:vibe}
+    password: ${VIBE_DB_PASSWORD:vibe}
+  flyway:
+    locations: classpath:db/migration
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+vibe:
+  security:
+    # HS256 signing key for staff (admin and merchant) tokens. Must be at least 32 bytes.
+    # Production MUST set VIBE_JWT_SECRET from a secrets manager; the dev default only works with the `dev` profile.
+    jwt-secret: ${VIBE_JWT_SECRET:}
+    token-minutes: 480
+  cors:
+    # Dashboards in development. Set explicit origins in staging and production.
+    allowed-origins: ${VIBE_CORS_ORIGINS:http://localhost:5173,http://localhost:5174}
+  dev:
+    # Dev seed accounts. Used only when the `dev` profile is active; never load in production.
+    seed-password: ${VIBE_DEV_PASSWORD:vibe-dev-only}

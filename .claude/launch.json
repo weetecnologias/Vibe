@@ -6,6 +6,24 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["apps/customer/node_modules/expo/bin/cli", "start", "apps/customer", "--web", "--port", "8082"],
       "port": 8082
+    },
+    {
+      "name": "backend-dev",
+      "runtimeExecutable": "mvn.cmd",
+      "runtimeArgs": ["-f", "backend/pom.xml", "spring-boot:test-run", "-Dspring-boot.run.profiles=dev"],
+      "port": 8080
+    },
+    {
+      "name": "admin-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["apps/admin/node_modules/vite/bin/vite.js", "apps/admin", "--port", "5173"],
+      "port": 5173
+    },
+    {
+      "name": "merchant-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["apps/merchant/node_modules/vite/bin/vite.js", "apps/merchant", "--port", "5174"],
+      "port": 5174
     }
   ]
 }

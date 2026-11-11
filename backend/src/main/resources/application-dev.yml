@@ -1,0 +1,7 @@
+vibe:
+  security:
+    # Development only. Never use this key outside your machine.
+    jwt-secret: ${VIBE_JWT_SECRET:dev-only-signing-key-change-me-32-bytes!!}
+  cors:
+    # Any local port, so the dashboards work wherever the dev server lands.
+    allowed-origins: http://localhost:*

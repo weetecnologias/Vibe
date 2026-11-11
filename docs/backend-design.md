@@ -1,6 +1,6 @@
 # VIBE Hyderabad — backend design
 
-Status: **proposal for review.** Nothing here is built yet. The customer app already runs against a demo backend (`apps/customer/src/api/demo/`) that behaves the way this design says the real one must. The app talks only to the `VibeApi` interface, so the real backend replaces the demo without changes to the screens.
+Status: **proposal, partly built.** Phase B0 and the catalogue half of B1 exist in `backend/` (see its README); admin and merchant dashboards exist in `apps/admin` and `apps/merchant`. The rest is still a plan. The customer app already runs against a demo backend (`apps/customer/src/api/demo/`) that behaves the way this design says the real one must. The app talks only to the `VibeApi` interface, so the real backend replaces the demo without changes to the screens.
 
 ## 1. Principles (already true in the demo, must stay true)
 
@@ -148,7 +148,7 @@ Each phase ends with tests green in CI, and the customer app switched to `http` 
 
 | Phase | Scope | Done when |
 | --- | --- | --- |
-| **B0 Skeleton** | Maven project, module layout, Flyway, Testcontainers, OpenAPI, CI, health check, error format | `mvn verify` green in CI; app can reach `/v1/health` |
+| **B0 Skeleton** (built, except OpenAPI generation) | Maven project, module layout, Flyway, Testcontainers, OpenAPI, CI, health check, error format | `mvn verify` green in CI; app can reach `/v1/health` |
 | **B1 Identity + catalogue** | OTP sign-in (provider stubbed), sessions, categories, businesses, home, search with paging | The app browses real data with demo mode off |
 | **B2 Offers + payments** | Pay & Redeem, merchant-entered bills, checkout offers, payment adapter with the provider's **test** mode, webhooks, ledger | A redemption is paid and verified end to end in test mode |
 | **B3 Ticketing** | Events and cinema: holds, tickets, QR, expiry jobs | No double-sold seat under parallel load tests |
