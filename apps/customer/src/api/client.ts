@@ -1,5 +1,5 @@
 import type {
-  AuthResult, BusinessDetail, Page, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
+  AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
   HomeFeed, ID, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
   ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
@@ -38,10 +38,26 @@ export interface VibeApi {
   cancelRedemption(id: ID): Promise<void>;
   /** A server-priced bill (redemption, ticket order or membership). */
   getPaymentRequest(id: ID): Promise<PaymentRequest & { payeeName: string; kind: PaymentKind }>;
+  /** Offers that could apply to a ticket order (movie or event), with the reason for any that can't. */
+  getCheckoutOffers(paymentRequestId: ID): Promise<CheckoutOffers>;
+  /** Apply an offer by id (tapped from the list) or by a typed code. One offer per order; the server reprices the bill. */
+  applyOffer(paymentRequestId: ID, codeOrId: string): Promise<CheckoutRequest>;
+  removeOffer(paymentRequestId: ID): Promise<CheckoutRequest>;
   /** Starts payment for a server-priced payment request. Requires an idempotency key. */
   startPayment(paymentRequestId: ID, method: PaymentMethod, idempotencyKey: string): Promise<PaymentStart>;
   /** Server-verified payment status. The app shows success only when status === 'verified'. */
   getPayment(reference: string): Promise<Payment>;
+
+  // Movies & cinema booking. Showtimes and seat availability come from each cinema's system; see docs/movie-booking-integration.md.
+  getMovies(filter?: { status?: MovieSummary['status']; language?: string }): Promise<MovieSummary[]>;
+  getMovie(id: ID): Promise<MovieDetail>;
+  /** The cinemas playing a film on a day (YYYY-MM-DD, India time), nearest first. */
+  getMovieShows(movieId: ID, date: string): Promise<CinemaShows[]>;
+  /** The films a cinema runs on a day. */
+  getCinemaShows(cinemaId: ID, date: string): Promise<MovieShows[]>;
+  getSeatMap(showId: ID): Promise<SeatMap>;
+  /** Holds seats for a few minutes and returns a payment request to pay through startPayment. */
+  holdSeats(showId: ID, seatIds: string[]): Promise<SeatHold>;
 
   // Events & tickets
   getEvents(filter: { kind?: EventKind; day?: string }): Promise<EventSummary[]>;
@@ -156,9 +172,18 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     getRedemption: (id) => call('GET', `/redemptions/${id}`),
     cancelRedemption: (id) => call('POST', `/redemptions/${id}/cancel`),
     getPaymentRequest: (id) => call('GET', `/payment-requests/${id}`),
+    getCheckoutOffers: (id) => call('GET', `/payment-requests/${id}/offers`),
+    applyOffer: (id, code) => call('POST', `/payment-requests/${id}/offer`, { code }),
+    removeOffer: (id) => call('DELETE', `/payment-requests/${id}/offer`),
     startPayment: (paymentRequestId, method, idempotencyKey) =>
       call('POST', `/payment-requests/${paymentRequestId}/payments`, { method }, { 'Idempotency-Key': idempotencyKey }),
     getPayment: (reference) => call('GET', `/payments/${reference}`),
+    getMovies: (f) => call('GET', `/movies${qs({ status: f?.status, language: f?.language })}`),
+    getMovie: (id) => call('GET', `/movies/${id}`),
+    getMovieShows: (movieId, date) => call('GET', `/movies/${movieId}/showtimes${qs({ date })}`),
+    getCinemaShows: (cinemaId, date) => call('GET', `/cinemas/${cinemaId}/showtimes${qs({ date })}`),
+    getSeatMap: (showId) => call('GET', `/shows/${showId}/seats`),
+    holdSeats: (showId, seatIds) => call('POST', `/shows/${showId}/holds`, { seatIds }),
     getEvents: (f) => call('GET', `/events${qs(f)}`),
     getEvent: (id) => call('GET', `/events/${id}`),
     reserveTickets: (eventId, items, attendees) => call('POST', `/events/${eventId}/reservations`, { items, attendees }),

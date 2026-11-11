@@ -28,6 +28,7 @@ export default function BusinessScreen() {
   if (!b) return <View style={{ flex: 1, paddingTop: insets.top + 48, backgroundColor: colors.softWhite }}><LoadingState rows={3} /></View>;
 
   const memberOffer = b.offers.find((o) => o.memberOnly) ?? b.offers[0];
+  const isCinema = b.primaryCategoryId.startsWith('movies.cinemas');
   // Overview shows a few highlights; the Menu tab shows everything, in sections, with search.
   const menuGroups = tab === 'Menu' ? groupMenu(b.menu, menuQuery) : [{ title: null as string | null, items: b.menu.slice(0, 4) }];
   const directions = () => {
@@ -53,7 +54,8 @@ export default function BusinessScreen() {
       edgeToEdge
       footer={
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          {memberOffer ? <Button label="Redeem offer" style={{ flex: 1.3 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : (
+          {isCinema ? <Button label="Book tickets" style={{ flex: 1.3 }} onPress={() => router.push(`/cinema/${b.id}`)} /> : null}
+          {memberOffer ? <Button label="Redeem offer" variant={isCinema ? 'outline' : 'primary'} style={{ flex: isCinema ? 1 : 1.3 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : (
             <Button label="Get directions" variant="dark" style={{ flex: 1 }} onPress={directions} />
           )}
         </View>

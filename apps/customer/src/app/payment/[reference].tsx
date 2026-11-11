@@ -50,7 +50,7 @@ export default function PaymentStatus() {
   const pending = !p || p.status === 'pending' || p.status === 'created';
 
   const done = () => {
-    if (p?.kind === 'tickets' && p.ticketIds.length) router.replace(`/ticket/${p.ticketIds[0]}`);
+    if ((p?.kind === 'tickets' || p?.kind === 'movie') && p.ticketIds.length) router.replace(`/ticket/${p.ticketIds[0]}`);
     else if (p?.kind === 'membership') router.replace('/membership');
     else router.replace('/home');
   };
@@ -76,7 +76,7 @@ export default function PaymentStatus() {
               </T>
             </View>
             {p!.savings > 0 ? (
-              <View style={styles.savedPill}><T variant="captionStrong" color={colors.white}>You saved {formatINR(p!.savings)} with VIBE Membership</T></View>
+              <View style={styles.savedPill}><T variant="captionStrong" color={colors.white}>You saved {formatINR(p!.savings)} with {p!.offerTitle ?? 'VIBE Membership'}</T></View>
             ) : null}
           </>
         ) : failed ? (
@@ -113,7 +113,7 @@ export default function PaymentStatus() {
           <KV k="Paid with" v={METHOD[p.method]} />
           <KV k="Paid to" v={p.payeeName} />
           {p.lines.map((l, i) => <KV key={i} k={l.label} v={formatINR(l.amount, { decimals: 'always' })} />)}
-          {p.savings > 0 ? <KV k="Member offer" v={formatINR(-p.savings, { decimals: 'always' })} pink /> : null}
+          {p.savings > 0 ? <KV k={p.offerTitle ?? 'Member offer'} v={formatINR(-p.savings, { decimals: 'always' })} pink /> : null}
           <Divider />
           <View style={styles.between}><T variant="bodyStrong">Total</T><T variant="title2">{formatINR(p.amount, { decimals: 'always' })}</T></View>
         </Card>
@@ -141,7 +141,7 @@ export default function PaymentStatus() {
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 24 }}>
         {verified ? <Button label="Share receipt" variant="outline" style={{ flex: 1 }} onPress={() => Share.share({ message: `VIBE receipt ${p!.reference}: ${formatINR(p!.amount, { decimals: 'always' })} to ${p!.payeeName}` })} /> : null}
         <Button
-          label={verified ? (p?.kind === 'tickets' ? 'View tickets' : p?.kind === 'membership' ? 'Go to membership' : 'Done') : failed ? 'Back' : 'Keep waiting'}
+          label={verified ? (p?.kind === 'tickets' || p?.kind === 'movie' ? 'View tickets' : p?.kind === 'membership' ? 'Go to membership' : 'Done') : failed ? 'Back' : 'Keep waiting'}
           disabled={pending && !slow}
           style={{ flex: 1 }}
           onPress={failed ? () => router.back() : done}

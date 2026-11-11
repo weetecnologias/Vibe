@@ -74,6 +74,12 @@ export const categories: CategoryNode[] = [
     node('events.workshops', 'Workshops'), node('events.meetups', 'Meetups'), node('events.tours', 'Tours'),
     node('events.live', 'Live Events'), node('events.experiences', 'Experiences'),
   ], 'ticket'),
+  node('movies', 'Movies', [
+    node('movies.cinemas', 'Cinemas', leaves('movies.cinemas', ['Multiplex', 'Single Screen', 'Premium & IMAX'])),
+    node('movies.private-theatres', 'Private Theatres'),
+    node('movies.open-air-screenings', 'Open-air Screenings'),
+    node('movies.clubs-festivals', 'Movie Clubs & Festivals'),
+  ], 'film'),
   node('social', 'VIBE Social', [
     node('social.meet', 'Meet People'), node('social.groups', 'Groups'), node('social.activities', 'Activities'),
     node('social.communities', 'Communities'), node('social.events', 'Social Events'),

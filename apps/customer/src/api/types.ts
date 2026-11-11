@@ -121,6 +121,8 @@ export type PaymentRequest = {
   vibeFee: Paise;
   payable: Paise;
   currency: 'INR';
+  /** The offer applied to this bill, if any. The server reprices the bill whenever it changes. */
+  appliedOffer?: AppliedOffer | null;
   expiresAt: ISODate;
 };
 
@@ -140,7 +142,7 @@ export type Redemption = {
 
 export type PaymentMethod = 'upi' | 'card' | 'netbanking';
 export type PaymentStatus = 'created' | 'pending' | 'verified' | 'failed' | 'refunded';
-export type PaymentKind = 'redemption' | 'tickets' | 'membership';
+export type PaymentKind = 'redemption' | 'tickets' | 'membership' | 'movie';
 
 /**
  * How to collect money. `provider` = open the payment aggregator's checkout SDK.
@@ -165,10 +167,12 @@ export type Payment = {
   failureReason: string | null;
   lines: BillLine[];
   ticketIds: ID[];
+  /** Title of the offer used on this payment, for the receipt. */
+  offerTitle?: string | null;
 };
 
 // ---------- Events & tickets ----------
-export type EventKind = 'Workshops' | 'Meetups' | 'Tours' | 'Live Events' | 'Experiences';
+export type EventKind = 'Workshops' | 'Meetups' | 'Tours' | 'Live Events' | 'Experiences' | 'Movies';
 
 export type EventSummary = {
   id: ID;
@@ -225,6 +229,8 @@ export type Ticket = {
   admissionCode: string;
   /** Opaque signed token encoded in the QR. Verified only by the backend at the gate. */
   qrToken: string;
+  /** Set for cinema tickets, e.g. "C7". */
+  seatLabel?: string | null;
   coverUrl: string | null;
   status: TicketStatus;
   index: number;
@@ -418,3 +424,81 @@ export type BusinessQuery = {
   maxPriceLevel?: number;
   sort?: SortKey;
 };
+
+// ---------- Movies & cinema booking ----------
+export type MovieFormat = '2D' | '3D' | 'IMAX' | 'Dolby Atmos';
+export type MovieCertificate = 'U' | 'UA' | 'A';
+
+export type MovieSummary = {
+  id: ID;
+  title: string;
+  certificate: MovieCertificate;
+  durationMin: number;
+  genres: string[];
+  languages: string[];
+  formats: MovieFormat[];
+  /** Audience rating out of 10; null before release. */
+  rating: number | null;
+  votes: number;
+  /** Poster from the film data provider; null shows a branded placeholder. */
+  posterUrl: string | null;
+  releaseDate: ISODate;
+  status: 'now_showing' | 'coming_soon';
+};
+export type MovieDetail = MovieSummary & { synopsis: string; director: string; cast: string[] };
+
+export type ShowAvailability = 'available' | 'filling_fast' | 'almost_full' | 'sold_out';
+export type ShowSummary = {
+  id: ID;
+  startsAt: ISODate;
+  language: string;
+  format: MovieFormat;
+  screenName: string;
+  priceFrom: Paise;
+  availability: ShowAvailability;
+};
+export type ShowDetail = ShowSummary & {
+  movieId: ID; movieTitle: string; certificate: MovieCertificate;
+  cinemaId: ID; cinemaName: string; area: string;
+};
+
+/** The cinemas playing one film on one day, nearest first. */
+export type CinemaShows = { cinema: { id: ID; name: string; area: string; distanceKm: number }; shows: ShowSummary[] };
+/** The films one cinema runs on one day. */
+export type MovieShows = { movie: MovieSummary; shows: ShowSummary[] };
+
+export type SeatClass = { id: ID; name: string; price: Paise };
+/** unavailable = already sold, or held by someone who is paying right now. */
+export type SeatCell = { id: ID; number: number; status: 'available' | 'unavailable' };
+/** seats has null where there is an aisle gap. */
+export type SeatRow = { label: string; classId: ID; seats: (SeatCell | null)[] };
+export type SeatMap = { show: ShowDetail; classes: SeatClass[]; rows: SeatRow[]; maxSeats: number; holdMinutes: number };
+
+/** Seats are held for holdMinutes while the customer pays; unpaid holds are released. */
+export type SeatHold = {
+  holdId: ID;
+  showId: ID;
+  seats: { id: ID; label: string; classId: ID; className: string; price: Paise }[];
+  total: Paise;
+  expiresAt: ISODate;
+  paymentRequestId: ID;
+};
+
+// ---------- Offers at checkout ----------
+export type AppliedOffer = { id: ID; code: string; title: string; memberOnly: boolean };
+
+/** An offer that could apply to a ticket order. When it can't, `reason` says why. */
+export type CheckoutOffer = {
+  id: ID;
+  code: string;
+  title: string;
+  description: string;
+  memberOnly: boolean;
+  eligible: boolean;
+  reason: string | null;
+  /** What it would save on this order; 0 when not eligible. */
+  saving: Paise;
+  terms: string[];
+};
+export type CheckoutOffers = { applied: AppliedOffer | null; available: CheckoutOffer[] };
+export type CheckoutRequest = PaymentRequest & { payeeName: string; kind: PaymentKind };

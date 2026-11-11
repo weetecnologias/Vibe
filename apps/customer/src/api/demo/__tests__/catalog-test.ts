@@ -9,7 +9,7 @@ const all: CategoryNode[] = [];
 const matches = (id: string) => businesses.filter((b) => b.categoryIds.some((c) => c === id || c.startsWith(id + '.')));
 
 describe('demo catalogue', () => {
-  const businessRoots = ['food', 'shopping', 'fitness', 'beauty', 'kids'];
+  const businessRoots = ['food', 'shopping', 'fitness', 'beauty', 'kids', 'movies'];
 
   it.each(all.filter((n) => businessRoots.includes(n.id.split('.')[0])).map((n) => [n.id, n.name]))(
     'has at least one business in %s (%s)', (id) => {

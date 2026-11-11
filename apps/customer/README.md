@@ -52,6 +52,24 @@ One-on-one meetups can only be at VIBE-listed businesses that suit the activity 
 - **Menus:** menu items can carry a `section`. The Menu tab groups them by section and adds a search box for menus over 8 items; the Overview tab shows the first 4.
 - **Long lists:** Discover and category listings load 12 at a time with **Show more**. The API contract is `GET /businesses?limit=&offset=` returning `{ items, total, nextOffset }`.
 
+### Movie booking (demo)
+
+Home → **Movies** → a film → pick a day → see which cinemas play it with showtimes → pick seats → pay → ticket with seat and QR. Cinemas can also be opened directly (Movies → Cinemas, or a cinema page → **Book tickets**).
+
+- Seats are held for 8 minutes while you pay; two people can never hold the same seat; a hold with a payment in progress is never released early; seats sell only when the payment is verified.
+- Up to 6 seats per booking; booking closes 10 minutes before the show.
+- Films, shows and seat maps are fictional demo data (`src/api/demo/cinema.ts`). Real showtimes and seat inventory must come from the cinemas: see `docs/movie-booking-integration.md` for the options, the API contract and the business items to settle.
+
+### Offers at checkout (demo)
+
+On the payment screen for movie and event tickets, **Offers & coupons** lists VIBE-member offers (MEMBER badge) and public offers, or lets you type a code. Try `MEMBERFLIX`, `WELCOME50` or `GROUP100`.
+
+- One offer per order. Applying another replaces it; **Remove** restores the original price. Offers never stack.
+- The backend decides eligibility (membership, first booking, minimum bill, use limits) and reprices the bill. The app only shows what it returns, and offers that don't apply say why.
+- The offer is locked once payment starts. Savings appear on the receipt, and member offers add to your membership savings only after the payment is verified.
+- API: `GET /payment-requests/{id}/offers`, `POST /payment-requests/{id}/offer {code}`, `DELETE /payment-requests/{id}/offer`. Offer rules in `src/api/demo/checkoutOffers.ts` are demo data; real ones come from the admin and merchant dashboards.
+- Not applied to Pay & Redeem bills (those already carry the merchant's offer) or membership payments.
+
 ### Demo catalogue and photos
 
 - Every subcategory in Food, Shopping, Fitness, Beauty and Kids has at least one fictional business; Events and Social have something in every section. `catalog-test.ts` fails if a subcategory is ever left empty.

@@ -73,7 +73,7 @@ export function PayPanel({ req }: { req: PaymentRequest }) {
   const pay = async () => {
     setBusy(true);
     setError(null);
-    const k = `${req.id}:${method}`;
+    const k = `${req.id}:${method}:${req.payable}`;
     if (!keys.current.has(k)) keys.current.set(k, newIdempotencyKey());
     try {
       const start = await api.startPayment(req.id, method, keys.current.get(k)!);

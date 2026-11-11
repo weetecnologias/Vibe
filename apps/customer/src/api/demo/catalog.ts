@@ -17,6 +17,7 @@ const CATEGORY_IMAGE: Record<string, string> = {
   beauty: 'beauty', 'beauty.salons': 'salon', 'beauty.skin-hair': 'skin', 'beauty.spa': 'spa', 'beauty.grooming': 'grooming', 'beauty.bridal': 'bridal',
   kids: 'kids', 'kids.indoor-play': 'kids', 'kids.learning': 'tuition', 'kids.sports': 'swimming', 'kids.celebrations': 'birthday',
   'kids.family': 'family', 'kids.childcare': 'childcare',
+  movies: 'movie',
   events: 'events', 'events.workshops': 'pottery', 'events.meetups': 'brunch', 'events.tours': 'charminar', 'events.live': 'jazz', 'events.experiences': 'boardgames',
   social: 'social', 'social.meet': 'coffee', 'social.groups': 'running', 'social.activities': 'cycling', 'social.communities': 'books', 'social.events': 'dinner',
   offers: 'offers',
@@ -101,6 +102,7 @@ const AREA: Record<string, [number, number]> = {
 const HOURS: Record<string, [string, string]> = {
   food: ['11:00 AM – 11:00 PM', '11:00 AM – 11:30 PM'], shopping: ['10:30 AM – 9:30 PM', '10:30 AM – 10:00 PM'],
   fitness: ['6:00 AM – 10:00 PM', '6:00 AM – 9:00 PM'], beauty: ['10:00 AM – 8:30 PM', '9:30 AM – 9:00 PM'], kids: ['9:30 AM – 7:30 PM', '9:30 AM – 8:00 PM'],
+  movies: ['10:00 AM – 12:30 AM', '9:00 AM – 1:30 AM'],
 };
 
 function badgeOf(s: OfferSpec): string {
@@ -279,6 +281,28 @@ const extraBusinesses: Biz[] = [
     'Licensed daycare with CCTV access for parents and background-checked carers.',
     [['Full-day care', 'Monthly', 9500], ['Half-day care', 'Monthly', 6000]],
     { book: true, terms: ['VIBE checks childcare licences and staff verification before listing a provider.'] }),
+
+  // Movies
+  biz('b-galleriacine', 'Galleria Cinemas', 'movies.cinemas.multiplex', 'Multiplex · 8 screens', 'Hitech City', 5.2, 4.4, 3120, 2, 'movie',
+    'Eight screens with Dolby sound, recliner seats in two auditoriums and a food court on the same floor.',
+    [['Standard ticket', 'Weekday show', 250], ['Recliner seat', 'Weekend show', 450], ['Popcorn & drink combo', 'Large', 320]],
+    { book: true, offer: { pct: 20, member: true, max: 300, title: '20% off tickets on Tuesdays' } }),
+  biz('b-lotus', 'Lotus Talkies', 'movies.cinemas.single-screen', 'Single screen · Since 1974', 'Secunderabad', 9.0, 4.3, 1450, 1, 'movie',
+    'A one-screen neighbourhood cinema with a balcony, first-day-first-show crowds and the most affordable tickets around.',
+    [['Stalls', 'Per ticket', 120], ['Balcony', 'Per ticket', 180]], { book: true }),
+  biz('b-luxe', 'Luxe Screens', 'movies.cinemas.premium-imax', 'Premium · IMAX & Dolby Atmos', 'Gachibowli', 6.1, 4.6, 980, 3, 'movie',
+    'IMAX and Dolby Atmos screens with luxury recliners and in-seat dining.',
+    [['IMAX ticket', 'Evening show', 550], ['Lounge recliner', 'With meal service', 900]],
+    { book: true, offer: { flat: 150, member: true, title: '₹150 off premium tickets', headline: '₹150', sub: 'OFF', minBill: 500 } }),
+  biz('b-screeningroom', 'The Screening Room', 'movies.private-theatres', 'Private theatre · 2 to 20 guests', 'Jubilee Hills', 1.8, 4.7, 260, 3, 'movie',
+    'Book a private screen for birthdays, anniversaries or a film marathon. Bring your own film or choose from the catalogue.',
+    [['2-hour private slot', 'Up to 6 guests', 1800], ['Celebration package', 'Decor and cake included', 3500]], { book: true }),
+  biz('b-starlight', 'Starlight Open-Air Cinema', 'movies.open-air-screenings', 'Open-air screenings · Weekends', 'Kokapet', 9.9, 4.5, 310, 2, 'movie',
+    'Weekend screenings under the sky with bean bags, blankets and a snack stall.',
+    [['Bean bag seat', 'Weekend screening', 399], ['Blanket & snack pack', 'Add-on', 199]], { book: true, isNew: true }),
+  biz('b-filmsociety', 'Hyderabad Film Society', 'movies.clubs-festivals', 'Movie club · Festivals & talks', 'Himayatnagar', 7.1, 4.8, 540, 1, 'movie',
+    'A film society with weekly classic and world-cinema screenings, director talks and an annual short-film festival.',
+    [['Monthly membership', 'All screenings', 400], ['Single screening', 'Per ticket', 150]], { book: true, offer: { pct: 10, max: 100 } }),
 ];
 
 export const businesses: Biz[] = [...coreBusinesses, ...extraBusinesses];

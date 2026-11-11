@@ -43,7 +43,7 @@ export default function TicketScreen() {
               <Fact k="Time" v={`${formatTime(t.startsAt)} · gates ${formatTime(t.gatesOpenAt)}`} />
               <Fact k="Venue" v={t.venue} />
               <Fact k="Area" v={t.area} />
-              <Fact k="Ticket" v={`${t.typeName} · ${t.index} of ${t.of}`} />
+              <Fact k={t.seatLabel ? 'Seat' : 'Ticket'} v={t.seatLabel ? `${t.seatLabel} · ${t.typeName}` : `${t.typeName} · ${t.index} of ${t.of}`} />
               <Fact k="Attendee" v={t.attendeeName} />
             </View>
             <View style={styles.tear} aria-hidden>

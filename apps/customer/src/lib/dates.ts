@@ -50,6 +50,15 @@ export function relativeDay(iso: string, now = Date.now()): string {
   return formatDay(iso);
 }
 
+/** The next n days (today first) as day keys with short labels, in India time. */
+export function upcomingDays(n: number, now = Date.now()): { key: string; dow: string; day: string }[] {
+  return Array.from({ length: n }, (_, i) => {
+    const iso = new Date(now + i * 86_400_000).toISOString();
+    const label = formatDay(iso); // "Mon, 9 Nov"
+    return { key: istDayKey(iso), dow: i === 0 ? 'Today' : label.slice(0, 3), day: label.split(' ')[1] };
+  });
+}
+
 /** "Starts in 40 min" for things starting within the hour, otherwise null. */
 export function startsInLabel(iso: string, now = Date.now()): string | null {
   const min = Math.round((new Date(iso).getTime() - now) / 60_000);

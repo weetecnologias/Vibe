@@ -16,9 +16,12 @@ import * as C from './catalog';
 import * as D from './data';
 import { img } from './images';
 import { CHAT_AFTER_MEETUP_MIN, CHAT_FREE_TEXT_MAX, CHAT_LIMIT, renderQuick } from '../chat';
+import { createCinema } from './cinema';
 import { checkContact } from './contactGuard';
 import { matchesFilter } from './socialFilter';
 import { AGE_BANDS, canMeet } from './matching';
+import { formatINR } from '../../lib/money';
+import { CHECKOUT_KINDS, checkoutOffers, type CheckoutKind, type CheckoutOfferDef } from './checkoutOffers';
 import { quote } from './pricing';
 import * as S from './social';
 
@@ -54,6 +57,11 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
 
   // ---------------- state ----------------
   const businesses = clone(C.businesses);
+  const cinema = createCinema({
+    now,
+    newId: id,
+    cinemas: businesses.filter((b) => b.primaryCategoryId.startsWith('movies.cinemas')).map((b) => ({ id: b.id, name: b.name, area: b.area, distanceKm: b.distanceKm, coverUrl: b.coverUrl })),
+  });
   const offers = clone(C.offers);
   const events = clone(C.events);
   const activities = clone(S.socialActivities);
@@ -63,7 +71,8 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
   let user: User | null = null;
   const otp = new Map<string, { phone: string; attemptsLeft: number; expiresAt: number }>();
   const redemptions = new Map<string, Redemption>();
-  const paymentRequests = new Map<string, { req: PaymentRequest; kind: Payment['kind']; payee: string; context: string }>();
+  const paymentRequests = new Map<string, { req: PaymentRequest; kind: Payment['kind']; payee: string; context: string; base: number }>();
+  const offerUses = new Map<string, number>();
   const payments = new Map<string, Payment & { createdAt: number; paymentRequestId: string; applied: boolean }>();
   const idempotency = new Map<string, string>();
   const reservations = new Map<string, TicketReservation & { status: 'held' | 'paid' | 'released' }>();
@@ -201,6 +210,15 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     p.providerPaymentId = `pay_demo_${code(10)}`;
     if (p.applied) return;
     p.applied = true;
+    const used = pr.req.appliedOffer;
+    if (used) {
+      offerUses.set(used.id, (offerUses.get(used.id) ?? 0) + 1);
+      if (used.memberOnly) {
+        membership.savings.total += pr.req.discount;
+        membership.savings.thisMonth += pr.req.discount;
+        membership.recentSavings.unshift({ id: id('rs'), businessName: pr.payee, at: p.verifiedAt!, paid: pr.req.payable, saved: pr.req.discount });
+      }
+    }
     if (pr.kind === 'redemption') {
       const red = redemptions.get(pr.context)!;
       red.status = 'paid';
@@ -219,7 +237,21 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         const t: Ticket = {
           id: id('t'), bookingId, eventId: ev.id, eventTitle: ev.title, eventKind: ev.kind, startsAt: ev.startsAt, gatesOpenAt: ev.gatesOpenAt,
           venue: ev.venue, area: ev.area, coverUrl: ev.coverUrl, typeName, attendeeName: res.attendees[i], admissionCode: `${code(3)}-${code(3)}`,
-          qrToken: `vibe.t.${code(24)}`, status: 'valid', index: i + 1, of: flat.length, paidTotal: res.total,
+          qrToken: `vibe.t.${code(24)}`, status: 'valid', index: i + 1, of: flat.length, paidTotal: pr.req.payable,
+        };
+        tickets.push(t);
+        p.ticketIds.push(t.id);
+      });
+    } else if (pr.kind === 'movie') {
+      const paid = cinema.markPaid(pr.context);
+      const bookingId = `VBM-${code(4)}-${code(4)}`;
+      paid.seats.forEach((seat, i) => {
+        const t: Ticket = {
+          id: id('t'), bookingId, eventId: paid.show.movieId, eventTitle: paid.show.movieTitle, eventKind: 'Movies',
+          startsAt: paid.show.startsAt, gatesOpenAt: new Date(Date.parse(paid.show.startsAt) - 30 * 60_000).toISOString(),
+          venue: `${paid.show.cinemaName} · ${paid.show.screenName}`, area: paid.show.area, typeName: seat.className,
+          attendeeName: user?.name ?? 'Guest', admissionCode: `${code(3)}-${code(3)}`, qrToken: `vibe.t.${code(24)}`,
+          coverUrl: paid.coverUrl, seatLabel: seat.label, status: 'valid', index: i + 1, of: paid.seats.length, paidTotal: pr.req.payable,
         };
         tickets.push(t);
         p.ticketIds.push(t.id);
@@ -239,8 +271,40 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
 
   const newPaymentRequest = (kind: Payment['kind'], payee: string, context: string, req: Omit<PaymentRequest, 'id' | 'currency'>) => {
     const pr: PaymentRequest = { ...req, id: id('pr'), currency: 'INR' };
-    paymentRequests.set(pr.id, { req: pr, kind, payee, context });
+    paymentRequests.set(pr.id, { req: pr, kind, payee, context, base: pr.payable });
     return pr;
+  };
+
+  // ---- Offers at checkout ----
+  type PrEntry = { req: PaymentRequest; kind: Payment['kind']; payee: string; context: string; base: number };
+  const supportsOffers = (kind: Payment['kind']) => (CHECKOUT_KINDS as readonly string[]).includes(kind);
+  const evalCheckoutOffer = (def: CheckoutOfferDef, entry: PrEntry): { ok: boolean; reason: string | null; saving: number } => {
+    const no = (reason: string) => ({ ok: false, reason, saving: 0 });
+    if (!def.kinds.includes(entry.kind as CheckoutKind)) return no('Not valid for this booking.');
+    if (def.memberOnly && !isMember()) return no('For VIBE members.');
+    if (def.firstBookingOnly && [...payments.values()].some((p) => supportsOffers(p.kind) && p.status === 'verified')) return no('For your first booking only.');
+    if (def.maxUses !== undefined && (offerUses.get(def.id) ?? 0) >= def.maxUses) return no('You’ve used this offer the maximum number of times.');
+    if (def.rule.minBill !== null && entry.base < def.rule.minBill) return no(`Spend ${formatINR(def.rule.minBill)} or more.`);
+    const q = quote(def.rule, entry.base);
+    return q.discount > 0 ? { ok: true, reason: null, saving: q.discount } : no(q.reason ?? 'Doesn’t apply to this order.');
+  };
+  /** The bill with one offer applied (or none). Always priced from the original amount, so offers never stack. */
+  const repriced = (entry: PrEntry, offer: PaymentRequest['appliedOffer'], discount: number): PaymentRequest => ({
+    ...entry.req, eligibleAmount: entry.base, discount, discountLabel: offer ? offer.title : '', appliedOffer: offer ?? null,
+    payable: entry.base - discount + entry.req.vibeFee,
+  });
+  const offerEntry = (prId: string) => {
+    requireUser();
+    const entry = paymentRequests.get(prId) ?? fail(404, 'not_found', 'This bill is no longer available.');
+    if (!supportsOffers(entry!.kind)) fail(400, 'not_applicable', 'Offers can’t be applied to this payment.');
+    return entry!;
+  };
+  /** Once a payment has started, the amount is fixed. */
+  const editableOffer = (prId: string, entry: PrEntry) => {
+    if (Date.parse(entry.req.expiresAt) < now()) fail(410, 'expired', 'This booking has expired.');
+    if ([...payments.values()].some((p) => p.paymentRequestId === prId && (p.status === 'pending' || p.status === 'verified'))) {
+      fail(409, 'locked', 'Payment has already started, so the offer can’t be changed.');
+    }
   };
 
   const runSearch = (q: BusinessQuery): BusinessSummary[] => {
@@ -358,6 +422,37 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       return wait(detail);
     },
 
+    async getMovies(filter) {
+      return wait(cinema.movies(filter));
+    },
+    async getMovie(mid) {
+      return wait(cinema.movie(mid));
+    },
+    async getMovieShows(mid, date) {
+      return wait(cinema.showtimesForMovie(mid, date));
+    },
+    async getCinemaShows(cid, date) {
+      return wait(cinema.showtimesForCinema(cid, date));
+    },
+    async getSeatMap(sid) {
+      return wait(cinema.seatMap(sid, user?.id));
+    },
+    async holdSeats(sid, seatIds) {
+      const u = requireUser();
+      const h = cinema.hold(sid, seatIds, u.id);
+      const byClass = new Map<string, { labels: string[]; amount: number }>();
+      for (const s of h.seats) {
+        const cur = byClass.get(s.className) ?? { labels: [], amount: 0 };
+        byClass.set(s.className, { labels: [...cur.labels, s.label], amount: cur.amount + s.price });
+      }
+      const pr = newPaymentRequest('movie', `${h.show.movieTitle} · ${h.show.cinemaName}`, h.holdId, {
+        billRef: h.holdId.toUpperCase(), raisedBy: 'VIBE Tickets', raisedAt: new Date(now()).toISOString(),
+        lines: [...byClass].map(([name, v]) => ({ label: `${name} × ${v.labels.length} (${v.labels.join(', ')})`, amount: v.amount })),
+        eligibleAmount: h.total, discount: 0, discountLabel: '', taxes: null, vibeFee: 0, payable: h.total, expiresAt: h.expiresAt,
+      });
+      return wait({ holdId: h.holdId, showId: sid, seats: h.seats, total: h.total, expiresAt: h.expiresAt, paymentRequestId: pr.id });
+    },
+
     async getOffers(view) {
       const dist = (o: (typeof offers)[number]) => businesses.find((b) => b.id === o.businessId)?.distanceKm ?? 99;
       let list = [...offers];
@@ -411,6 +506,35 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       return wait(undefined);
     },
 
+    async getCheckoutOffers(prId) {
+      requireUser();
+      const entry = paymentRequests.get(prId) ?? fail(404, 'not_found', 'This bill is no longer available.');
+      const defs = supportsOffers(entry!.kind) ? checkoutOffers.filter((d) => d.kinds.includes(entry!.kind as CheckoutKind)) : [];
+      const available = defs
+        .map((d) => {
+          const e = evalCheckoutOffer(d, entry!);
+          return { id: d.id, code: d.code, title: d.title, description: d.description, memberOnly: d.memberOnly, eligible: e.ok, reason: e.reason, saving: e.saving, terms: d.terms };
+        })
+        .sort((a, b) => Number(b.eligible) - Number(a.eligible) || b.saving - a.saving);
+      return wait({ applied: entry!.req.appliedOffer ?? null, available });
+    },
+    async applyOffer(prId, codeOrId) {
+      const entry = offerEntry(prId);
+      editableOffer(prId, entry);
+      const key = codeOrId.trim().toLowerCase();
+      const def = key ? checkoutOffers.find((d) => d.id.toLowerCase() === key || d.code.toLowerCase() === key) : undefined;
+      if (!def) fail(404, 'invalid_code', 'That code isn’t valid.');
+      const e = evalCheckoutOffer(def!, entry);
+      if (!e.ok) fail(409, 'not_eligible', e.reason ?? 'This offer doesn’t apply to your order.');
+      entry.req = repriced(entry, { id: def!.id, code: def!.code, title: def!.title, memberOnly: def!.memberOnly }, e.saving);
+      return wait({ ...entry.req, payeeName: entry.payee, kind: entry.kind });
+    },
+    async removeOffer(prId) {
+      const entry = offerEntry(prId);
+      editableOffer(prId, entry);
+      entry.req = repriced(entry, null, 0);
+      return wait({ ...entry.req, payeeName: entry.payee, kind: entry.kind });
+    },
     async getPaymentRequest(prId) {
       const entry = paymentRequests.get(prId) ?? fail(404, 'not_found', 'This bill is no longer available.');
       return wait({ ...entry!.req, payeeName: entry!.payee, kind: entry!.kind });
@@ -425,9 +549,10 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       for (const p of payments.values()) {
         if (p.paymentRequestId === prId && (p.status === 'verified' || p.status === 'pending')) fail(409, 'already_paid', 'This bill is already being paid.');
       }
+      if (entry!.kind === 'movie') cinema.lock(entry!.context); // seats stay held while the payment is in flight
       const reference = `VB-${code(4)}-${code(4)}`;
       payments.set(reference, {
-        reference, kind: entry!.kind, status: 'pending', method, amount: entry!.req.payable, savings: entry!.req.discount, payeeName: entry!.payee,
+        reference, kind: entry!.kind, status: 'pending', method, amount: entry!.req.payable, savings: entry!.req.discount, offerTitle: entry!.req.appliedOffer?.title ?? null, payeeName: entry!.payee,
         providerPaymentId: null, verifiedAt: null, failureReason: null, lines: entry!.req.lines, ticketIds: [],
         createdAt: now(), paymentRequestId: prId, applied: false,
       });
