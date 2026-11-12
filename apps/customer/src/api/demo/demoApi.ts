@@ -540,15 +540,18 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       return wait({ eligible: true, reason: o!.memberOnly ? 'Active VIBE member' : 'Available to all VIBE users', redemptionsLeftToday: left, memberValidUntil: membership.validUntil });
     },
 
-    async createRedemption(offerId) {
+    async createRedemption(offerId, mode = 'bill') {
       const u = requireUser();
       const o = offers.find((x) => x.id === offerId) ?? fail(404, 'not_found', 'Offer not found.');
       if (o!.memberOnly && !isMember()) fail(403, 'membership_required', 'This offer is for VIBE members.');
       if ((redemptionsToday.get(offerId) ?? 0) >= 1) fail(409, 'limit_reached', 'You’ve already used this offer today.');
       const biz = businesses.find((b) => b.id === o!.businessId)!;
+      const code = mode === 'code';
       const red: Redemption = {
         id: id('rd'), offerId, businessName: biz.name, branchName: biz.area, customerDisplayName: `${u.name.split(' ')[0]} ${u.name.split(' ')[1]?.[0] ?? ''}.`.trim(),
-        vibeId: u.vibeId, status: 'awaiting_bill', expiresAt: new Date(now() + 15 * 60_000).toISOString(), paymentRequest: null,
+        vibeId: u.vibeId, status: code ? 'code_issued' : 'awaiting_bill', expiresAt: new Date(now() + (code ? 5 : 15) * 60_000).toISOString(), paymentRequest: null,
+        mode, code: code ? String(Math.floor(100000 + Math.random() * 900000)) : null, review: null, canReview: false,
+        place: { name: biz.name, address: biz.address, area: biz.area, lat: biz.location?.lat ?? null, lng: biz.location?.lng ?? null },
       };
       redemptions.set(red.id, red);
       return wait(red);
@@ -556,8 +559,19 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
 
     async getRedemption(rid) {
       const red = redemptions.get(rid) ?? fail(404, 'not_found', 'Redemption not found.');
-      if (red!.status === 'awaiting_bill' && Date.parse(red!.expiresAt) < now()) red!.status = 'expired';
+      if ((red!.status === 'awaiting_bill' || red!.status === 'code_issued') && Date.parse(red!.expiresAt) < now()) { red!.status = 'expired'; red!.code = null; }
+      red!.canReview = !red!.review && (red!.status === 'redeemed' || red!.status === 'paid');
       return wait(red!);
+    },
+
+    async reviewRedemption(rid, rating, comment) {
+      const red = redemptions.get(rid) ?? fail(404, 'not_found', 'Redemption not found.');
+      if (red!.status !== 'redeemed' && red!.status !== 'paid') fail(409, 'not_visited', 'You can rate a visit once your code is confirmed or your bill is paid.');
+      if (red!.review) fail(409, 'already_reviewed', 'You’ve already rated this visit. Thank you!');
+      if (rating < 1 || rating > 5) fail(400, 'validation', 'Choose 1 to 5 stars.');
+      red!.review = { rating, comment: comment.trim() };
+      red!.canReview = false;
+      return wait(undefined);
     },
 
     async cancelRedemption(rid) {
@@ -613,7 +627,7 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       const reference = `VB-${code(4)}-${code(4)}`;
       payments.set(reference, {
         reference, kind: entry!.kind, status: 'pending', method, amount: entry!.req.payable, savings: entry!.req.discount, offerTitle: entry!.req.appliedOffer?.title ?? null, payeeName: entry!.payee,
-        providerPaymentId: null, verifiedAt: null, failureReason: null, lines: entry!.req.lines, ticketIds: [],
+        providerPaymentId: null, verifiedAt: null, failureReason: null, lines: entry!.req.lines, ticketIds: [], redemptionId: entry!.kind === 'redemption' ? entry!.context : null,
         createdAt: now(), paymentRequestId: prId, applied: false,
       });
       idempotency.set(idempotencyKey, reference);
@@ -933,6 +947,16 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         if (!next) fail(409, 'nobody', 'No one else matching this invite in the demo.');
         i!.requests.push(next!);
         return wait(viewOf(i!));
+      },
+      /** Stands in for staff tapping "Yes, redeemed" on the merchant dashboard. */
+      async simulateCodeConfirmed(rid: ID) {
+        const red = redemptions.get(rid) ?? fail(404, 'not_found', 'Redemption not found.');
+        if (red!.status !== 'code_issued') fail(409, 'bad_state', 'This code isn’t live.');
+        red!.status = 'redeemed';
+        red!.code = null;
+        red!.canReview = true;
+        redemptionsToday.set(red!.offerId, (redemptionsToday.get(red!.offerId) ?? 0) + 1);
+        return wait(red!);
       },
       /** Stands in for the merchant entering a bill in the merchant dashboard. */
       async simulateMerchantBill(rid: ID, eligibleAmount: number) {

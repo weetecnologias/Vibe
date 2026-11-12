@@ -24,7 +24,9 @@ export function ResultsPage() {
             <div className="card"><span className="muted small">Sales through VIBE</span><strong>{formatINR(d.sales)}</strong><span className="muted small">{d.paidBills} paid bills</span></div>
             <div className="card"><span className="muted small">VIBE customers</span><strong>{d.customers}</strong><span className="muted small">{d.repeatCustomers} came back</span></div>
             <div className="card"><span className="muted small">Average bill</span><strong>{formatINR(d.averageBill)}</strong></div>
-            <div className="card"><span className="muted small">Discount you gave</span><strong>{formatINR(d.discountGiven)}</strong></div>
+            <div className="card"><span className="muted small">Discount you gave</span><strong>{formatINR(d.discountGiven + (d.codeDiscountGiven ?? 0))}</strong></div>
+            <div className="card"><span className="muted small">Codes redeemed at the counter</span><strong>{d.codesRedeemed ?? 0}</strong></div>
+            <div className="card"><span className="muted small">Your rating</span><strong>{d.reviewCount ? `${(d.rating ?? 0).toFixed(1)} ★` : '–'}</strong><span className="muted small">{d.reviewCount ?? 0} ratings</span></div>
           </div>
 
           <div className="card stack">

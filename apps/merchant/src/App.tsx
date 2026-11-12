@@ -12,6 +12,7 @@ import { OffersPage } from './pages/OffersPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ReservationsPage } from './pages/ReservationsPage';
 import { ResultsPage } from './pages/ResultsPage';
+import { ReviewsPage } from './pages/ReviewsPage';
 import { SettlementsPage } from './pages/SettlementsPage';
 import { TeamPage } from './pages/TeamPage';
 import { SettingsContext } from './settings';
@@ -59,6 +60,7 @@ function SignedIn() {
     { group: 'Money', path: 'settlements', label: 'Settlements', area: 'money', element: <SettlementsPage /> },
     { group: 'My business', path: 'profile', label: 'Profile and photos', area: 'profile', element: <ProfilePage /> },
     { group: 'My business', path: 'menu', label: settings.menuLabel, area: 'menu', element: <MenuPage /> },
+    { group: 'My business', path: 'reviews', label: 'Reviews', area: 'profile', element: <ReviewsPage /> },
     { group: 'My business', path: 'reservations', label: 'Reservations', area: 'reservations', element: <ReservationsPage /> },
     { group: 'My business', path: 'team', label: 'Team', area: 'team', element: <TeamPage /> },
   ].filter((p) => p.when !== false && can(p.area));

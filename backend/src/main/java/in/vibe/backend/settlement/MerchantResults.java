@@ -18,7 +18,8 @@ public class MerchantResults {
     public record OfferResult(String offerId, String title, String reviewStatus, boolean live, int redemptions, int paid, long sales, long discount) {}
 
     public record Results(int days, int customers, int repeatCustomers, int redemptionsStarted, int paidBills, long sales, long discountGiven, long averageBill, int offersLive, int offersPending,
-                          int eventsLive, int eventsPending, Settlements.Balance unsettled, long awaitingPayout, long paidOut, List<OfferResult> offers, List<Day> lastDays) {}
+                          int eventsLive, int eventsPending, Settlements.Balance unsettled, long awaitingPayout, long paidOut, List<OfferResult> offers, List<Day> lastDays,
+                          int codesRedeemed, long codeDiscountGiven, double rating, int reviewCount) {}
 
     private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
     private final JdbcClient jdbc;
@@ -63,7 +64,10 @@ public class MerchantResults {
             lastDays.add(new Day(from.toLocalDate().toString(), r[1], (int) r[0]));
         }
         Settlements.MerchantView money = settlements.merchantView(b);
+        long[] codes = jdbc.sql("select count(*), coalesce(sum(discount_given), 0) from redemptions where business_id = :b and status = 'redeemed' and redeemed_at >= :s").param("b", b).param("s", since)
+                .query((rs, i) -> new long[]{rs.getLong(1), rs.getLong(2)}).single();
+        double[] rating = jdbc.sql("select coalesce(avg(rating), 0), count(*) from reviews where business_id = :b and not hidden").param("b", b).query((rs, i) -> new double[]{Math.round(rs.getDouble(1) * 10) / 10.0, rs.getInt(2)}).single();
         return new Results(span, (int) t[3], repeat, started, (int) t[0], t[1], t[2], t[0] == 0 ? 0 : t[1] / t[0], offersLive, offersPending, eventsLive, eventsPending,
-                money.unsettled(), money.awaitingPayout(), money.paidOut(), offers, lastDays);
+                money.unsettled(), money.awaitingPayout(), money.paidOut(), offers, lastDays, (int) codes[0], codes[1], rating[0], (int) rating[1]);
     }
 }

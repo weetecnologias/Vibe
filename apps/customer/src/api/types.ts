@@ -97,7 +97,12 @@ export type OfferDetail = OfferSummary & {
   terms: string[];
   /** Server-computed worked example for display only. */
   example: { bill: Paise; discount: Paise; payable: Paise } | null;
+  /** How this place can be redeemed: show a code and pay at the counter, and/or get the bill in the app. */
+  redeemModes?: RedeemMode[];
 };
+
+/** code: show a 6-digit code (valid 5 minutes) and pay the place directly; staff confirm it. bill: the place sends the bill to the app and you pay through VIBE. */
+export type RedeemMode = 'code' | 'bill';
 
 /** Matches the admin-managed "Offers & Benefits" subcategories. */
 export type OfferView = 'all' | 'nearby' | 'trending' | 'new' | 'ending' | 'member';
@@ -126,7 +131,7 @@ export type PaymentRequest = {
   expiresAt: ISODate;
 };
 
-export type RedemptionStatus = 'awaiting_bill' | 'bill_ready' | 'paid' | 'expired' | 'cancelled';
+export type RedemptionStatus = 'awaiting_bill' | 'bill_ready' | 'paid' | 'expired' | 'cancelled' | 'code_issued' | 'redeemed';
 
 export type Redemption = {
   id: ID;
@@ -136,8 +141,17 @@ export type Redemption = {
   customerDisplayName: string;
   vibeId: string;
   status: RedemptionStatus;
+  /** For a code: when the code stops working. */
   expiresAt: ISODate;
   paymentRequest: PaymentRequest | null;
+  mode?: RedeemMode;
+  /** The 6-digit code while it is live; null once used or expired. */
+  code?: string | null;
+  /** Where to redeem, shown with the code. */
+  place?: { name: string; address: string; area: string; lat: number | null; lng: number | null } | null;
+  review?: { rating: number; comment: string } | null;
+  /** True once the code was confirmed or the bill paid, until the visit is rated. */
+  canReview?: boolean;
 };
 
 export type PaymentMethod = 'upi' | 'card' | 'netbanking';
@@ -169,6 +183,8 @@ export type Payment = {
   ticketIds: ID[];
   /** Title of the offer used on this payment, for the receipt. */
   offerTitle?: string | null;
+  /** The redemption a bill payment belongs to, so the receipt can ask for a rating. */
+  redemptionId?: ID | null;
 };
 
 // ---------- Events & tickets ----------

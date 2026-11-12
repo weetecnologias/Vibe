@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { Badge, Loading, Notice, PageHead, ProfileFields, emptyDraft, errorText, fromDraft, toDraft, useAsync, useAuth, type Editable, type ProfileDraft } from '@kit';
 
+import { PaymentSettingCard } from './ReviewsPage';
+
 export function ProfilePage() {
   const { client } = useAuth();
   const biz = useAsync(() => client.get<Editable>('/v1/merchant/business'), [client]);
@@ -53,6 +55,7 @@ export function ProfilePage() {
         {saved ? <Notice tone="success">Saved. Customers see the changes the next time the app loads.</Notice> : null}
         <div className="row"><button className="btn primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save changes'}</button></div>
       </div>
+      <PaymentSettingCard />
     </>
   );
 }

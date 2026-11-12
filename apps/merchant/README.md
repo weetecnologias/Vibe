@@ -6,6 +6,8 @@ React + Vite + TypeScript. For the businesses listed on VIBE. Shares its UI, API
 
 A merchant sees and edits **only their own business** (the server takes the business from the sign-in token, never from the request).
 
+- **Bills and codes:** customers redeeming with a **code** appear with it; staff type the code (or tap **Yes, redeemed** on the row), optionally type the bill to see the discount to give, and confirm. Customers asking for the **bill** are billed as before. **Profile** has a switch for whether customers can pay through VIBE at all.
+- **Reviews:** every rating from a real visit, the average and the spread; an alert with each new one.
 - **Events and tickets:** each event shows tickets sold and left. **Sales and door** shows sold, left, being bought and checked in per ticket type, every booking, and a box to check people in by the code on their ticket (a ticket gets in once). An alert arrives with every sale.
 - **Team roles:** the owner adds people as **cashier / waiter** (Bills only), **manager** (everything except the team) or **custom** (chosen areas), and can change it any time. Each person sees only the pages and alerts for their role, and the server refuses the rest.
 - **Join VIBE:** a business that has no login yet applies at `/apply` and follows its application there. When VIBE approves, it receives a login and chooses its own password on first sign-in.

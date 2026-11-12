@@ -161,3 +161,8 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .checkin.success { background: var(--success-tint); border-color: var(--success); }
 .checkin.warning { background: var(--warning-tint, var(--soft-white)); border-color: var(--warning); }
 .checkin.error { background: var(--error-tint); border-color: var(--error); }
+
+/* redeem codes */
+.code-chip { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-size: 18px; letter-spacing: 3px; padding: 4px 10px; border-radius: 8px; background: var(--near-black); color: var(--white); }
+.code-chip.big { font-size: 28px; padding: 8px 14px; align-self: flex-start; }
+.stars { color: var(--pink); letter-spacing: 1px; }

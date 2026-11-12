@@ -41,8 +41,14 @@ public class Redemptions {
     public record PaymentRequestView(String id, String billRef, String raisedBy, OffsetDateTime raisedAt, List<BillLine> lines, long eligibleAmount, long discount, String discountLabel,
                                      Long taxes, long vibeFee, long payable, String currency, Object appliedOffer, OffsetDateTime expiresAt) {}
 
+    /** Where to go: shown with a code, so the customer can find the place. */
+    public record Place(String name, String address, String area, Double lat, Double lng) {}
+
+    public record ReviewView(int rating, String comment) {}
+
+    /** mode: bill (pay through VIBE) or code (show the code, pay the place). For a code, expiresAt is when the code stops working. */
     public record RedemptionView(String id, String offerId, String businessName, String branchName, String customerDisplayName, String vibeId, String status, OffsetDateTime expiresAt,
-                                 PaymentRequestView paymentRequest) {}
+                                 PaymentRequestView paymentRequest, String mode, String code, Place place, ReviewView review, boolean canReview) {}
 
     public record Eligibility(boolean eligible, String reason, Integer redemptionsLeftToday, OffsetDateTime memberValidUntil) {}
 
@@ -55,9 +61,17 @@ public class Redemptions {
 
     public record BillInfo(String billRef, long eligibleAmount, long discount, long payable, OffsetDateTime raisedAt, OffsetDateTime expiresAt, String raisedBy, String paymentStatus) {}
 
-    public record Row(String id, String customerName, String vibeId, String offerTitle, String status, OffsetDateTime requestedAt, OffsetDateTime expiresAt, OffsetDateTime paidAt, BillInfo bill) {}
+    public record Row(String id, String customerName, String vibeId, String offerTitle, String status, OffsetDateTime requestedAt, OffsetDateTime expiresAt, OffsetDateTime paidAt, BillInfo bill,
+                      String mode, String code, Long billAmount, Long discountGiven) {}
 
-    public record Summary(int paidToday, long paidTodayAmount, long savedTodayAmount) {}
+    public record Summary(int paidToday, long paidTodayAmount, long savedTodayAmount, int redeemedToday) {}
+
+    /** What staff see when they look up a code: who, which offer, and (when they type the bill) the discount to give at the counter. */
+    public record CodeCheck(String id, String code, String customerName, String vibeId, String offerTitle, OffsetDateTime expiresAt, Long billAmount, Long discount, Long customerPays, String reason) {}
+
+    public record CodeInput(@NotBlank @Size(max = 12) String code, @Min(1) @Max(MAX_BILL) Long billAmount) {}
+
+    public record RedeemInput(@Min(1) @Max(MAX_BILL) Long billAmount) {}
 
     public record Board(List<Row> rows, Summary summary) {}
 
@@ -120,7 +134,7 @@ public class Redemptions {
         if (!billingRules.forBusiness(o.businessId()).payRedeem()) return new Eligibility(false, "Bills aren’t used at this place.", null, null);
         OffsetDateTime until = memberUntil(customer);
         if (o.memberOnly() && until == null) return new Eligibility(false, "This offer is for VIBE members.", null, null);
-        int used = jdbc.sql("select count(*) from redemptions where customer_id = :c and offer_id = :o and status = 'paid' and paid_at >= :d").param("c", customer).param("o", offerId).param("d", startOfToday()).query(Integer.class).single();
+        int used = jdbc.sql("select count(*) from redemptions where customer_id = :c and offer_id = :o and ((status = 'paid' and paid_at >= :d) or (status = 'redeemed' and redeemed_at >= :d))").param("c", customer).param("o", offerId).param("d", startOfToday()).query(Integer.class).single();
         if (used >= 1) return new Eligibility(false, "You’ve already used this offer today.", 0, until);
         return new Eligibility(true, o.memberOnly() ? "Active VIBE member" : "Available to all VIBE users", 1 - used, until);
     }
@@ -128,47 +142,125 @@ public class Redemptions {
     // ---------- customer: redeem ----------
     /** Starting again while a redemption for the same offer is still open returns that one, so a reload never creates a second. */
     @Transactional
-    public RedemptionView create(UUID customer, UUID offerId) {
+    public RedemptionView create(UUID customer, UUID offerId) { return create(customer, offerId, "bill"); }
+
+    /** Codes are 6 digits, valid this long. */
+    public static final int CODE_MINUTES = 5;
+
+    @Transactional
+    public RedemptionView create(UUID customer, UUID offerId, String mode) {
+        String m = mode == null || mode.isBlank() ? "bill" : mode;
+        if (!m.equals("bill") && !m.equals("code")) throw ApiException.badRequest("mode", "Choose a code or a bill.");
         OfferRow o = liveOffer(offerId);
+        if (m.equals("bill") && !acceptsVibePayments(o.businessId())) throw ApiException.conflict("pay_at_counter", o.businessName() + " doesn’t take payment through VIBE yet. Get a code and pay at the counter instead.");
         Eligibility e = eligibility(customer, offerId);
         if (!e.eligible()) {
             boolean member = o.memberOnly() && memberUntil(customer) == null;
             throw member ? new ApiException(HttpStatus.FORBIDDEN, "membership_required", e.reason()) : ApiException.conflict("limit_reached", e.reason());
         }
-        var open = jdbc.sql("select id, status, expires_at from redemptions where customer_id = :c and offer_id = :o and status in ('awaiting_bill', 'bill_ready') for update").param("c", customer).param("o", offerId)
-                .query((rs, i) -> new Object[]{rs.getObject(1), rs.getString(2), rs.getObject(3, OffsetDateTime.class)}).optional();
+        var open = jdbc.sql("select id, status, expires_at, mode from redemptions where customer_id = :c and offer_id = :o and status in ('awaiting_bill', 'bill_ready', 'code_issued') for update").param("c", customer).param("o", offerId)
+                .query((rs, i) -> new Object[]{rs.getObject(1), rs.getString(2), rs.getObject(3, OffsetDateTime.class), rs.getString(4)}).optional();
         if (open.isPresent()) {
             UUID id = (UUID) open.get()[0];
             if (effective((String) open.get()[1], (OffsetDateTime) open.get()[2], null).equals("expired")) {
                 jdbc.sql("update redemptions set status = 'cancelled', updated_at = now() where id = :id").param("id", id).update();
+            } else if (m.equals(open.get()[3])) {
+                return view(customer, id); // the same request, opened again
             } else {
-                return view(customer, id);
+                cancel(customer, id); // switching between a code and a bill replaces the open one (refused once payment has started)
             }
         }
         UUID id = UUID.randomUUID();
-        jdbc.sql("insert into redemptions (id, customer_id, offer_id, business_id, status, expires_at) values (:id, :c, :o, :b, 'awaiting_bill', :e)").param("id", id).param("c", customer).param("o", offerId)
-                .param("b", o.businessId()).param("e", now().plusMinutes(redemptionMinutes)).update();
         String who = jdbc.sql("select name, vibe_id from customers where id = :id").param("id", customer).query((rs, i) -> Customers.displayName(rs.getString(1)) + " (VIBE ID " + rs.getString(2) + ")").single();
-        staffNotifications.toBusiness(o.businessId(), "redeem_started", who + " wants to redeem", o.title() + ". Open Bills to raise their bill.", "/bills");
+        if (m.equals("code")) {
+            // Codes that ran out free up their digits; then pick one nobody at this place is holding.
+            jdbc.sql("update redemptions set status = 'cancelled', updated_at = now() where business_id = :b and status = 'code_issued' and expires_at < :n").param("b", o.businessId()).param("n", now()).update();
+            String code = null;
+            for (int attempt = 0; attempt < 8 && code == null; attempt++) {
+                String c = String.format("%06d", random.nextInt(1_000_000));
+                try {
+                    jdbc.sql("insert into redemptions (id, customer_id, offer_id, business_id, status, expires_at, mode, code) values (:id, :c, :o, :b, 'code_issued', :e, 'code', :code)")
+                            .param("id", id).param("c", customer).param("o", offerId).param("b", o.businessId()).param("e", now().plusMinutes(CODE_MINUTES)).param("code", c).update();
+                    code = c;
+                } catch (org.springframework.dao.DuplicateKeyException clash) {
+                    // that code is live at this place; try another
+                }
+            }
+            if (code == null) throw ApiException.conflict("busy", "Couldn’t make a code just now. Try again.");
+            staffNotifications.toBusiness(o.businessId(), "redeem_started", who + " has a code: " + spaced(code), o.title() + ". They pay at the counter; confirm the code on Bills.", "/bills");
+        } else {
+            jdbc.sql("insert into redemptions (id, customer_id, offer_id, business_id, status, expires_at) values (:id, :c, :o, :b, 'awaiting_bill', :e)").param("id", id).param("c", customer).param("o", offerId)
+                    .param("b", o.businessId()).param("e", now().plusMinutes(redemptionMinutes)).update();
+            staffNotifications.toBusiness(o.businessId(), "redeem_started", who + " wants to redeem", o.title() + ". Open Bills to raise their bill.", "/bills");
+        }
         return view(customer, id);
+    }
+
+    static String spaced(String code) { return code.substring(0, 3) + " " + code.substring(3); }
+
+    public boolean acceptsVibePayments(UUID business) {
+        return jdbc.sql("select accepts_vibe_payments from businesses where id = :b").param("b", business).query(Boolean.class).optional().orElse(false);
+    }
+
+    // ---------- merchant: confirm a code ----------
+    /** Staff type the code the customer shows. Optionally the bill, to see the discount to give at the counter. Nothing is confirmed yet. */
+    public CodeCheck checkCode(StaffPrincipal who, String raw, Long billAmount) {
+        UUID b = who.requireBusiness();
+        String code = raw.replaceAll("\\D", "");
+        record C(UUID id, UUID offer, String cname, String vibeId, String title, OffsetDateTime expires) {}
+        C c = jdbc.sql("select r.id, r.offer_id, cu.name, cu.vibe_id, o.title, r.expires_at from redemptions r join customers cu on cu.id = r.customer_id join offers o on o.id = r.offer_id "
+                        + "where r.business_id = :b and r.code = :code and r.status = 'code_issued' and r.expires_at > :n").param("b", b).param("code", code).param("n", now())
+                .query((rs, i) -> new C((UUID) rs.getObject(1), (UUID) rs.getObject(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getObject(6, OffsetDateTime.class))).optional()
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "no_code", "No live code " + (code.length() == 6 ? spaced(code) : raw.trim()) + " at your place. Codes work for " + CODE_MINUTES + " minutes; ask the customer to get a new one."));
+        return codeCheck(c.id(), code, c.cname(), c.vibeId(), c.title(), c.expires(), c.offer(), billAmount);
+    }
+
+    private CodeCheck codeCheck(UUID id, String code, String cname, String vibeId, String title, OffsetDateTime expires, UUID offer, Long billAmount) {
+        if (billAmount == null) return new CodeCheck(id.toString(), code, Customers.displayName(cname), vibeId, title, expires, null, null, null, null);
+        OfferRow o = anyOffer(offer);
+        Pricing.Quote q = Pricing.quote(o.kind(), o.rateBps(), o.flatAmount(), o.maxDiscount(), o.minBill(), billAmount);
+        return new CodeCheck(id.toString(), code, Customers.displayName(cname), vibeId, title, expires, billAmount, q.discount(), billAmount - q.discount(), q.reason());
+    }
+
+    /** "Yes, redeemed": the customer paid the place directly. The customer is told and asked to rate the visit. */
+    @Transactional
+    public CodeCheck redeemCode(StaffPrincipal who, UUID id, Long billAmount) {
+        UUID b = who.requireBusiness();
+        Locked r = lock(b, id);
+        String mode = jdbc.sql("select mode from redemptions where id = :id").param("id", id).query(String.class).single();
+        if (!"code".equals(mode)) throw ApiException.conflict("not_a_code", "This customer is paying through VIBE. Raise their bill instead.");
+        if ("redeemed".equals(r.status())) throw ApiException.conflict("already_redeemed", "This code was already confirmed.");
+        if (!"code_issued".equals(r.status()) || r.expiresAt().isBefore(now())) throw ApiException.conflict("expired", "This code has run out. Ask the customer to get a new one in the app.");
+        String code = jdbc.sql("select code from redemptions where id = :id").param("id", id).query(String.class).single();
+        OfferRow o = anyOffer(r.offerId());
+        CodeCheck check = codeCheck(id, code, r.customerName(), null, o.title(), r.expiresAt(), r.offerId(), billAmount);
+        jdbc.sql("update redemptions set status = 'redeemed', redeemed_at = now(), redeemed_by = :by, bill_amount = :amt, discount_given = :d, updated_at = now() where id = :id")
+                .param("by", who.id()).param("amt", billAmount, java.sql.Types.BIGINT).param("d", check.discount(), java.sql.Types.BIGINT).param("id", id).update();
+        audit.record(who, "redeem_code", "redemption", id, spaced(code) + (billAmount == null ? "" : " bill " + rupees(billAmount)));
+        notifications.notify(r.customerId(), "code_redeemed", "Redeemed at " + o.businessName(), o.title() + (check.discount() != null && check.discount() > 0 ? ". You saved ₹" + rupees(check.discount()) : "") + ". How was your visit? Rate it in the app.", "redemption", id.toString());
+        return check;
     }
 
     /** The status a person should see: an unbilled redemption, or an unpaid bill, past its time is expired. */
     private String effective(String status, OffsetDateTime redemptionExpires, OffsetDateTime billExpires) {
-        if ("awaiting_bill".equals(status) && redemptionExpires.isBefore(now())) return "expired";
+        if (("awaiting_bill".equals(status) || "code_issued".equals(status)) && redemptionExpires.isBefore(now())) return "expired";
         if ("bill_ready".equals(status) && billExpires != null && billExpires.isBefore(now())) return "expired";
         return status;
     }
 
     public RedemptionView view(UUID customer, UUID id) {
-        record R(String offerId, String bname, String barea, String cname, String vibeId, String status, OffsetDateTime expiresAt, UUID prId) {}
-        R r = jdbc.sql("select r.offer_id, b.name bname, b.area barea, c.name cname, c.vibe_id, r.status, r.expires_at, r.payment_request_id from redemptions r join businesses b on b.id = r.business_id join customers c on c.id = r.customer_id "
-                        + "where r.id = :id and r.customer_id = :c").param("id", id).param("c", customer)
-                .query((rs, i) -> new R(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getObject(7, OffsetDateTime.class), (UUID) rs.getObject(8))).optional()
+        record R(String offerId, String bname, String barea, String cname, String vibeId, String status, OffsetDateTime expiresAt, UUID prId, String mode, String code, Place place) {}
+        R r = jdbc.sql("select r.offer_id, b.name bname, b.area barea, c.name cname, c.vibe_id, r.status, r.expires_at, r.payment_request_id, r.mode, r.code, b.address, b.lat, b.lng "
+                        + "from redemptions r join businesses b on b.id = r.business_id join customers c on c.id = r.customer_id where r.id = :id and r.customer_id = :c").param("id", id).param("c", customer)
+                .query((rs, i) -> new R(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getObject(7, OffsetDateTime.class), (UUID) rs.getObject(8),
+                        rs.getString(9), rs.getString(10), new Place(rs.getString(2), rs.getString(11), rs.getString(3), (Double) rs.getObject(12), (Double) rs.getObject(13)))).optional()
                 .orElseThrow(() -> ApiException.notFound("Redemption not found."));
         PaymentRequestView pr = r.prId() == null ? null : paymentRequest(r.prId());
         String status = effective(r.status(), r.expiresAt(), pr == null ? null : pr.expiresAt());
-        return new RedemptionView(id.toString(), r.offerId(), r.bname(), r.barea(), Customers.displayName(r.cname()), r.vibeId(), status, r.expiresAt(), "bill_ready".equals(r.status()) || "paid".equals(r.status()) ? pr : null);
+        ReviewView review = jdbc.sql("select rating, comment from reviews where redemption_id = :id").param("id", id).query((rs, i) -> new ReviewView(rs.getInt(1), rs.getString(2))).optional().orElse(null);
+        boolean canReview = review == null && ("redeemed".equals(status) || "paid".equals(status));
+        return new RedemptionView(id.toString(), r.offerId(), r.bname(), r.barea(), Customers.displayName(r.cname()), r.vibeId(), status, r.expiresAt(), "bill_ready".equals(r.status()) || "paid".equals(r.status()) ? pr : null,
+                r.mode(), "code".equals(r.mode()) && "code_issued".equals(status) ? r.code() : null, r.place(), review, canReview);
     }
 
     /** Customer leaves. A bill the customer has already started paying can't be walked away from. */
@@ -177,7 +269,7 @@ public class Redemptions {
         record R(String status, UUID prId) {}
         R r = jdbc.sql("select status, payment_request_id from redemptions where id = :id and customer_id = :c for update").param("id", id).param("c", customer)
                 .query((rs, i) -> new R(rs.getString(1), (UUID) rs.getObject(2))).optional().orElseThrow(() -> ApiException.notFound("Redemption not found."));
-        if (!r.status().equals("awaiting_bill") && !r.status().equals("bill_ready")) return;
+        if (!r.status().equals("awaiting_bill") && !r.status().equals("bill_ready") && !r.status().equals("code_issued")) return;
         if (r.prId() != null) {
             if (paymentStarted(r.prId())) throw ApiException.conflict("payment_started", "You’ve already started paying this bill.");
             jdbc.sql("update payment_requests set status = 'void' where id = :id and status = 'open'").param("id", r.prId()).update();
@@ -208,7 +300,7 @@ public class Redemptions {
         UUID b = who.requireBusiness();
         OffsetDateTime n = now();
         boolean today = "today".equals(view);
-        String where = today ? " and r.status = 'paid' and r.paid_at >= :since" : " and r.status in ('awaiting_bill', 'bill_ready')";
+        String where = today ? " and ((r.status = 'paid' and r.paid_at >= :since) or (r.status = 'redeemed' and r.redeemed_at >= :since))" : " and r.status in ('awaiting_bill', 'bill_ready', 'code_issued')";
         Map<String, Object> p = new HashMap<>();
         p.put("b", b);
         if (today) p.put("since", startOfToday());
@@ -217,8 +309,8 @@ public class Redemptions {
             if (term.matches("\\d{1,6}")) { where += " and c.vibe_id like :q"; p.put("q", term + "%"); }
             else { where += " and lower(c.name) like :q escape '\\'"; p.put("q", term.toLowerCase().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"); }
         }
-        JdbcClient.StatementSpec s = jdbc.sql("select r.id, c.name cname, c.vibe_id, o.title otitle, r.status, r.created_at, r.expires_at, r.paid_at, r.payment_request_id from redemptions r join customers c on c.id = r.customer_id "
-                + "join offers o on o.id = r.offer_id where r.business_id = :b" + where + " order by " + (today ? "r.paid_at desc" : "r.created_at asc") + " limit 100");
+        JdbcClient.StatementSpec s = jdbc.sql("select r.id, c.name cname, c.vibe_id, o.title otitle, r.status, r.created_at, r.expires_at, coalesce(r.paid_at, r.redeemed_at) paid_at, r.payment_request_id, r.mode, r.code, r.bill_amount, r.discount_given "
+                + "from redemptions r join customers c on c.id = r.customer_id join offers o on o.id = r.offer_id where r.business_id = :b" + where + " order by " + (today ? "coalesce(r.paid_at, r.redeemed_at) desc" : "r.created_at asc") + " limit 100");
         p.forEach(s::param);
         List<Row> rows = new ArrayList<>();
         s.query((rs, i) -> {
@@ -228,11 +320,13 @@ public class Redemptions {
             if (!today && "expired".equals(status)) return 0; // expired ones drop off the open list
             BillInfo bill = pr == null ? null : new BillInfo(pr.billRef(), pr.eligibleAmount(), pr.discount(), pr.payable(), pr.raisedAt(), pr.expiresAt(), pr.raisedBy(), paymentStatus(prId, rs.getString("status")));
             rows.add(new Row(rs.getString("id"), Customers.displayName(rs.getString("cname")), rs.getString("vibe_id"), rs.getString("otitle"), status, rs.getObject("created_at", OffsetDateTime.class), rs.getObject("expires_at", OffsetDateTime.class),
-                    rs.getObject("paid_at", OffsetDateTime.class), bill));
+                    rs.getObject("paid_at", OffsetDateTime.class), bill, rs.getString("mode"), rs.getString("code"), (Long) rs.getObject("bill_amount"), (Long) rs.getObject("discount_given")));
             return 0;
         }).list();
         var sum = jdbc.sql("select count(*), coalesce(sum(p.amount), 0), coalesce(sum(p.savings), 0) from payments p join payment_requests pr on pr.id = p.payment_request_id where pr.business_id = :b and p.status = 'verified' and p.verified_at >= :since")
-                .param("b", b).param("since", startOfToday()).query((rs, i) -> new Summary(rs.getInt(1), rs.getLong(2), rs.getLong(3))).single();
+                .param("b", b).param("since", startOfToday()).query((rs, i) -> new Summary(rs.getInt(1), rs.getLong(2), rs.getLong(3), 0)).single();
+        int redeemed = jdbc.sql("select count(*) from redemptions where business_id = :b and status = 'redeemed' and redeemed_at >= :since").param("b", b).param("since", startOfToday()).query(Integer.class).single();
+        sum = new Summary(sum.paidToday(), sum.paidTodayAmount(), sum.savedTodayAmount(), redeemed);
         return new Board(rows, sum);
     }
 

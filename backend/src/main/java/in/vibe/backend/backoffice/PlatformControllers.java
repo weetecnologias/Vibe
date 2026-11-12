@@ -112,12 +112,15 @@ public class PlatformControllers {
         private final BillingRules rules;
         private final in.vibe.backend.security.TeamAccess access;
 
-        MerchantSettingsApi(BillingRules rules, in.vibe.backend.security.TeamAccess access) {
+        private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
+
+        MerchantSettingsApi(BillingRules rules, in.vibe.backend.security.TeamAccess access, org.springframework.jdbc.core.simple.JdbcClient jdbc) {
+            this.jdbc = jdbc;
             this.rules = rules;
             this.access = access;
         }
 
-        public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas) {}
+        public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas, boolean acceptsVibePayments) {}
 
         /** Whether this kind of business uses Pay & Redeem bills and what its item list is called (set by VIBE on the category), and what this person may do. */
         @GetMapping
@@ -125,7 +128,8 @@ public class PlatformControllers {
             StaffPrincipal who = StaffPrincipal.from(jwt);
             BillingRules.Rules r = rules.forBusiness(who.requireBusiness());
             in.vibe.backend.security.TeamAccess.Access a = access.access(who);
-            return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.AREAS);
+            boolean accepts = jdbc.sql("select accepts_vibe_payments from businesses where id = :b").param("b", who.requireBusiness()).query(Boolean.class).single();
+            return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.AREAS, accepts);
         }
     }
 

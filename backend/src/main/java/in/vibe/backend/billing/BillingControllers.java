@@ -37,7 +37,8 @@ public class BillingControllers {
 
     public record Refresh(@NotBlank String refreshToken) {}
 
-    public record Redeem(@NotBlank String offerId) {}
+    /** mode: "bill" (get the bill in the app, pay through VIBE) or "code" (show a code, pay the place). Bill when left out. */
+    public record Redeem(@NotBlank String offerId, String mode) {}
 
     // ---------- sign-in ----------
     @RestController
@@ -131,7 +132,7 @@ public class BillingControllers {
 
         @PostMapping("/v1/redemptions")
         ResponseEntity<Redemptions.RedemptionView> redeem(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody Redeem in) {
-            return ResponseEntity.status(HttpStatus.CREATED).body(redemptions.create(CustomerPrincipal.from(jwt).id(), uuid(in.offerId())));
+            return ResponseEntity.status(HttpStatus.CREATED).body(redemptions.create(CustomerPrincipal.from(jwt).id(), uuid(in.offerId()), in.mode()));
         }
 
         @GetMapping("/v1/redemptions/{id}")

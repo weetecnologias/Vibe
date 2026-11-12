@@ -12,11 +12,11 @@ import { useSession } from '@/state/session';
 import { colors, fonts } from '@/theme/tokens';
 
 const STEPS = [
-  ['Tap Redeem offer at the venue', 'We let the business know you’re redeeming. Staff see only your first name and VIBE ID.'],
-  ['Staff send your bill', 'They enter the eligible amount in VIBE for Business.'],
-  ['Check the discount and pay', 'See the bill, discount, taxes and final amount before you approve.'],
-  ['Get your receipt', 'Confirmed once our payment partner verifies the payment.'],
-];
+  ['Tap Redeem offer at the place', 'Choose how: show a code at the counter, or get the bill in VIBE. Staff see only your first name and VIBE ID.'],
+  ['Show a code (valid 5 minutes)', 'Pay the place as usual. Staff confirm your code in VIBE for Business and give you the discount.'],
+  ['Or get the bill and pay in VIBE', 'Staff send the bill to your phone. Check the discount and pay with UPI or card; you get a verified receipt.'],
+  ['Rate your visit', 'Once it’s done, tell others how it was. Ratings come only from real visits.'],
+]
 
 export default function OfferScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -103,7 +103,7 @@ export default function OfferScreen() {
         ) : null}
 
         <View style={{ gap: 14 }}>
-          <View style={styles.between}><T variant="headline">How it works</T><T variant="small" color={colors.mutedGrey}>No QR or PIN needed</T></View>
+          <View style={styles.between}><T variant="headline">How it works</T><T variant="small" color={colors.mutedGrey}>Two ways to redeem</T></View>
           {STEPS.map(([title, text], i) => (
             <View key={title} style={{ flexDirection: 'row', gap: 14 }}>
               <View style={[styles.step, { backgroundColor: i === 0 ? colors.pink : colors.nearBlack }]}><T variant="captionStrong" color={colors.white}>{i + 1}</T></View>

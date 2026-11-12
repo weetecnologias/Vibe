@@ -20,7 +20,7 @@ class OpenStatusTest {
     /** Monday 10 Nov 2026 at the given India time. */
     static Businesses at(String hhmm) {
         Instant t = java.time.ZonedDateTime.of(2026, 11, 9, Integer.parseInt(hhmm.substring(0, 2)), Integer.parseInt(hhmm.substring(3)), 0, 0, IST).toInstant();
-        return new Businesses(null, Clock.fixed(t, IST));
+        return new Businesses(null, Clock.fixed(t, IST), null);
     }
 
     static Map<Integer, LocalTime[]> everyDay(String opens, String closes) {

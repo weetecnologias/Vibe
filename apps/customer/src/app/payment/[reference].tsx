@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 
 import { api, type Payment } from '@/api';
+import { RateVisit } from '@/components/RateVisit';
 import { Button, Card, Divider, ErrorState, Icon, IconButton, Screen, T } from '@/components/ui';
 import { formatDate, formatTime } from '@/lib/dates';
 import { formatINR } from '@/lib/money';
@@ -23,7 +24,6 @@ export default function PaymentStatus() {
   const [p, setP] = useState<Payment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
-  const [rating, setRating] = useState(0);
 
   useEffect(() => {
     let stop = false;
@@ -125,17 +125,7 @@ export default function PaymentStatus() {
           <T variant="small" color={colors.mutedGrey} style={{ marginTop: 12, marginHorizontal: 4 }}>
             This is a VIBE payment receipt. {p.payeeName} issues your tax invoice separately.
           </T>
-          <Card style={{ padding: 16, gap: 8, alignItems: 'center', marginTop: 16 }}>
-            <T variant="headline">How was {p.payeeName}?</T>
-            <View style={{ flexDirection: 'row' }} accessibilityRole="radiogroup">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <Pressable key={n} accessibilityRole="radio" accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`} accessibilityState={{ checked: rating === n }} aria-checked={rating === n} onPress={() => setRating(n)} style={styles.star}>
-                  <Icon name="star" size={30} color={n <= rating ? colors.pink : colors.mutedGrey} filled={n <= rating} strokeWidth={1.6} />
-                </Pressable>
-              ))}
-            </View>
-            {rating ? <T variant="small" color={colors.mutedGrey}>Thanks! You can add a written review from your receipts.</T> : null}
-          </Card>
+          {p.redemptionId ? <View style={{ marginTop: 16 }}><RateVisit redemptionId={p.redemptionId} businessName={p.payeeName} /></View> : null}
         </>
       ) : null}
 
@@ -169,5 +159,4 @@ const styles = StyleSheet.create({
   savedPill: { marginTop: 6, backgroundColor: colors.pink, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10 },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   status: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  star: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });

@@ -140,11 +140,13 @@ export type EventInput = {
 export type ReservationSettings = { enabled: boolean; tableFee: number | null; slotFee: number | null; policy: string };
 
 // ---------- Pay & Redeem: the merchant's bills screen ----------
-export type BillStatus = 'awaiting_bill' | 'bill_ready' | 'paid' | 'expired' | 'cancelled';
+export type BillStatus = 'awaiting_bill' | 'bill_ready' | 'paid' | 'expired' | 'cancelled' | 'code_issued' | 'redeemed';
 export type BillPaymentStatus = 'not_started' | 'pending' | 'failed' | 'paid';
 export type BillInfo = { billRef: string; eligibleAmount: number; discount: number; payable: number; raisedAt: string; expiresAt: string; raisedBy: string; paymentStatus: BillPaymentStatus };
-export type BillRow = { id: string; customerName: string; vibeId: string; offerTitle: string; status: BillStatus; requestedAt: string; expiresAt: string; paidAt: string | null; bill: BillInfo | null };
-export type BillSummary = { paidToday: number; paidTodayAmount: number; savedTodayAmount: number };
+/** mode code: the customer shows a 6-digit code and pays the place; staff confirm it. mode bill: staff raise the bill and the customer pays in VIBE. */
+export type BillRow = { id: string; customerName: string; vibeId: string; offerTitle: string; status: BillStatus; requestedAt: string; expiresAt: string; paidAt: string | null; bill: BillInfo | null; mode?: 'bill' | 'code'; code?: string | null; billAmount?: number | null; discountGiven?: number | null };
+export type CodeCheck = { id: string; code: string; customerName: string; vibeId: string | null; offerTitle: string; expiresAt: string; billAmount: number | null; discount: number | null; customerPays: number | null; reason: string | null };
+export type BillSummary = { paidToday: number; paidTodayAmount: number; savedTodayAmount: number; redeemedToday?: number };
 export type BillBoard = { rows: BillRow[]; summary: BillSummary };
 export type BillPreview = { eligibleAmount: number; discount: number; discountLabel: string; reason: string | null; vibeFee: number; customerPays: number; needsConfirmation: boolean };
 export type BillInput = { lines: { label: string; amount: number }[]; billRef?: string; confirmLarge?: boolean };
@@ -179,7 +181,7 @@ export type ApplicationRow = { id: string; businessName: string; categoryName: s
 export type ApplicationDetail = { row: ApplicationRow; categoryId: string | null; address: string; about: string; documents: string[]; reviewNote: string | null; decidedAt: string | null; businessId: string | null };
 export type ApplicationApproved = { businessId: string; loginEmail: string; temporaryPassword: string };
 export type StaffRole = 'manager' | 'cashier' | 'custom';
-export type MerchantSettings = { payRedeem: boolean; menuLabel: string; owner?: boolean; staffRole?: StaffRole | null; permissions?: string[]; areas?: Record<string, string> };
+export type MerchantSettings = { payRedeem: boolean; menuLabel: string; owner?: boolean; staffRole?: StaffRole | null; permissions?: string[]; areas?: Record<string, string>; acceptsVibePayments?: boolean };
 export type TeamMember = { id: string; email: string; name: string; active: boolean; owner: boolean; mustChangePassword: boolean; staffRole: StaffRole | null; permissions: string[] };
 
 // ---------- settlements and results ----------
@@ -197,7 +199,7 @@ export type OfferResult = { offerId: string; title: string; reviewStatus: Review
 export type MerchantResults = {
   days: number; customers: number; repeatCustomers: number; redemptionsStarted: number; paidBills: number; sales: number; discountGiven: number; averageBill: number;
   offersLive: number; offersPending: number; eventsLive: number; eventsPending: number; unsettled: SettlementBalance; awaitingPayout: number; paidOut: number;
-  offers: OfferResult[]; lastDays: { day: string; sales: number; bills: number }[];
+  offers: OfferResult[]; lastDays: { day: string; sales: number; bills: number }[]; codesRedeemed?: number; codeDiscountGiven?: number; rating?: number; reviewCount?: number;
 };
 
 // ---------- ticket sales ----------
@@ -208,3 +210,8 @@ export type EventSales = {
   types: TicketTypeSales[]; bookings: TicketBooking[];
 };
 export type CheckInResult = { result: 'admitted' | 'already' | 'wrong_event' | 'cancelled'; message: string; attendeeName: string; typeName: string; bookingId: string; checkedInAt: string | null; index: number; of: number };
+
+// ---------- ratings ----------
+export type ReviewItem = { id: string; businessId: string; businessName: string; customerName: string; vibeId: string; rating: number; comment: string; offerTitle: string; mode: 'bill' | 'code'; hidden: boolean; hiddenReason: string | null; createdAt: string };
+export type ReviewStats = { average: number; count: number; byStars: number[] };
+export type MerchantReviews = { stats: ReviewStats; items: ReviewItem[] };

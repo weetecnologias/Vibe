@@ -2,14 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 
 import {
   Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, rupeesToPaise, useAsync, useAuth,
-  type BillBoard, type BillInput, type BillPreview, type BillRow, type MenuRow,
+  type BillBoard, type BillInput, type BillPreview, type BillRow, type CodeCheck, type MenuRow,
 } from '@kit';
 
 import { useSettings } from '../settings';
 
 const REFRESH_MS = 4000;
 
-const ago = (iso: string) => {
+const ago = (iso: string, ahead = false) => {
+  if (ahead) {
+    const m = Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 60_000));
+    return m <= 1 ? 'in under a minute' : `in ${m} min`;
+  }
   const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
   return m < 1 ? 'just now' : m === 1 ? '1 min ago' : `${m} min ago`;
 };
@@ -27,6 +31,7 @@ export function BillsPage() {
   const [term, setTerm] = useState('');
   const board = useAsync(() => client.get<BillBoard>(`/v1/merchant/bills?view=${view}${term ? `&q=${encodeURIComponent(term)}` : ''}`), [client, view, term]);
   const [billing, setBilling] = useState<BillRow | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [howTo, setHowTo] = useState(false);
@@ -54,17 +59,19 @@ export function BillsPage() {
 
   return (
     <>
-      <PageHead title="Bills" sub="Customers who want to pay through VIBE show up here. Enter their bill and send it: it appears on their phone and they pay there." actions={<button className="btn ghost" onClick={() => setHowTo(!howTo)}>{howTo ? 'Hide how it works' : 'How a bill starts'}</button>} />
+      <PageHead title="Bills and codes" sub="Customers redeeming an offer show up here: with a code (they pay you at the counter; you confirm the code) or asking for the bill (you send it; they pay in VIBE)." actions={<button className="btn ghost" onClick={() => setHowTo(!howTo)}>{howTo ? 'Hide how it works' : 'How it works'}</button>} />
+      <CodeBox onFound={(id) => { setError(null); setConfirming(id); }} />
       {howTo || (board.data && board.data.rows.length === 0 && view === 'open' && !term) ? <HowABillStarts /> : null}
       <div className="stats">
         <div className="card"><span className="muted small">Paid today</span><strong>{s?.paidToday ?? '–'}</strong></div>
         <div className="card"><span className="muted small">Collected today</span><strong>{s ? formatINR(s.paidTodayAmount) : '–'}</strong></div>
         <div className="card"><span className="muted small">Customers saved</span><strong>{s ? formatINR(s.savedTodayAmount) : '–'}</strong></div>
+        <div className="card"><span className="muted small">Codes redeemed today</span><strong>{s?.redeemedToday ?? '–'}</strong></div>
       </div>
 
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={view === 'open'} className={`tab${view === 'open' ? ' on' : ''}`} onClick={() => setView('open')}>Waiting</button>
-        <button role="tab" aria-selected={view === 'today'} className={`tab${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')}>Paid today</button>
+        <button role="tab" aria-selected={view === 'today'} className={`tab${view === 'today' ? ' on' : ''}`} onClick={() => setView('today')}>Done today</button>
       </div>
       {view === 'open' ? (
         <form className="row" style={{ marginBottom: 12 }} onSubmit={(e) => { e.preventDefault(); setTerm(q.trim()); }}>
@@ -80,15 +87,27 @@ export function BillsPage() {
       {board.loading && !board.data ? <Loading /> : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Customer</th><th>Offer</th><th>{view === 'today' ? 'Paid' : 'Waiting'}</th><th>Bill</th><th /></tr></thead>
+            <thead><tr><th>Customer</th><th>Offer</th><th>{view === 'today' ? 'Done' : 'Waiting'}</th><th>Bill or code</th><th /></tr></thead>
             <tbody>
               {board.data?.rows.map((r) => (
                 <tr key={r.id}>
                   <td><strong>{r.customerName}</strong><div className="muted small">VIBE ID {r.vibeId}</div></td>
                   <td className="small">{r.offerTitle}</td>
-                  <td className="small">{r.status === 'paid' && r.paidAt ? ago(r.paidAt) : ago(r.requestedAt)}</td>
+                  <td className="small">{(r.status === 'paid' || r.status === 'redeemed') && r.paidAt ? ago(r.paidAt) : ago(r.requestedAt)}</td>
                   <td>
-                    {r.bill ? (
+                    {r.mode === 'code' ? (
+                      r.status === 'redeemed' ? (
+                        <>
+                          <Badge tone="success">Code redeemed</Badge>
+                          <div className="muted small" style={{ marginTop: 4 }}>{r.billAmount ? `Bill ${formatINR(r.billAmount)}${r.discountGiven ? ` · gave ${formatINR(r.discountGiven)} off` : ''}` : 'Paid at the counter'}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="code-chip" aria-label={`Code ${r.code}`}>{r.code ? `${r.code.slice(0, 3)} ${r.code.slice(3)}` : '—'}</div>
+                          <div className="muted small" style={{ marginTop: 4 }}>Pays at the counter · code ends {ago(r.expiresAt, true)}</div>
+                        </>
+                      )
+                    ) : r.bill ? (
                       <>
                         <strong>{formatINR(r.bill.payable)}</strong>
                         <div className="muted small">{r.bill.discount > 0 ? `${formatINR(r.bill.eligibleAmount)} − ${formatINR(r.bill.discount)} discount` : formatINR(r.bill.eligibleAmount)}</div>
@@ -103,12 +122,13 @@ export function BillsPage() {
                   </td>
                   <td className="actions">
                     {r.status === 'awaiting_bill' ? <button className="btn primary sm" onClick={() => { setError(null); setBilling(r); }}>Raise bill</button> : null}
+                    {r.status === 'code_issued' ? <button className="btn primary sm" onClick={() => { setError(null); setConfirming(r.id); }}>Yes, redeemed</button> : null}
                     {r.status === 'bill_ready' ? <button className="btn ghost sm danger" onClick={() => withdraw(r)}>Withdraw bill</button> : null}
                   </td>
                 </tr>
               ))}
               {board.data?.rows.length === 0 ? (
-                <tr><td colSpan={5} className="muted">{view === 'today' ? 'No payments yet today.' : term ? 'No waiting customer matches that.' : 'No one is waiting. When a customer taps Redeem in the app, they appear here.'}</td></tr>
+                <tr><td colSpan={5} className="muted">{view === 'today' ? 'No payments or codes yet today.' : term ? 'No waiting customer matches that.' : 'No one is waiting. When a customer taps Redeem in the app, they appear here.'}</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -117,6 +137,7 @@ export function BillsPage() {
       <p className="muted small">This list refreshes by itself every few seconds. The customer is told in the app when you send a bill, and you see here when they have paid. Push notifications arrive when the notification service is connected.</p>
 
       {billing ? <RaiseBill row={billing} onClose={() => setBilling(null)} onSent={(msg) => { setBilling(null); setNotice(msg); board.reload(); }} /> : null}
+      {confirming ? <ConfirmCode row={board.data?.rows.find((r) => r.id === confirming) ?? null} id={confirming} onClose={() => setConfirming(null)} onDone={(msg) => { setConfirming(null); setNotice(msg); board.reload(); }} /> : null}
     </>
   );
 }
@@ -125,15 +146,120 @@ export function BillsPage() {
 function HowABillStarts() {
   return (
     <div className="card stack" style={{ marginBottom: 14 }}>
-      <strong>How a customer pays through VIBE</strong>
-      <ol className="steps">
-        <li><strong>The customer</strong> opens your place in the VIBE app, picks an offer and taps <strong>Redeem</strong>. Their phone shows their first name and a 6-digit VIBE ID.</li>
-        <li><strong>They appear here</strong> under Waiting, with a sound and an alert. Match the VIBE ID on their phone.</li>
-        <li><strong>You tap Raise bill</strong>, pick what they had from your menu (or type amounts) and send it. VIBE works out the discount.</li>
-        <li><strong>The bill appears on their phone</strong> and they pay there. You see it turn to Paid, and the money comes to you in your next settlement.</li>
-      </ol>
-      <span className="muted small">If a customer isn’t in the list, ask them to tap Redeem on your offer in the VIBE app. A wrong bill can be withdrawn until they start paying.</span>
+      <strong>Two ways a customer redeems an offer</strong>
+      <div className="grid2">
+        <div>
+          <strong className="small">With a code: they pay you</strong>
+          <ol className="steps">
+            <li>The customer taps <strong>Redeem</strong> in the VIBE app and chooses <strong>Show a code</strong>. They get a 6-digit code that works for 5 minutes.</li>
+            <li>They appear here with the code, and you get an alert. Type the code above, or tap <strong>Yes, redeemed</strong> on their row.</li>
+            <li>Optionally type their bill to see the discount to give. Take payment as usual.</li>
+          </ol>
+        </div>
+        <div>
+          <strong className="small">With a bill: they pay in VIBE</strong>
+          <ol className="steps">
+            <li>The customer chooses <strong>Get the bill in VIBE</strong>. They appear here under Waiting.</li>
+            <li>Tap <strong>Raise bill</strong>, pick what they had and send it. VIBE works out the discount.</li>
+            <li>They pay on their phone. The money comes to you in your next settlement.</li>
+          </ol>
+        </div>
+      </div>
+      <span className="muted small">Either way, the customer is asked to rate their visit afterwards. A wrong bill can be withdrawn until they start paying.</span>
     </div>
+  );
+}
+
+/** Staff type the code the customer shows. */
+function CodeBox({ onFound }: { onFound: (id: string) => void }) {
+  const { client } = useAuth();
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const find = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const c = await client.post<CodeCheck>('/v1/merchant/bills/codes/check', { code });
+      setCode('');
+      onFound(c.id);
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="card stack" style={{ marginBottom: 14 }}>
+      <form className="row" onSubmit={find}>
+        <strong style={{ marginRight: 6 }}>Customer has a code?</strong>
+        <input style={{ maxWidth: 200, letterSpacing: 2 }} inputMode="numeric" placeholder="6-digit code" aria-label="Redeem code" value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9 ]/g, '').slice(0, 7))} />
+        <button className="btn primary" disabled={busy || code.replace(/\D/g, '').length !== 6}>{busy ? 'Checking…' : 'Check code'}</button>
+      </form>
+      {error ? <Notice tone="error">{error}</Notice> : null}
+    </div>
+  );
+}
+
+/** "Yes, redeemed": who it is, which offer, and (if staff type the bill) the discount to give at the counter. */
+function ConfirmCode({ id, row, onClose, onDone }: { id: string; row: BillRow | null; onClose: () => void; onDone: (message: string) => void }) {
+  const { client } = useAuth();
+  const [bill, setBill] = useState('');
+  const [check, setCheck] = useState<CodeCheck | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const amount = bill.trim() ? rupeesToPaise(bill) : null;
+
+  useEffect(() => {
+    if (!row?.code) return;
+    const t = setTimeout(() => {
+      client.post<CodeCheck>('/v1/merchant/bills/codes/check', { code: row.code, billAmount: amount ?? undefined }).then(setCheck, (e) => setError(errorText(e)));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [client, row?.code, amount]);
+
+  const confirm = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await client.post<CodeCheck>(`/v1/merchant/bills/${id}/redeem`, { billAmount: amount ?? undefined });
+      onDone(`Code ${r.code.slice(0, 3)} ${r.code.slice(3)} redeemed for ${r.customerName.replace(/\.$/, '')}.${r.discount ? ` Give ${formatINR(r.discount)} off.` : ''} They’ll be asked to rate their visit.`);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const who = check ?? (row ? { customerName: row.customerName, vibeId: row.vibeId, offerTitle: row.offerTitle, code: row.code ?? '' } : null);
+  return (
+    <Modal title="Confirm the code" onClose={onClose}>
+      <div className="stack">
+        {who ? (
+          <div className="card stack" style={{ gap: 4 }}>
+            <div className="code-chip big">{who.code ? `${who.code.slice(0, 3)} ${who.code.slice(3)}` : ''}</div>
+            <strong>{who.customerName}{who.vibeId ? <span className="muted small"> · VIBE ID {who.vibeId}</span> : null}</strong>
+            <span className="small">{who.offerTitle}</span>
+          </div>
+        ) : null}
+        <Field label="Their bill (optional)" hint="Type it to see the discount to give. It’s kept for your reports; no money goes through VIBE for a code.">
+          <input style={{ maxWidth: 200 }} inputMode="decimal" placeholder="₹" value={bill} onChange={(e) => setBill(e.target.value)} />
+        </Field>
+        {check && check.discount !== null ? (
+          <div className="card" style={{ background: 'var(--soft-white)' }}>
+            {check.discount > 0 ? <div className="row" style={{ justifyContent: 'space-between' }}><span>Give the customer</span><strong style={{ color: 'var(--pink-deep)' }}>{formatINR(check.discount)} off</strong></div> : <span className="muted">{check.reason ?? 'No discount on this bill.'}</span>}
+            <div className="row" style={{ justifyContent: 'space-between', marginTop: 6 }}><span>They pay you</span><strong>{formatINR(check.customerPays ?? 0)}</strong></div>
+          </div>
+        ) : null}
+        {bill.trim() && amount === null ? <Notice tone="error">Type the bill in rupees, like 1250.</Notice> : null}
+        {error ? <Notice tone="error">{error}</Notice> : null}
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose}>Not yet</button>
+          <button className="btn primary" disabled={busy || (bill.trim() !== '' && amount === null)} onClick={confirm}>{busy ? 'Confirming…' : 'Yes, redeemed'}</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

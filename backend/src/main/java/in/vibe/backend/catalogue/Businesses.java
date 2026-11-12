@@ -56,12 +56,16 @@ public class Businesses {
 
     /** The customer app's OfferDetail: the offer, how it applies, and a worked example priced by the same code that prices real bills. */
     public record OfferDetail(String id, String businessId, String businessName, String businessLogoUrl, String area, String title, String type, String headline, String headlineSub, boolean memberOnly,
-                              String coverUrl, String scheduleLabel, OffsetDateTime endsAt, Long maxDiscount, Long minBill, String appliesTo, String excludes, List<String> channels, List<String> terms, Example example) {}
+                              String coverUrl, String scheduleLabel, OffsetDateTime endsAt, Long maxDiscount, Long minBill, String appliesTo, String excludes, List<String> channels, List<String> terms, Example example,
+                              List<String> redeemModes) {}
 
     private final JdbcClient jdbc;
     private final Clock clock;
 
-    Businesses(JdbcClient jdbc, Clock clock) {
+    private final in.vibe.backend.reviews.Reviews reviews;
+
+    Businesses(JdbcClient jdbc, Clock clock, in.vibe.backend.reviews.Reviews reviews) {
+        this.reviews = reviews;
         this.jdbc = jdbc;
         this.clock = clock;
     }
@@ -111,7 +115,7 @@ public class Businesses {
         Map<String, Double> loc = r.lat == null || r.lng == null ? null : Map.of("lat", r.lat, "lng", r.lng);
         return new Detail(s.id(), s.name(), s.primaryCategoryId(), s.categoryIds(), s.categoryLabel(), s.area(), s.distanceKm(), s.rating(), s.reviewCount(), s.priceLevel(),
                 s.costForTwo(), s.status(), s.coverUrl(), s.logoUrl(), s.offerBadge(), s.hasMemberOffer(), s.isNew(),
-                r.description, r.verified, names, r.address, loc, hoursView(hoursOf(List.of(id)).getOrDefault(id, Map.of())), photos, menu, offers, List.of(), List.of(), r.terms, r.bookingEnabled);
+                r.description, r.verified, names, r.address, loc, hoursView(hoursOf(List.of(id)).getOrDefault(id, Map.of())), photos, menu, offers, List.of(), new ArrayList<>(reviews.latest(id, 10)), r.terms, r.bookingEnabled);
     }
 
     // ---------- helpers ----------
@@ -136,13 +140,14 @@ public class Businesses {
                 .query((rs, i) -> { cats.computeIfAbsent((UUID) rs.getObject(1), k -> new ArrayList<>()).add(rs.getString(2)); return 0; }).list();
         Map<UUID, List<OfferView>> offers = activeOffers(ids);
         Map<UUID, Map<Integer, LocalTime[]>> hours = hoursOf(ids);
+        Map<UUID, double[]> ratings = reviews.ratings(ids);
         List<Summary> out = new ArrayList<>();
         for (Row r : rows) {
             List<OfferView> os = offers.getOrDefault(r.id, List.of());
             OfferView best = os.isEmpty() ? null : os.get(0);
             List<String> categoryIds = new ArrayList<>(cats.getOrDefault(r.id, List.of()));
             if (!categoryIds.contains(r.primaryCategoryId)) categoryIds.add(0, r.primaryCategoryId);
-            out.add(new Summary(r.id.toString(), r.name, r.primaryCategoryId, categoryIds, r.categoryLabel, r.area, distance(r.lat, r.lng), 0, 0, r.priceLevel, r.costForTwo,
+            out.add(new Summary(r.id.toString(), r.name, r.primaryCategoryId, categoryIds, r.categoryLabel, r.area, distance(r.lat, r.lng), ratings.getOrDefault(r.id, new double[2])[0], (int) ratings.getOrDefault(r.id, new double[2])[1], r.priceLevel, r.costForTwo,
                     status(hours.getOrDefault(r.id, Map.of())), r.coverUrl, r.logoUrl, best == null ? null : best.headline() + " " + best.headlineSub().toLowerCase(Locale.ROOT),
                     os.stream().anyMatch(OfferView::memberOnly), r.isNew));
         }
@@ -203,7 +208,8 @@ public class Businesses {
         }).single();
         List<String> terms = List.of((String[]) jdbc.sql("select terms from businesses where id = :id").param("id", UUID.fromString(o.businessId())).query((rs, i) -> rs.getArray(1).getArray()).single());
         return new OfferDetail(o.id(), o.businessId(), o.businessName(), o.businessLogoUrl(), o.area(), o.title(), o.type(), o.headline(), o.headlineSub(), o.memberOnly(), o.coverUrl(), o.scheduleLabel(), o.endsAt(),
-                o.maxDiscount(), o.minBill(), "Your bill at " + o.businessName(), "", List.of("In store"), terms, example);
+                o.maxDiscount(), o.minBill(), "Your bill at " + o.businessName(), "", List.of("In store"), terms, example,
+                jdbc.sql("select accepts_vibe_payments from businesses where id = :id").param("id", UUID.fromString(o.businessId())).query(Boolean.class).single() ? List.of("code", "bill") : List.of("code"));
     }
 
     /** Pinned offers, in the order VIBE set. An offer that is no longer live is skipped. */

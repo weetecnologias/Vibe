@@ -1,6 +1,6 @@
 import type {
   AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
-  HomeFeed, ID, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
+  HomeFeed, ID, RedeemMode, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
   ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
 
@@ -33,7 +33,10 @@ export interface VibeApi {
   getOffers(view: OfferView): Promise<OfferSummary[]>;
   getOffer(id: ID): Promise<OfferDetail>;
   getOfferEligibility(id: ID): Promise<OfferEligibility>;
-  createRedemption(offerId: ID): Promise<Redemption>;
+  /** mode 'code' gives a 6-digit code to show at the counter (pay the place); 'bill' (default) waits for the bill in the app. */
+  createRedemption(offerId: ID, mode?: RedeemMode): Promise<Redemption>;
+  /** Rate a visit once the code was confirmed or the bill paid. One rating per visit. */
+  reviewRedemption(id: ID, rating: number, comment: string): Promise<void>;
   getRedemption(id: ID): Promise<Redemption>;
   cancelRedemption(id: ID): Promise<void>;
   /** A server-priced bill (redemption, ticket order or membership). */
@@ -104,6 +107,8 @@ export interface VibeApi {
   /** Demo-only helpers. Undefined in the HTTP adapter. */
   demo?: {
     simulateMerchantBill(redemptionId: ID, eligibleAmount: number): Promise<Redemption>;
+    /** Stands in for staff tapping "Yes, redeemed" on a code. */
+    simulateCodeConfirmed(redemptionId: ID): Promise<Redemption>;
     simulateHostAccepts(inviteId: ID): Promise<OneOnOneInvite>;
     simulateJoinRequest(inviteId: ID): Promise<OneOnOneInvite>;
     simulateChatReply(inviteId: ID): Promise<OneOnOneChat>;
@@ -171,7 +176,8 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     getOffers: (view) => call('GET', `/offers${qs({ view })}`),
     getOffer: (id) => call('GET', `/offers/${id}`),
     getOfferEligibility: (id) => call('GET', `/offers/${id}/eligibility`),
-    createRedemption: (offerId) => call('POST', '/redemptions', { offerId }),
+    createRedemption: (offerId, mode) => call('POST', '/redemptions', { offerId, mode: mode ?? 'bill' }),
+    reviewRedemption: (rid, rating, comment) => call('POST', `/redemptions/${rid}/review`, { rating, comment }),
     getRedemption: (id) => call('GET', `/redemptions/${id}`),
     cancelRedemption: (id) => call('POST', `/redemptions/${id}/cancel`),
     getPaymentRequest: (id) => call('GET', `/payment-requests/${id}`),

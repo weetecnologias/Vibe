@@ -26,7 +26,7 @@ public class TeamAccess {
     static final Map<String, String> ALERT_AREA = Map.of(
             "redeem_started", "bills", "redeem_cancelled", "bills", "payment_received", "bills",
             "offer_decision", "offers", "auto_approve", "offers", "event_decision", "events",
-            "settlement_created", "money", "settlement_paid", "money", "tickets_sold", "events");
+            "settlement_created", "money", "settlement_paid", "money", "tickets_sold", "events", "review_received", "profile");
 
     /** signedIn is false when the login no longer exists or the owner switched it off: the person must be signed out. */
     public record Access(boolean signedIn, boolean owner, String staffRole, List<String> permissions) {
@@ -95,7 +95,7 @@ public class TeamAccess {
         if (p.startsWith("/menu")) return "GET".equals(method) ? "bills|menu" : "menu"; // staff raising a bill pick items from the menu
         if (p.startsWith("/offers")) return "offers";
         if (p.startsWith("/events")) return "events";
-        if (p.startsWith("/business")) return "profile";
+        if (p.startsWith("/business") || p.startsWith("/reviews")) return "profile";
         if (p.startsWith("/reservation-settings")) return "reservations";
         if (p.startsWith("/settlements") || p.startsWith("/results")) return "money";
         if (p.startsWith("/team")) return "team";

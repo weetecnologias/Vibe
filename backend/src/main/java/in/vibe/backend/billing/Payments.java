@@ -49,7 +49,7 @@ public class Payments {
                                   Long taxes, long vibeFee, long payable, String currency, Object appliedOffer, OffsetDateTime expiresAt, String payeeName, String kind) {}
 
     public record PaymentView(String reference, String kind, String status, String method, long amount, long savings, String payeeName, String providerPaymentId, OffsetDateTime verifiedAt,
-                              String failureReason, List<Redemptions.BillLine> lines, List<String> ticketIds, String offerTitle) {}
+                              String failureReason, List<Redemptions.BillLine> lines, List<String> ticketIds, String offerTitle, String redemptionId) {}
 
     private final JdbcClient jdbc;
     private final Redemptions redemptions;
@@ -132,9 +132,9 @@ public class Payments {
         if (provider.simulated() && "pending".equals(p[1]) && provider.name().equals(p[3]) && ((OffsetDateTime) p[2]).plusNanos(simulateAfterMs * 1_000_000).isBefore(now())) {
             applyVerified((UUID) p[0], "pay_sim_" + code(10));
         }
-        return jdbc.sql("select p.*, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) bname, pr.discount_label, pr.id prid, pr.kind prkind from payments p join payment_requests pr on pr.id = p.payment_request_id left join businesses b on b.id = pr.business_id where p.reference = :r").param("r", reference)
+        return jdbc.sql("select p.*, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) bname, pr.discount_label, pr.id prid, pr.kind prkind, pr.redemption_id from payments p join payment_requests pr on pr.id = p.payment_request_id left join businesses b on b.id = pr.business_id where p.reference = :r").param("r", reference)
                 .query((rs, i) -> new PaymentView(rs.getString("reference"), rs.getString("prkind"), rs.getString("status"), rs.getString("method"), rs.getLong("amount"), rs.getLong("savings"), rs.getString("bname"), rs.getString("provider_payment_id"),
-                        rs.getObject("verified_at", OffsetDateTime.class), rs.getString("failure_reason"), redemptions.paymentRequest((UUID) rs.getObject("prid")).lines(), ticketing.ticketIds((UUID) rs.getObject("prid")), rs.getLong("savings") > 0 ? rs.getString("discount_label") : null)).single();
+                        rs.getObject("verified_at", OffsetDateTime.class), rs.getString("failure_reason"), redemptions.paymentRequest((UUID) rs.getObject("prid")).lines(), ticketing.ticketIds((UUID) rs.getObject("prid")), rs.getLong("savings") > 0 ? rs.getString("discount_label") : null, rs.getString("redemption_id"))).single();
     }
 
     // ---------- the payment partner says it is paid ----------
