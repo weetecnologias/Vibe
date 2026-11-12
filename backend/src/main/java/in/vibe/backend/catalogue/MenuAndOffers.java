@@ -108,7 +108,8 @@ public class MenuAndOffers {
                 .param("sl", in.scheduleLabel() == null || in.scheduleLabel().isBlank() ? "Every day" : in.scheduleLabel().trim()).param("s", in.startsAt()).param("e", in.endsAt())
                 .param("a", in.active() == null || in.active()).update();
         audit.record(who, "create", "offer", id, in.title());
-        staffNotifications.toAdmins("offer_review", "Offer waiting for review", businessName(b) + ": " + in.title(), "/offers");
+        if (autoApprove(b)) publishOnTrust(b, id, in.title());
+        else staffNotifications.toAdmins("offer_review", "Offer waiting for review", businessName(b) + ": " + in.title(), "/offers");
         return offerRow(b, id);
     }
 
@@ -124,15 +125,27 @@ public class MenuAndOffers {
                 || !java.util.Objects.equals(before.minBill(), in.minBill()) || before.memberOnly() != (in.memberOnly() != null && in.memberOnly()) || !before.scheduleLabel().equals(sl)
                 || !before.startsAt().toInstant().equals(in.startsAt().toInstant()) || !before.endsAt().toInstant().equals(in.endsAt().toInstant());
         int n = jdbc.sql("update offers set title = :t, kind = :k, rate_bps = :bps, flat_amount = :flat, max_discount = :max, min_bill = :min, member_only = :m, schedule_label = :sl, "
-                        + "starts_at = :s, ends_at = :e, active = :a, updated_at = now()" + (changed ? ", review_status = 'pending', review_note = null, reviewed_at = null, reviewed_by = null" : "") + " where id = :id and business_id = :b")
+                        + "starts_at = :s, ends_at = :e, active = :a, updated_at = now()" + (changed ? ", review_status = 'pending', auto_approved = false, review_note = null, reviewed_at = null, reviewed_by = null" : "") + " where id = :id and business_id = :b")
                 .param("id", id).param("b", b).param("t", in.title().trim()).param("k", in.kind()).param("bps", in.rateBps(), Types.INTEGER).param("flat", in.flatAmount(), Types.BIGINT)
                 .param("max", in.maxDiscount(), Types.BIGINT).param("min", in.minBill(), Types.BIGINT).param("m", in.memberOnly() != null && in.memberOnly())
                 .param("sl", in.scheduleLabel() == null || in.scheduleLabel().isBlank() ? "Every day" : in.scheduleLabel().trim()).param("s", in.startsAt()).param("e", in.endsAt())
                 .param("a", in.active() == null || in.active()).update();
         if (n == 0) throw ApiException.notFound("Offer not found.");
         audit.record(who, "update", "offer", id, in.title());
-        if (changed) staffNotifications.toAdmins("offer_review", "Offer changed, waiting for review", businessName(b) + ": " + in.title(), "/offers");
+        if (changed && autoApprove(b)) publishOnTrust(b, id, in.title());
+        else if (changed) staffNotifications.toAdmins("offer_review", "Offer changed, waiting for review", businessName(b) + ": " + in.title(), "/offers");
         return offerRow(b, id);
+    }
+
+    private boolean autoApprove(UUID b) {
+        return jdbc.sql("select auto_approve from businesses where id = :b").param("b", b).query(Boolean.class).single();
+    }
+
+    /** A business VIBE trusts goes live without waiting. Admins are still told, and can switch the offer off or reject it later. */
+    private void publishOnTrust(UUID b, UUID id, String title) {
+        jdbc.sql("update offers set review_status = 'approved', auto_approved = true, review_note = null, reviewed_at = now(), reviewed_by = null where id = :id").param("id", id).update();
+        audit.record(null, "auto_approve", "offer", id, title);
+        staffNotifications.toAdmins("offer_auto", "Offer live (auto-approved)", businessName(b) + ": " + title, "/offers");
     }
 
     /** Offers that customers have already used can't be deleted, only switched off. Until redemptions exist, delete removes it. */

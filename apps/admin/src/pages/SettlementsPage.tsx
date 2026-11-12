@@ -1,0 +1,211 @@
+import { useState } from 'react';
+
+import {
+  Badge, DownloadButton, Field, Loading, Modal, Notice, PageHead, bpsToPercent, errorText, formatINR, showDateTime, useAsync, useAuth,
+  type SettlementDetail, type SettlementDue, type SettlementSummary,
+} from '@kit';
+
+type Tab = 'due' | 'pending' | 'paid';
+
+/**
+ * Paying merchants. Every confirmed payment at a business is owed to it, less VIBE's fee and commission. "To settle" shows what each business is owed;
+ * drawing up a settlement fixes that list (a payment is never settled twice) and tells the merchant; recording the bank transfer marks it paid and tells them again.
+ */
+export function SettlementsPage() {
+  const { client } = useAuth();
+  const [tab, setTab] = useState<Tab>('due');
+  const due = useAsync(() => (tab === 'due' ? client.get<SettlementDue[]>('/v1/admin/settlements/due') : Promise.resolve([] as SettlementDue[])), [client, tab]);
+  const list = useAsync(() => (tab === 'due' ? Promise.resolve([] as SettlementSummary[]) : client.get<SettlementSummary[]>(`/v1/admin/settlements?status=${tab}`)), [client, tab]);
+  const [open, setOpen] = useState<string | null>(null);
+  const [creating, setCreating] = useState<SettlementDue | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const totalDue = (due.data ?? []).reduce((n, d) => n + d.payout, 0);
+  const totalShown = (list.data ?? []).reduce((n, s) => n + s.payout, 0);
+
+  return (
+    <>
+      <PageHead title="Settlements" sub="What VIBE owes each merchant for payments made through the app, and paying it. Merchants are told when a settlement is drawn up and when it is paid." />
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'due'} className={`tab${tab === 'due' ? ' on' : ''}`} onClick={() => { setTab('due'); setNotice(null); }}>To settle</button>
+        <button role="tab" aria-selected={tab === 'pending'} className={`tab${tab === 'pending' ? ' on' : ''}`} onClick={() => { setTab('pending'); setNotice(null); }}>Waiting to pay</button>
+        <button role="tab" aria-selected={tab === 'paid'} className={`tab${tab === 'paid' ? ' on' : ''}`} onClick={() => { setTab('paid'); setNotice(null); }}>Paid</button>
+      </div>
+      {notice ? <Notice tone="success">{notice}</Notice> : null}
+
+      {tab === 'due' ? (
+        <>
+          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+            <div className="stats" style={{ margin: 0 }}>
+              <div className="card"><span className="muted small">Merchants owed</span><strong>{due.data?.length ?? '–'}</strong></div>
+              <div className="card"><span className="muted small">Total to pay</span><strong>{due.data ? formatINR(totalDue) : '–'}</strong></div>
+            </div>
+            <DownloadButton path="/v1/admin/exports/settlements-due" filename="vibe-to-settle.csv" />
+          </div>
+          {due.error ? <Notice tone="error">{due.error}</Notice> : null}
+          {due.loading && !due.data ? <Loading /> : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Merchant</th><th>Payments</th><th>Collected</th><th>VIBE commission</th><th>To pay</th><th>Since</th><th /></tr></thead>
+                <tbody>
+                  {due.data?.map((d) => (
+                    <tr key={d.businessId}>
+                      <td><strong>{d.businessName}</strong><div className="muted small">{d.area}</div></td>
+                      <td>{d.count}</td>
+                      <td>{formatINR(d.gross)}{d.vibeFees > 0 ? <div className="muted small">incl. VIBE fees {formatINR(d.vibeFees)}</div> : null}</td>
+                      <td>{formatINR(d.commission)}<div className="muted small">{bpsToPercent(d.commissionBps)}%</div></td>
+                      <td><strong>{formatINR(d.payout)}</strong></td>
+                      <td className="small">{showDateTime(d.oldest)}</td>
+                      <td className="actions"><button className="btn primary sm" onClick={() => setCreating(d)}>Draw up settlement</button></td>
+                    </tr>
+                  ))}
+                  {due.data?.length === 0 ? <tr><td colSpan={7} className="muted">Nothing to settle. Every confirmed payment is already in a settlement.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="muted small">Commission is set per merchant under Businesses → Commercial terms. A change applies to settlements drawn up afterwards.</p>
+        </>
+      ) : (
+        <>
+          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+            <div className="stats" style={{ margin: 0 }}>
+              <div className="card"><span className="muted small">Settlements</span><strong>{list.data?.length ?? '–'}</strong></div>
+              <div className="card"><span className="muted small">{tab === 'pending' ? 'Still to transfer' : 'Transferred'}</span><strong>{list.data ? formatINR(totalShown) : '–'}</strong></div>
+            </div>
+            <DownloadButton path={`/v1/admin/exports/settlements?status=${tab}`} filename={`vibe-settlements-${tab}.csv`} />
+          </div>
+          {list.error ? <Notice tone="error">{list.error}</Notice> : null}
+          {list.loading && !list.data ? <Loading /> : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Settlement</th><th>Merchant</th><th>Period</th><th>Payments</th><th>Payout</th><th>Status</th><th /></tr></thead>
+                <tbody>
+                  {list.data?.map((s) => (
+                    <tr key={s.id}>
+                      <td><strong>{s.reference}</strong><div className="muted small">{showDateTime(s.createdAt)}</div></td>
+                      <td>{s.businessName}</td>
+                      <td className="small">{showDateTime(s.periodFrom)}<div className="muted">to {showDateTime(s.periodTo)}</div></td>
+                      <td>{s.paymentCount}</td>
+                      <td><strong>{formatINR(s.payout)}</strong><div className="muted small">commission {formatINR(s.commission)}</div></td>
+                      <td>{s.status === 'paid' ? <><Badge tone="success">Paid</Badge><div className="muted small">{s.payoutRef}</div></> : <Badge tone="warning">To transfer</Badge>}</td>
+                      <td className="actions"><button className="btn ghost sm" onClick={() => setOpen(s.id)}>{s.status === 'pending' ? 'Open and pay' : 'Open'}</button></td>
+                    </tr>
+                  ))}
+                  {list.data?.length === 0 ? <tr><td colSpan={7} className="muted">{tab === 'pending' ? 'No settlements waiting to be paid.' : 'No settlements paid yet.'}</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {creating ? (
+        <CreateSettlement due={creating} onClose={() => setCreating(null)} onCreated={(d) => { setCreating(null); setNotice(`Settlement ${d.summary.reference} drawn up for ${d.summary.businessName}. They have been told.`); due.reload(); setOpen(d.summary.id); }} />
+      ) : null}
+      {open ? <SettlementModal id={open} onClose={() => setOpen(null)} onPaid={(d) => { setNotice(`${d.summary.reference} marked as paid. ${d.summary.businessName} has been told.`); list.reload(); }} /> : null}
+    </>
+  );
+}
+
+function CreateSettlement({ due, onClose, onCreated }: { due: SettlementDue; onClose: () => void; onCreated: (d: SettlementDetail) => void }) {
+  const { client } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const create = async () => {
+    setBusy(true);
+    setError(null);
+    try { onCreated(await client.post<SettlementDetail>('/v1/admin/settlements', { businessId: due.businessId })); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title={`Settle ${due.businessName}`} onClose={onClose}>
+      <div className="stack">
+        <p className="muted small" style={{ margin: 0 }}>This gathers every confirmed payment at {due.businessName} so far into one settlement. Each payment can only ever be in one settlement.</p>
+        <div className="card stack" style={{ gap: 6 }}>
+          <div className="row" style={{ justifyContent: 'space-between' }}><span>{due.count} payments collected</span><strong>{formatINR(due.gross)}</strong></div>
+          {due.vibeFees > 0 ? <div className="row" style={{ justifyContent: 'space-between' }}><span>VIBE fees paid by customers</span><strong>− {formatINR(due.vibeFees)}</strong></div> : null}
+          <div className="row" style={{ justifyContent: 'space-between' }}><span>VIBE commission ({bpsToPercent(due.commissionBps)}%)</span><strong>− {formatINR(due.commission)}</strong></div>
+          <div className="row" style={{ justifyContent: 'space-between', borderTop: '1px solid var(--hairline)', paddingTop: 8 }}><span>To pay {due.businessName}</span><strong style={{ fontSize: 20 }}>{formatINR(due.payout)}</strong></div>
+        </div>
+        {error ? <Notice tone="error">{error}</Notice> : null}
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" disabled={busy} onClick={create}>{busy ? 'Drawing up…' : 'Draw up settlement'}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function SettlementModal({ id, onClose, onPaid }: { id: string; onClose: () => void; onPaid: (d: SettlementDetail) => void }) {
+  const { client } = useAuth();
+  const d = useAsync(() => client.get<SettlementDetail>(`/v1/admin/settlements/${id}`), [client, id]);
+  const [ref, setRef] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const s = d.data?.summary;
+
+  const pay = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await client.post<SettlementDetail>(`/v1/admin/settlements/${id}/paid`, { payoutRef: ref.trim(), note: note.trim() || null });
+      onPaid(r);
+      d.reload();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={s ? `${s.reference} · ${s.businessName}` : 'Settlement'} onClose={onClose} wide>
+      {d.loading && !d.data ? <Loading /> : d.error && !d.data ? <Notice tone="error">{d.error}</Notice> : s && d.data ? (
+        <div className="stack">
+          <div className="stats">
+            <div className="card"><span className="muted small">Collected</span><strong>{formatINR(s.gross)}</strong></div>
+            <div className="card"><span className="muted small">Commission ({bpsToPercent(s.commissionBps)}%)</span><strong>{formatINR(s.commission)}</strong></div>
+            <div className="card"><span className="muted small">Payout</span><strong>{formatINR(s.payout)}</strong></div>
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <span className="small muted">{s.paymentCount} payments, {showDateTime(s.periodFrom)} to {showDateTime(s.periodTo)}. Customers saved {formatINR(s.customerSavings)}.</span>
+            <DownloadButton small path={`/v1/admin/exports/settlements/${id}`} filename={`${s.reference}.csv`} />
+          </div>
+          <div className="table-wrap" style={{ maxHeight: 280, overflow: 'auto' }}>
+            <table>
+              <thead><tr><th>Transaction ID</th><th>Customer</th><th>Offer</th><th>Collected</th><th>Commission</th><th>Payout</th></tr></thead>
+              <tbody>
+                {d.data.items.map((i) => (
+                  <tr key={i.paymentReference}>
+                    <td><strong>{i.paymentReference}</strong><div className="muted small">{showDateTime(i.paidAt)} · {i.billRef}</div></td>
+                    <td className="small">{i.customerName}<div className="muted">ID {i.vibeId}</div></td>
+                    <td className="small">{i.offerTitle ?? '—'}</td>
+                    <td>{formatINR(i.amount)}</td>
+                    <td>{formatINR(i.commission)}</td>
+                    <td><strong>{formatINR(i.payout)}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {s.status === 'paid' ? (
+            <Notice tone="success">Paid {s.paidAt ? showDateTime(s.paidAt) : ''}. Bank reference {s.payoutRef}.{s.note ? ` ${s.note}` : ''}</Notice>
+          ) : (
+            <div className="card stack">
+              <strong>Record the bank transfer</strong>
+              <p className="muted small" style={{ margin: 0 }}>Transfer {formatINR(s.payout)} to {s.businessName}’s bank account, then enter the bank’s reference (UTR). The merchant is told straight away.</p>
+              <div className="grid2">
+                <Field label="Bank reference (UTR)"><input value={ref} maxLength={60} onChange={(e) => setRef(e.target.value)} /></Field>
+                <Field label="Note (optional)"><input value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} /></Field>
+              </div>
+              {error ? <Notice tone="error">{error}</Notice> : null}
+              <div className="row"><button className="btn primary" disabled={busy || !ref.trim()} onClick={pay}>{busy ? 'Saving…' : 'Mark as paid'}</button></div>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </Modal>
+  );
+}

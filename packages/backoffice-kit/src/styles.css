@@ -34,6 +34,8 @@ h2 { font-size: 18px; margin: 0; }
 .brand-vibe { color: var(--pink); font-weight: 800; }
 
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+/* Grid children default to their content width; without this a wide table stretches the whole page instead of scrolling in its own box. */
+.shell > main { min-width: 0; }
 .side { background: var(--near-black); color: var(--white); padding: 20px 14px; display: flex; flex-direction: column; gap: 22px; position: sticky; top: 0; height: 100vh; }
 .side nav { display: grid; gap: 4px; }
 .side nav a { color: rgba(255, 255, 255, 0.78); text-decoration: none; padding: 10px 12px; border-radius: 10px; font-weight: 500; }

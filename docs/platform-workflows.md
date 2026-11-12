@@ -42,6 +42,21 @@ Status key: ✅ built and tested · 🟡 partly built · ⛔ not built yet.
 
 **W8 Admin oversight.** One place to see customers (profile, membership, redemptions, payments), every transaction and its status, merchant applications, pending offers and events, host applications, reports, deletion requests and the audit log, with a daily overview.
 
+## 2a. How each category works (agreed 12 Nov 2026)
+
+| Category | Works like | Customer | Merchant | Admin |
+| --- | --- | --- | --- | --- |
+| Food & Dining | Swiggy Dineout, Zomato dining | Picks a ready-made offer, then either **orders through VIBE** from the menu (planned) or **asks for the bill** at the table; pays in the app | Raises the bill from the menu (built) or confirms the customer's VIBE order (planned); alerted on every redeem and payment | Every payment by its unique transaction ID; settles with the merchant |
+| Shopping, Fitness & Wellness, Beauty & Personal Care, Kids & Family | Same as dining | Redeems the offer in the store; the merchant pushes the bill; pays in the app | Bills from their price list or services | Same |
+| Movies | BookMyShow | Picks a show and seats, which are held for a few minutes, pays, gets a QR ticket | Cinema sets screens, seat layouts and showtimes; sees seats sold and left | Settles ticket money |
+| Events & Experiences | BookMyShow | Picks ticket types, pays, gets a QR ticket | Sees sold and left per ticket type, gets alerts, checks people in | Reviews or auto-approves; settles |
+| VIBE Social | Careful, safety first | One-on-one requests ("I'm interested in…") with filters; plans show **Open** or **Filled**; groups highlighted; hosting only for approved hosts | Approved merchants host | Approves hosts, moderates reports |
+| Offers & Benefits | — | Two pages: **Member benefits** and **Promotions** (big sales such as 50–80% off, highlighted, nearby first) | Marks an offer as a promotion (planned) | Approves promotions |
+
+**Settlements (built 12 Nov 2026).** Every confirmed payment at a business is owed to it, less VIBE's fee (when the customer paid one) and VIBE's commission (set per merchant by the admin, with a reason, audited). The admin sees what each merchant is owed, draws up a settlement (each payment can be in one settlement only, ever), transfers the money and records the bank reference (UTR). The merchant is told when a settlement is drawn up and when it is paid, and sees every payment in it. Transactions, members, customers, settlements and each settlement's payments download as spreadsheets that open in Excel.
+
+**Auto-approval (built 12 Nov 2026).** The admin can mark a merchant as trusted: its new and changed offers and events go live straight away, marked "Auto-approved", and admins are still told. Trust can be taken away; the merchant is told either way.
+
 ## 3. Who is told what
 
 | Event | Told | How |
@@ -54,6 +69,9 @@ Status key: ✅ built and tested · 🟡 partly built · ⛔ not built yet.
 | Offer, event, host or listing awaiting review | admin | dashboard alert and queue count |
 | Application, offer or event decided | merchant | dashboard alert with VIBE's note |
 | Report filed, contact sharing caught in chat | admin (moderators) | dashboard alert |
+| Settlement drawn up, settlement paid (with bank reference) | merchant | dashboard alert |
+| Offer or event auto-approved | admin | dashboard alert |
+| Auto-approval switched on or off | merchant | dashboard alert |
 
 **P1 status (checked 11 Nov 2026):** the backend suite passes (101 tests), both dashboards typecheck and build, and the flow was walked through in a browser against the dev backend: apply, admin alert, approve, forced password change; a customer buying a yearly membership, redeeming, the merchant raising a bill from the menu (₹1,350, 30% off, ₹945 paid), and the admin overview and transactions showing ₹3,944 collected and ₹405 saved. Staff alerts are polled every few seconds; real push needs Firebase and Apple accounts. Not yet checked in a browser: customer-app screens for membership purchase (the API is tested), and the admin grant-membership dialog.
 
@@ -64,11 +82,12 @@ Each phase ends with tests green and a browser walk-through of the whole flow ac
 | Phase | What | Why this order |
 | --- | --- | --- |
 | **P1** (done) | Staff notifications; billing from the menu with merchant alerts; per-category billing rules; admin overview, customers and transactions; membership purchase and the admin members list; merchant onboarding with approval | Finishes the money flow you described and gives admin eyes on everything that already exists |
+| **P1.5** (done) | Settlements with commission, merchant settlement reports and alerts, Excel downloads, auto-approval for trusted merchants, merchant results page, grouped dashboard menus | The money has to reconcile before tickets add more of it |
 | **P2** | Events ticketing: booking, holds, tickets with QR, merchant sales, check-in, coupons at checkout | Needs P1's notifications and payments |
 | **P3** | Movies: cinema setup (screens, seat layouts, showtimes), seat maps, holds, tickets | Builds on P2 |
 | **P4** | Social: hosting programme, activities, groups, join and approvals, moderation | Needs P1 admin queues |
 | **P5** | One-on-one, chat with the safety rules, meet reservations, split payment | Needs P2, P3 and P4 |
-| **P6** | Home collections and preview, reviews and ratings, settlements and payouts, refunds | Polish and money out |
+| **P6** | Promotions page and Member benefits, ordering through VIBE for dining, home collections and preview, reviews and ratings, refunds | Polish |
 
 ## 5. Needed from you (these block go-live, not the building)
 

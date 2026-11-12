@@ -63,7 +63,7 @@ export function EventsPage() {
                   <td className="small">{showDateTime(e.startsAt)}</td>
                   <td>{formatINR(e.fromPrice)}</td>
                   <td>{e.capacity}</td>
-                  <td><Badge tone={TONE[e.status]}>{LABEL[e.status]}</Badge></td>
+                  <td><Badge tone={TONE[e.status]}>{LABEL[e.status]}</Badge>{e.autoApproved ? <div style={{ marginTop: 4 }}><Badge tone="success">Auto-approved</Badge></div> : null}</td>
                   <td className="actions">
                     <Link className="btn ghost sm" to={`/events/${e.id}`} style={{ textDecoration: 'none' }}>{e.status === 'pending' ? 'Review' : 'Edit'}</Link>
                     {e.status === 'pending' || e.status === 'rejected' ? <button className="btn primary sm" onClick={() => act(e, 'approve')}>Publish</button> : null}

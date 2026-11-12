@@ -97,7 +97,7 @@ export const BUILT_IN_ICONS = [
 // ---------- admin: offer review ----------
 export type ReviewOffer = {
   id: string; businessId: string; businessName: string; title: string; kind: OfferKind; rateBps: number | null; flatAmount: number | null; maxDiscount: number | null; minBill: number | null;
-  memberOnly: boolean; startsAt: string; endsAt: string; active: boolean; reviewStatus: ReviewStatus; reviewNote: string | null; reviewedAt: string | null;
+  memberOnly: boolean; startsAt: string; endsAt: string; active: boolean; reviewStatus: ReviewStatus; reviewNote: string | null; reviewedAt: string | null; autoApproved?: boolean;
 };
 
 // ---------- membership plans ----------
@@ -130,7 +130,7 @@ export type EventRow = {
   id: string; businessId: string | null; businessName: string | null; organiser: string; title: string; kind: string; description: string; venue: string; area: string; startsAt: string;
   gatesOpenAt: string; coverUrl: string | null; ageLimit: number | null; featured: boolean; terms: string[]; status: EventStatus; reviewNote: string | null; ticketTypes: TicketTypeRow[];
 };
-export type EventListRow = { id: string; title: string; kind: string; organiser: string; venue: string; startsAt: string; status: EventStatus; fromPrice: number; capacity: number };
+export type EventListRow = { id: string; title: string; kind: string; organiser: string; venue: string; startsAt: string; status: EventStatus; fromPrice: number; capacity: number; autoApproved?: boolean };
 export type EventInput = {
   title: string; kind: string; description: string; venue: string; area: string; startsAt: string; gatesOpenAt: string | null; coverUrl: string | null; ageLimit: number | null; terms: string[];
   organiser?: string | null; featured?: boolean; ticketTypes: Omit<TicketTypeRow, 'id'>[];
@@ -179,3 +179,21 @@ export type ApplicationRow = { id: string; businessName: string; categoryName: s
 export type ApplicationDetail = { row: ApplicationRow; categoryId: string | null; address: string; about: string; documents: string[]; reviewNote: string | null; decidedAt: string | null; businessId: string | null };
 export type ApplicationApproved = { businessId: string; loginEmail: string; temporaryPassword: string };
 export type MerchantSettings = { payRedeem: boolean; menuLabel: string };
+
+// ---------- settlements and results ----------
+export type SettlementDue = { businessId: string; businessName: string; area: string; commissionBps: number; count: number; gross: number; vibeFees: number; commission: number; payout: number; customerSavings: number; oldest: string; newest: string };
+export type SettlementSummary = {
+  id: string; reference: string; businessId: string; businessName: string; periodFrom: string; periodTo: string; paymentCount: number; gross: number; vibeFees: number; commissionBps: number;
+  commission: number; payout: number; customerSavings: number; status: 'pending' | 'paid'; createdAt: string; paidAt: string | null; payoutRef: string | null; note: string | null;
+};
+export type SettlementItem = { paymentReference: string; paidAt: string; customerName: string; vibeId: string; billRef: string; offerTitle: string | null; amount: number; vibeFee: number; commission: number; payout: number; customerSaved: number };
+export type SettlementDetail = { summary: SettlementSummary; items: SettlementItem[] };
+export type SettlementBalance = { count: number; gross: number; commission: number; payout: number };
+export type MerchantMoney = { unsettled: SettlementBalance; awaitingPayout: number; paidOut: number; commissionBps: number; settlements: SettlementSummary[] };
+export type BusinessTerms = { businessId: string; businessName: string; commissionBps: number; autoApprove: boolean };
+export type OfferResult = { offerId: string; title: string; reviewStatus: ReviewStatus; live: boolean; redemptions: number; paid: number; sales: number; discount: number };
+export type MerchantResults = {
+  days: number; customers: number; repeatCustomers: number; redemptionsStarted: number; paidBills: number; sales: number; discountGiven: number; averageBill: number;
+  offersLive: number; offersPending: number; eventsLive: number; eventsPending: number; unsettled: SettlementBalance; awaitingPayout: number; paidOut: number;
+  offers: OfferResult[]; lastDays: { day: string; sales: number; bills: number }[];
+};

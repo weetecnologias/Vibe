@@ -55,7 +55,7 @@ public class Events {
     public record Row(String id, String businessId, String businessName, String organiser, String title, String kind, String description, String venue, String area, OffsetDateTime startsAt,
                       OffsetDateTime gatesOpenAt, String coverUrl, Integer ageLimit, boolean featured, List<String> terms, String status, String reviewNote, List<TicketTypeRow> ticketTypes) {}
 
-    public record ListRow(String id, String title, String kind, String organiser, String venue, OffsetDateTime startsAt, String status, long fromPrice, int capacity) {}
+    public record ListRow(String id, String title, String kind, String organiser, String venue, OffsetDateTime startsAt, String status, long fromPrice, int capacity, boolean autoApproved) {}
 
     // ---- what the customer app reads (EventSummary, EventDetail) ----
     public record Tag(String label, String tone) {}
@@ -113,7 +113,7 @@ public class Events {
                 + "coalesce((select sum(capacity) from ticket_types t where t.event_id = e.id), 0) cap from events e left join businesses b on b.id = e.business_id" + w + " order by e.starts_at desc limit 200");
         p.forEach(s::param);
         return s.query((rs, i) -> new ListRow(rs.getString("id"), rs.getString("title"), rs.getString("kind"), rs.getString("organiser"), rs.getString("venue"),
-                rs.getObject("starts_at", OffsetDateTime.class), rs.getString("status"), rs.getLong("from_price"), rs.getInt("cap"))).list();
+                rs.getObject("starts_at", OffsetDateTime.class), rs.getString("status"), rs.getLong("from_price"), rs.getInt("cap"), rs.getBoolean("auto_approved"))).list();
     }
 
     // ---------- merchant: own events ----------
@@ -129,9 +129,10 @@ public class Events {
         check(in, true);
         String name = jdbc.sql("select name from businesses where id = :id").param("id", business).query(String.class).single();
         UUID id = UUID.randomUUID();
-        insert(id, business, name, in, "pending", false);
+        boolean trusted = autoApprove(business);
+        insert(id, business, name, in, trusted ? "published" : "pending", false);
         audit.record(who, "create", "event", id, in.title());
-        staffNotifications.toAdmins("event_review", "Event waiting for review", name + ": " + in.title(), "/events");
+        markTrust(id, trusted, name, in.title());
         return get(id);
     }
 
@@ -141,10 +142,26 @@ public class Events {
         Row before = merchantGet(who, id);
         if ("cancelled".equals(before.status())) throw ApiException.conflict("cancelled", "A cancelled event can’t be edited.");
         check(in, false);
-        update(id, before.organiser(), in, "pending", before.featured());
+        boolean trusted = autoApprove(who.requireBusiness());
+        update(id, before.organiser(), in, trusted ? "published" : "pending", before.featured());
         audit.record(who, "update", "event", id, in.title());
-        staffNotifications.toAdmins("event_review", "Event changed, waiting for review", before.organiser() + ": " + in.title(), "/events");
+        markTrust(id, trusted, before.organiser(), in.title());
         return get(id);
+    }
+
+    private boolean autoApprove(UUID business) {
+        return jdbc.sql("select auto_approve from businesses where id = :b").param("b", business).query(Boolean.class).single();
+    }
+
+    /** A trusted business's event is published straight away; otherwise it waits for review. Admins are told either way. */
+    private void markTrust(UUID id, boolean trusted, String organiser, String title) {
+        jdbc.sql("update events set auto_approved = :t where id = :id").param("t", trusted).param("id", id).update();
+        if (trusted) {
+            audit.record(null, "auto_approve", "event", id, title);
+            staffNotifications.toAdmins("event_auto", "Event live (auto-approved)", organiser + ": " + title, "/events");
+        } else {
+            staffNotifications.toAdmins("event_review", "Event waiting for review", organiser + ": " + title, "/events");
+        }
     }
 
     @Transactional

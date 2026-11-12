@@ -17,6 +17,8 @@ Spring Boot (Java 25, Maven) modular monolith on PostgreSQL. See [docs/backend-d
 | **Membership (customer)** | `GET /v1/membership`, `POST /v1/membership/subscriptions` (returns a bill, paid through the normal payment flow), `POST /v1/membership/plan-change`, `POST /v1/membership/cancel` | customer |
 | **Business applications (public)** | `POST /v1/business-applications`, `GET`/`PUT /v1/business-applications/{id}?token=` (check status, resubmit when changes are requested) | anyone with the private token |
 | **Staff alerts** | `GET /v1/staff/notifications`, `POST /v1/staff/notifications/read`, `POST /v1/staff/password`, `GET /v1/merchant/settings` (does this kind of business use bills, and what is its item list called) | admin, merchant |
+| **Settlements and downloads (admin)** | `GET /v1/admin/settlements/due`, `GET`/`POST /v1/admin/settlements`, `GET /v1/admin/settlements/{id}`, `POST /v1/admin/settlements/{id}/paid` (needs the bank reference), `GET`/`PUT /v1/admin/businesses/{id}/terms` (commission and auto-approval, with a reason); spreadsheets at `GET /v1/admin/exports/{transactions,members,customers,settlements,settlements-due}` and `/v1/admin/exports/settlements/{id}` | `ADMIN` |
+| **Settlements and results (merchant)** | `GET /v1/merchant/settlements`, `GET /v1/merchant/settlements/{id}` (+ `/export`), `GET /v1/merchant/results?days=` | `MERCHANT`, own business only |
 | Payment partner webhook | `POST /v1/webhooks/{provider}` (signed with `X-Vibe-Signature`) | the payment partner |
 | Staff sign-in | `POST /v1/staff/login`, `GET /v1/staff/me` | admin, merchant |
 | **Admin oversight** | `GET /v1/admin/overview`, `/customers` (+ detail, reveal phone with an audit entry, grant membership), `/transactions` (+ detail), `/members`, `/deletion-requests`, `/applications` (approve, ask for changes, reject) | `ADMIN` |
@@ -49,6 +51,9 @@ Responses match the customer app's `CategoryNode`, `BusinessSummary`, `BusinessD
 - **Membership:** bought through the same payment flow as a bill. It starts only when the partner confirms. Time stacks if bought again before it ends; cancelling keeps the benefits to the end date. Switching plan while active is refused (`use_subscribe`). An admin can grant membership, but must give a reason, and it is audited.
 - **Onboarding:** a new business applies with no login. VIBE approves it, asks for changes, or rejects it with a reason. Approving creates the listing (switched off) and the owner's login with a one-time temporary password; until the owner chooses their own password, every call except changing it is refused.
 - **Admins see a customer's phone only on request**, and each reveal is written to the audit log.
+- **Settlements:** a confirmed payment at a business is owed to it, less VIBE's fee and commission (rounded down per payment). A payment can be in one settlement only (database constraint); two admins settling the same business at once are serialised. Marking a settlement paid needs the bank reference and happens once. The merchant is told at both steps.
+- **Auto-approval:** a trusted business's offers and events go live without review, are marked as such, and admins are told. Admin decisions clear the mark.
+- **Spreadsheet downloads** are UTF-8 CSV that opens in Excel. Cells that start like a formula are neutralised, and phone numbers stay masked.
 - Every admin and merchant change is written to the audit log.
 
 ## Run it

@@ -71,6 +71,7 @@ class DevSeed implements ApplicationRunner {
         String cafes = categories.create(admin, cat(food, "food.cafes", "Cafés & Coffee", "food", 2)).id();
         String movies = categories.create(admin, cat(null, "movies", "Movies", "film", 2)).id();
         String cinemas = categories.create(admin, cat(movies, "movies.cinemas", "Cinemas", "film", 1)).id();
+        seedMoreCategories(admin, food, movies);
 
         var saffron = businesses.create(admin, new BusinessStore.AdminInput(restaurants, List.of(restaurants), profile("Saffron Courtyard", "Jubilee Hills", 17.4326, 78.4071, 3, "11:30", "23:00"), true, false, true));
         var brew = businesses.create(admin, new BusinessStore.AdminInput(cafes, List.of(cafes), profile("Brew & Bloom Café", "Banjara Hills", 17.4156, 78.4347, 2, "08:00", "22:30"), true, true, true));
@@ -108,8 +109,35 @@ class DevSeed implements ApplicationRunner {
         log.info("Seeded businesses: {} and {}", saffron.name(), brew.name());
     }
 
+    /** The rest of the category tree the customer app shows, so the live app is not missing sections. Cinemas, events, social and offers don't use bills. */
+    private void seedMoreCategories(StaffPrincipal admin, String food, String movies) {
+        String foodId = food;
+        for (String[] c : new String[][] {{"food.bakeries", "Bakeries & Desserts"}, {"food.cloud-kitchens", "Cloud Kitchens"}, {"food.food-courts", "Food Courts"}, {"food.fine-dining", "Fine Dining"}, {"food.buffets", "Buffets"}}) {
+            categories.create(admin, cat(foodId, c[0], c[1], "food", 3));
+        }
+        group(admin, "shopping", "Shopping", "shopping", 3, new String[][] {{"fashion", "Fashion"}, {"footwear", "Footwear"}, {"accessories", "Accessories"}, {"lifestyle", "Lifestyle"}, {"electronics", "Electronics"}, {"boutiques", "Local Boutiques"}, {"multi-brand", "Multi-brand Stores"}});
+        group(admin, "fitness", "Fitness & Wellness", "fitness", 4, new String[][] {{"gyms", "Gyms"}, {"yoga", "Yoga & Meditation"}, {"sports", "Sports"}, {"wellness", "Wellness"}, {"training", "Personal Training"}});
+        group(admin, "beauty", "Beauty & Personal Care", "beauty", 5, new String[][] {{"salons", "Salons"}, {"skin-hair", "Skin & Hair"}, {"spa", "Spa & Massage"}, {"grooming", "Grooming"}, {"bridal", "Bridal Services"}});
+        group(admin, "kids", "Kids & Family", "kids", 6, new String[][] {{"indoor-play", "Indoor Play"}, {"learning", "Learning"}, {"sports", "Kids Sports"}, {"celebrations", "Celebrations"}, {"family", "Family Experiences"}, {"childcare", "Childcare"}});
+        group(admin, "events", "Events & Experiences", "ticket", 7, new String[][] {{"workshops", "Workshops"}, {"meetups", "Meetups"}, {"tours", "Tours"}, {"live", "Live Events"}, {"experiences", "Experiences"}});
+        group(admin, "social", "VIBE Social", "social", 9, new String[][] {{"meet", "Meet People"}, {"groups", "Groups"}, {"activities", "Activities"}, {"communities", "Communities"}, {"events", "Social Events"}});
+        group(admin, "offers", "Offers & Benefits", "offer", 10, new String[][] {{"all", "All Offers"}, {"nearby", "Nearby Offers"}, {"trending", "Trending Offers"}, {"new", "Newly Added"}, {"ending", "Ending Soon"}, {"member", "Member Exclusive"}});
+        for (String[] c : new String[][] {{"movies.private-theatres", "Private Theatres"}, {"movies.open-air-screenings", "Open-air Screenings"}, {"movies.clubs-festivals", "Movie Clubs & Festivals"}}) {
+            categories.create(admin, cat(movies, c[0], c[1], "film", 2));
+        }
+    }
+
+    private void group(StaffPrincipal admin, String slug, String name, String icon, int sort, String[][] children) {
+        String id = categories.create(admin, cat(null, slug, name, icon, sort)).id();
+        int i = 1;
+        for (String[] c : children) categories.create(admin, cat(id, slug + "." + c[0], c[1], icon, i++));
+    }
+
     private static Categories.Input cat(String parent, String slug, String name, String icon, int sort) {
-        return new Categories.Input(parent, slug, name, icon, null, null, sort, true, !slug.startsWith("movies"), slug.equals("food") ? "Menu" : null);
+        String top = slug.contains(".") ? slug.substring(0, slug.indexOf('.')) : slug;
+        boolean bills = !java.util.Set.of("movies", "events", "social", "offers").contains(top);
+        String label = switch (top) { case "food" -> "Menu"; case "shopping" -> "Price list"; case "fitness", "beauty", "kids" -> "Services"; default -> null; };
+        return new Categories.Input(parent, slug, name, icon, null, null, sort, true, bills, slug.equals(top) ? label : null);
     }
 
     private static BusinessStore.Profile profile(String name, String area, double lat, double lng, int price, String opens, String closes) {

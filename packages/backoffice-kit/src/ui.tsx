@@ -88,6 +88,24 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
   );
 }
 
+/** A button that downloads a spreadsheet from the server. Shows its own error if the download fails. */
+export function DownloadButton({ path, filename, label = 'Download Excel (CSV)', small }: { path: string; filename: string; label?: string; small?: boolean }) {
+  const { client } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    setBusy(true);
+    setError(null);
+    try { await client.download(path, filename); } catch (e) { setError(e instanceof Error ? e.message : 'The download didn’t work.'); } finally { setBusy(false); }
+  };
+  return (
+    <span className="download">
+      <button type="button" className={`btn${small ? ' sm' : ''}`} disabled={busy} onClick={go}>{busy ? 'Preparing…' : label}</button>
+      {error ? <span className="small" role="alert" style={{ color: 'var(--error)' }}>{error}</span> : null}
+    </span>
+  );
+}
+
 export function Loading({ what = 'Loading' }: { what?: string }) {
   return <p className="muted" role="status">{what}…</p>;
 }

@@ -55,7 +55,7 @@ export function OfferReviewPage() {
               {list.data?.map((o) => (
                 <tr key={o.id}>
                   <td><strong>{o.businessName}</strong></td>
-                  <td>{o.title} {o.memberOnly ? <Badge tone="pink">Members</Badge> : null}{!o.active ? <> <Badge>Switched off</Badge></> : null}{o.reviewNote ? <div className="muted small">Note: {o.reviewNote}</div> : null}</td>
+                  <td>{o.title} {o.memberOnly ? <Badge tone="pink">Members</Badge> : null}{o.autoApproved ? <> <Badge tone="success">Auto-approved</Badge></> : null}{!o.active ? <> <Badge>Switched off</Badge></> : null}{o.reviewNote ? <div className="muted small">Note: {o.reviewNote}</div> : null}</td>
                   <td className="small">{ruleSummary(o)}</td>
                   <td className="small">{showDateTime(o.startsAt)}<br />to {showDateTime(o.endsAt)}</td>
                   <td className="actions">

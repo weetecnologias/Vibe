@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Badge, Loading, Modal, Notice, PageHead, formatINR, showDateTime, useAsync, useAuth, type TransactionDetail, type TransactionPage } from '@kit';
+import { Badge, DownloadButton, Loading, Modal, Notice, PageHead, formatINR, showDateTime, useAsync, useAuth, type TransactionDetail, type TransactionPage } from '@kit';
 
 const PAGE = 25;
 const TONE: Record<string, 'success' | 'warning' | 'muted'> = { verified: 'success', failed: 'warning', pending: 'muted' };
@@ -20,7 +20,7 @@ export function TransactionsPage() {
 
   return (
     <>
-      <PageHead title="Transactions" sub="Every payment, with who paid, where, how much, and whether the payment partner confirmed it." actions={<button className="btn" onClick={list.reload}>Refresh</button>} />
+      <PageHead title="Transactions" sub="Every payment, with who paid, where, how much, and whether the payment partner confirmed it." actions={<div className="row"><DownloadButton path={`/v1/admin/exports/transactions?x=1${status ? `&status=${status}` : ''}${kind ? `&kind=${kind}` : ''}${term ? `&q=${encodeURIComponent(term)}` : ''}`} filename="vibe-transactions.csv" /><button className="btn" onClick={list.reload}>Refresh</button></div>} />
       <div className="stats">
         <div className="card"><span className="muted small">Payments in this view</span><strong>{t?.count ?? '–'}</strong></div>
         <div className="card"><span className="muted small">Confirmed amount</span><strong>{t ? formatINR(t.verifiedAmount) : '–'}</strong></div>

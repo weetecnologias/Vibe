@@ -7,6 +7,8 @@ React + Vite + TypeScript. For the businesses listed on VIBE. Shares its UI, API
 A merchant sees and edits **only their own business** (the server takes the business from the sign-in token, never from the request).
 
 - **Join VIBE:** a business that has no login yet applies at `/apply` and follows its application there. When VIBE approves, it receives a login and chooses its own password on first sign-in.
+- **Your results:** sales through VIBE, customers, average bill, discount given, how each offer is doing, and money on its way.
+- **Settlements:** what isn't settled yet, settlements drawn up, and transfers to your bank with the bank reference; each settlement downloads to Excel.
 - **Alerts:** a bell, toast and sound when a customer taps Redeem, cancels, or pays, and when VIBE decides on an offer or event.
 - **Bills** (the screen for the table, hidden for kinds of business that sell tickets instead): customers who tapped **Redeem** in the app appear here by first name and VIBE ID. Click **Raise bill**, pick what they ordered from your menu or price list (or type amounts), check the amount VIBE shows the customer will pay, and send it. The customer's app shows it within a few seconds and they pay there. You see it turn to **Paid**, with today's totals. A wrong bill can be withdrawn until the customer starts paying. Bills of ₹50,000 or more ask you to confirm the amount. The list refreshes by itself.
 - **My business:** name, area, address, location, about, price level, hours (India time), photos, terms, online booking. Categories, verification and visibility are managed by the VIBE team.

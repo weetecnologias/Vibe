@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Badge, Loading, Notice, PageHead, formatINR, showDateTime, useAsync, useAuth, type MemberPage } from '@kit';
+import { Badge, DownloadButton, Loading, Notice, PageHead, formatINR, showDateTime, useAsync, useAuth, type MemberPage } from '@kit';
 
 const PAGE = 25;
 const TABS: { key: string; label: string }[] = [{ key: 'active', label: 'Active' }, { key: 'cancelled', label: 'Cancelled' }, { key: 'expired', label: 'Expired' }, { key: '', label: 'All' }];
@@ -17,7 +17,8 @@ export function MembersPage() {
 
   return (
     <>
-      <PageHead title="Members" sub="Everyone who has bought, or been given, a VIBE membership. Open the customer to see their payments or to give time." />
+      <PageHead title="Members" sub="Everyone who has bought, or been given, a VIBE membership. Open the customer to see their payments or to give time."
+        actions={<DownloadButton path={`/v1/admin/exports/members?x=1${status ? `&status=${status}` : ''}${term ? `&q=${encodeURIComponent(term)}` : ''}`} filename="vibe-members.csv" />} />
       <div className="tabs" role="tablist">
         {TABS.map((t) => <button key={t.label} role="tab" aria-selected={status === t.key} className={`tab${status === t.key ? ' on' : ''}`} onClick={() => { setStatus(t.key); setOffset(0); }}>{t.label}</button>)}
       </div>

@@ -10,6 +10,8 @@ import { MenuPage } from './pages/MenuPage';
 import { OffersPage } from './pages/OffersPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ReservationsPage } from './pages/ReservationsPage';
+import { ResultsPage } from './pages/ResultsPage';
+import { SettlementsPage } from './pages/SettlementsPage';
 import { TeamPage } from './pages/TeamPage';
 import { SettingsContext } from './settings';
 
@@ -36,13 +38,18 @@ function SignedIn() {
   const settings: MerchantSettings = s.data ?? { payRedeem: true, menuLabel: 'Menu' };
   const home = settings.payRedeem ? '/bills' : '/events';
 
+  // Grouped by what the owner is doing: serving customers today, selling on VIBE, money, and the business itself.
   const nav: NavItem[] = [
-    ...(settings.payRedeem ? [{ to: '/bills', label: 'Bills' }] : []),
+    ...(settings.payRedeem ? [{ heading: 'Today' }, { to: '/bills', label: 'Bills' }] : []),
+    { heading: 'Sell on VIBE' },
+    ...(settings.payRedeem ? [{ to: '/offers', label: 'Offers' }] : []),
     { to: '/events', label: 'Events' },
+    { heading: 'Money' },
+    { to: '/results', label: 'Your results' },
+    { to: '/settlements', label: 'Settlements' },
     { heading: 'My business' },
     { to: '/profile', label: 'Profile and photos' },
     { to: '/menu', label: settings.menuLabel },
-    ...(settings.payRedeem ? [{ to: '/offers', label: 'Offers' }] : []),
     { to: '/reservations', label: 'Reservations' },
     { to: '/team', label: 'Team' },
   ];
@@ -60,6 +67,8 @@ function SignedIn() {
           <Route path="events/:id" element={<EventEditPage />} />
           <Route path="reservations" element={<ReservationsPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="results" element={<ResultsPage />} />
+          <Route path="settlements" element={<SettlementsPage />} />
           <Route path="*" element={<Navigate to={home} replace />} />
         </Route>
       </Routes>

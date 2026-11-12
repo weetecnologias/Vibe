@@ -15,7 +15,7 @@ import java.util.UUID;
 @Service
 public class OfferReview {
     public record Row(String id, String businessId, String businessName, String title, String kind, Integer rateBps, Long flatAmount, Long maxDiscount, Long minBill, boolean memberOnly,
-                      OffsetDateTime startsAt, OffsetDateTime endsAt, boolean active, String reviewStatus, String reviewNote, OffsetDateTime reviewedAt) {}
+                      OffsetDateTime startsAt, OffsetDateTime endsAt, boolean active, String reviewStatus, String reviewNote, OffsetDateTime reviewedAt, boolean autoApproved) {}
 
     private final JdbcClient jdbc;
     private final AuditService audit;
@@ -32,7 +32,7 @@ public class OfferReview {
         return new Row(rs.getString("id"), rs.getString("business_id"), rs.getString("bname"), rs.getString("title"), rs.getString("kind"), bps == null ? null : ((Number) bps).intValue(),
                 flat == null ? null : ((Number) flat).longValue(), max == null ? null : ((Number) max).longValue(), min == null ? null : ((Number) min).longValue(), rs.getBoolean("member_only"),
                 rs.getObject("starts_at", OffsetDateTime.class), rs.getObject("ends_at", OffsetDateTime.class), rs.getBoolean("active"), rs.getString("review_status"), rs.getString("review_note"),
-                rs.getObject("reviewed_at", OffsetDateTime.class));
+                rs.getObject("reviewed_at", OffsetDateTime.class), rs.getBoolean("auto_approved"));
     }
 
     /** Offers waiting for review come first, oldest first, so nothing waits forever. */
@@ -49,7 +49,7 @@ public class OfferReview {
         if (!approve && (note == null || note.isBlank())) throw ApiException.badRequest("note_required", "Tell the merchant what to change.");
         Row before = jdbc.sql("select o.*, b.name bname from offers o join businesses b on b.id = o.business_id where o.id = :id").param("id", id).query(OfferReview::map).optional()
                 .orElseThrow(() -> ApiException.notFound("Offer not found."));
-        jdbc.sql("update offers set review_status = :st, review_note = :n, reviewed_at = now(), reviewed_by = :by where id = :id")
+        jdbc.sql("update offers set review_status = :st, auto_approved = false, review_note = :n, reviewed_at = now(), reviewed_by = :by where id = :id")
                 .param("st", approve ? "approved" : "rejected").param("n", approve ? null : note.trim()).param("by", who.id()).param("id", id).update();
         audit.record(who, approve ? "approve" : "reject", "offer", id, before.businessName() + ": " + before.title());
         staffNotifications.toBusiness(UUID.fromString(before.businessId()), "offer_decision", approve ? "Offer approved" : "Offer not approved", before.title() + (approve ? " is approved and goes live in its dates." : ": " + note.trim()), "/offers");

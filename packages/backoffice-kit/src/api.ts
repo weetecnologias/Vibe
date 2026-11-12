@@ -17,6 +17,8 @@ export type Client = {
   login(email: string, password: string): Promise<Session>;
   /** Uploads an image (PNG, JPEG or WebP, up to 5 MB) and returns the link to save. */
   upload(file: File): Promise<{ id: string; url: string }>;
+  /** Downloads a file the server makes (a spreadsheet) and saves it on this computer. */
+  download(path: string, filename: string): Promise<void>;
 };
 
 export function createClient(opts: { baseUrl: string; token: () => string | null; onUnauthorized: () => void }): Client {
@@ -58,6 +60,28 @@ export function createClient(opts: { baseUrl: string; token: () => string | null
       const form = new FormData();
       form.append('file', file);
       return request('POST', '/v1/media', form);
+    },
+    download: async (path, filename) => {
+      const token = opts.token();
+      let res: Response;
+      try {
+        res = await fetch(`${opts.baseUrl}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      } catch {
+        throw new ApiError(0, 'network', 'Can’t reach the server. Check your connection and try again.');
+      }
+      if (!res.ok) {
+        if (res.status === 401 && token) opts.onUnauthorized();
+        const e = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
+        throw new ApiError(res.status, e.code ?? 'error', e.message ?? 'The download didn’t work.');
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
   };
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import {
-  Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, showDateTime, useAsync, useAuth,
+  Badge, DownloadButton, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, showDateTime, useAsync, useAuth,
   type CustomerDetail, type CustomerPage, type Plan,
 } from '@kit';
 
@@ -18,7 +18,8 @@ export function CustomersPage() {
 
   return (
     <>
-      <PageHead title="Customers" sub="Everyone who has signed in to the VIBE app. Phone numbers are hidden; revealing one is logged." />
+      <PageHead title="Customers" sub="Everyone who has signed in to the VIBE app. Phone numbers are hidden; revealing one is logged."
+        actions={<DownloadButton path="/v1/admin/exports/customers" filename="vibe-customers.csv" />} />
       <form className="row" style={{ marginBottom: 14 }} onSubmit={(e) => { e.preventDefault(); setOffset(0); setTerm(q.trim()); }}>
         <input style={{ maxWidth: 320 }} placeholder="Name, VIBE ID or phone digits" aria-label="Search customers" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn">Search</button>
