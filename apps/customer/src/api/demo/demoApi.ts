@@ -13,6 +13,7 @@ import type {
   PaymentMethod, PaymentRequest, Redemption, SocialActivity, SocialProfile, Ticket, TicketReservation, User,
 } from '../types';
 import * as C from './catalog';
+
 import * as D from './data';
 import { img } from './images';
 import { CHAT_AFTER_MEETUP_MIN, CHAT_FREE_TEXT_MAX, CHAT_LIMIT, renderQuick } from '../chat';
@@ -28,6 +29,18 @@ import { istDayKey } from '../../lib/dates';
 import { reservationOptions, RESERVATION_POLICY, seededReservations } from './meetReservations';
 import { quote } from './pricing';
 import * as S from './social';
+
+/** DEMO DATA — places promoting themselves in Discover (the backend's dev seed has the same ones). */
+const DEMO_PROMOTIONS = [
+  { id: 'pr-saffron', businessId: 'b-saffron', title: 'Weekend biryani festival', message: 'Dum biryanis from Hyderabad, Lucknow, Kolkata and Malabar, every Friday to Sunday.', withOffer: true },
+  { id: 'pr-brew', businessId: 'b-brew', title: 'Our winter menu is here', message: 'Spiced lattes, hot chocolate and fresh bakes. Any handcrafted coffee is 1+1.', withOffer: true },
+  { id: 'pr-smash', businessId: 'b-smash', title: 'Floodlit courts till 11 PM', message: 'Badminton and pickleball by the hour. Book your court in the app.', withOffer: true },
+  { id: 'pr-pulse', businessId: 'b-pulse', title: 'Join this month, train all next month', message: 'Monthly memberships from ₹2,999 with a free fitness assessment.', withOffer: true },
+  { id: 'pr-lumiere', businessId: 'b-lumiere', title: 'Wedding season looks', message: 'Hair, makeup and skin packages for brides, grooms and guests.', withOffer: true },
+  { id: 'pr-screeningroom', businessId: 'b-screeningroom', title: 'Your own cinema for birthdays', message: 'A private screen for up to 20 guests, with decor and cake packages.', withOffer: false },
+  { id: 'pr-starlight', businessId: 'b-starlight', title: 'Open-air screenings every weekend', message: 'Bean bags, blankets and a snack stall under the sky in Kokapet.', withOffer: false },
+  { id: 'pr-wonderworld', businessId: 'b-wonderworld', title: 'Play all day this weekend', message: 'Trampolines, soft play and a café for parents.', withOffer: true },
+];
 
 const clone = <T>(v: T): T => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
 
@@ -575,6 +588,40 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         eligibleAmount: h.total, discount: 0, discountLabel: '', taxes: null, vibeFee: 0, payable: h.total, expiresAt: h.expiresAt,
       });
       return wait({ holdId: h.holdId, showId: sid, seats: h.seats, total: h.total, expiresAt: h.expiresAt, paymentRequestId: pr.id });
+    },
+
+    async getNearbyOffers(q, offset = 0, limit = 12) {
+      const inCat = (b: (typeof businesses)[number]) => !q.category || b.categoryIds.includes(q.category) || b.primaryCategoryId === q.category || b.primaryCategoryId.startsWith(`${q.category}.`);
+      const t = q.q?.trim().toLowerCase();
+      const saving = (o: (typeof offers)[number]) => (o.rule.kind === 'percentage' ? o.rule.rateBps * 10 : o.rule.amount);
+      const rows = offers.flatMap((o) => {
+        const b = businesses.find((x) => x.id === o.businessId);
+        if (!b || !inCat(b)) return [];
+        if (t && !`${b.name} ${o.title} ${b.area}`.toLowerCase().includes(t)) return [];
+        if (q.memberOnly && !o.memberOnly) return [];
+        if (q.maxDistanceKm !== undefined && b.distanceKm > q.maxDistanceKm) return [];
+        if (q.openNow && !b.status.open) return [];
+        return [{ ...offerSummary(o), distanceKm: b.distanceKm, categoryLabel: b.categoryNames.find((c) => c.primary)?.name ?? b.categoryLabel, primaryCategorySlug: b.primaryCategoryId, status: b.status, _saving: saving(o) }];
+      });
+      rows.sort((a, b) => (q.sort === 'saving' ? b._saving - a._saving : q.sort === 'ending' ? Date.parse(a.endsAt) - Date.parse(b.endsAt) : a.distanceKm - b.distanceKm));
+      const items = rows.slice(offset, offset + limit).map(({ _saving, ...o }) => { void _saving; return o; });
+      return wait({ items, total: rows.length, nextOffset: offset + limit < rows.length ? offset + limit : null });
+    },
+    async getPromotions(category) {
+      const list = DEMO_PROMOTIONS.flatMap((p) => {
+        const b = businesses.find((x) => x.id === p.businessId);
+        if (!b || (category && !b.categoryIds.includes(category) && b.primaryCategoryId !== category && !b.primaryCategoryId.startsWith(`${category}.`))) return [];
+        const o = p.withOffer ? offers.find((x) => x.businessId === b.id) : undefined;
+        return [{
+          id: p.id, businessId: b.id, businessName: b.name, businessLogoUrl: null, area: b.area, distanceKm: b.distanceKm, categoryLabel: b.categoryNames.find((c) => c.primary)?.name ?? b.categoryLabel,
+          primaryCategorySlug: b.primaryCategoryId, status: b.status, title: p.title, message: p.message, imageUrl: b.coverUrl, offerId: o?.id ?? null,
+          offerHeadline: o ? `${o.headline} ${o.headlineSub.toLowerCase()}` : null, endsAt: new Date(now() + 30 * 86_400_000).toISOString(),
+        }];
+      });
+      return wait(list.sort((a, b) => a.distanceKm - b.distanceKm));
+    },
+    async tapPromotion() {
+      return wait(undefined);
     },
 
     async getOffers(view) {

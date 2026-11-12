@@ -3,57 +3,55 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, type BusinessQuery, type BusinessSummary, type SearchScope, type SortKey } from '@/api';
-import { BusinessRow, EventRow } from '@/components/cards';
-import { Button, EmptyState, ErrorState, Icon, LoadingState, T } from '@/components/ui';
+import { api, type CategoryNode, type NearbyOffer, type NearbyOfferQuery, type OfferSort, type Promotion } from '@/api';
+import { Badge, Button, EmptyState, ErrorState, Icon, LoadingState, Photo, T } from '@/components/ui';
 import { Chip } from '@/components/ui/Chip';
+import { daysUntil } from '@/lib/dates';
 import { useAsync } from '@/lib/useAsync';
-import { EMPTY_PAGE, usePaged } from '@/lib/usePaged';
+import { usePaged } from '@/lib/usePaged';
 import { useSession } from '@/state/session';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, radius } from '@/theme/tokens';
 
-const SCOPES: { key: SearchScope; label: string }[] = [
-  { key: 'all', label: 'All' }, { key: 'places', label: 'Places' }, { key: 'services', label: 'Services' },
-  { key: 'experiences', label: 'Experiences' }, { key: 'events', label: 'Events' },
-];
-const SORTS: { key: SortKey; label: string }[] = [{ key: 'nearest', label: 'Nearest' }, { key: 'rating', label: 'Top rated' }, { key: 'popular', label: 'Popular' }];
+type Section = 'offers' | 'promotions';
+const SORTS: { key: OfferSort; label: string }[] = [{ key: 'nearest', label: 'Nearest' }, { key: 'saving', label: 'Biggest saving' }, { key: 'ending', label: 'Ending soon' }];
+/** Top-level categories that aren't places with offers (they have their own tabs). */
+const HIDDEN = new Set(['social', 'offers']);
+type Filters = { openNow: boolean; near: boolean; members: boolean };
+const NO_FILTERS: Filters = { openNow: false, near: false, members: false };
 
-type Filters = { openNow: boolean; memberOffers: boolean; rating4: boolean; budget: boolean; near: boolean };
-
+/**
+ * Discover has two parts. Offers near you: every offer at places around you, by category (Food & Dining, then Cafés; Fitness, then Sports…),
+ * nearest first, with filters for open now, distance and member offers. Promotions: places promoting themselves, reviewed by VIBE.
+ */
 export default function Discover() {
   const insets = useSafeAreaInsets();
   const { area } = useSession();
+  const [section, setSection] = useState<Section>('offers');
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
-  const [scope, setScope] = useState<SearchScope>('all');
-  const [sort, setSort] = useState<SortKey>('nearest');
-  const [view, setView] = useState<'list' | 'map'>('list');
-  const [f, setF] = useState<Filters>({ openNow: false, memberOffers: false, rating4: false, budget: false, near: false });
+  const [top, setTop] = useState<CategoryNode | null>(null);
+  const [sub, setSub] = useState<CategoryNode | null>(null);
+  const [sort, setSort] = useState<OfferSort>('nearest');
+  const [f, setF] = useState<Filters>(NO_FILTERS);
 
   useEffect(() => {
     const t = setTimeout(() => setQ(text), 300);
     return () => clearTimeout(t);
   }, [text]);
 
-  const eventScope = scope === 'events' || scope === 'experiences';
-  const query: BusinessQuery = {
-    q, scope, sort,
-    openNow: f.openNow || undefined, memberOffers: f.memberOffers || undefined,
-    minRating: f.rating4 ? 4 : undefined, maxPriceLevel: f.budget ? 2 : undefined, maxDistanceKm: f.near ? 3 : undefined,
-  };
-  const places = usePaged<BusinessSummary>((offset) => (eventScope ? Promise.resolve(EMPTY_PAGE) : api.searchBusinessesPage(query, offset)), [JSON.stringify(query), eventScope]);
-  const events = useAsync(async () => {
-    if (!eventScope) return [];
-    const list = await api.getEvents({});
-    const t = q.trim().toLowerCase();
-    return list.filter((e) => (scope === 'events' || ['Workshops', 'Experiences', 'Tours'].includes(e.kind)) && (!t || `${e.title} ${e.venue} ${e.area}`.toLowerCase().includes(t)));
-  }, [scope, q]);
+  const cats = useAsync(() => api.getCategories(), []);
+  const tops = (cats.data ?? []).filter((c) => !HIDDEN.has(c.slug));
+  const category = sub?.id ?? top?.id;
+
+  const query: NearbyOfferQuery = { category, q: q.trim() || undefined, sort, openNow: f.openNow || undefined, maxDistanceKm: f.near ? 3 : undefined, memberOnly: f.members || undefined };
+  const offers = usePaged<NearbyOffer>((offset) => api.getNearbyOffers(query, offset), [JSON.stringify(query)]);
+  const promos = useAsync(() => (section === 'promotions' ? api.getPromotions(category) : Promise.resolve([] as Promotion[])), [section, category]);
 
   const active = Object.values(f).filter(Boolean).length;
   const toggle = (k: keyof Filters) => setF((s) => ({ ...s, [k]: !s[k] }));
   const nextSort = () => setSort((s) => SORTS[(SORTS.findIndex((x) => x.key === s) + 1) % SORTS.length].key);
-  const state = eventScope ? events : places;
-  const count = eventScope ? events.data?.length ?? 0 : places.data?.length ?? 0;
+  const pickTop = (c: CategoryNode | null) => { setTop(c); setSub(null); };
+  const where = sub?.name ?? top?.name;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.softWhite }} stickyHeaderIndices={[0]} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
@@ -65,91 +63,137 @@ export default function Discover() {
             <T variant="captionStrong">{area}</T>
           </Pressable>
         </View>
-        <View style={styles.search}>
-          <Icon name="search" size={20} />
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Businesses, services, events…"
-            placeholderTextColor={colors.mutedGrey}
-            accessibilityLabel="Search"
-            returnKeyType="search"
-            style={styles.input}
-          />
-          {text ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setText('')} hitSlop={10}>
-              <Icon name="close" size={18} color={colors.mutedGrey} />
-            </Pressable>
-          ) : null}
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 20 }} accessibilityRole="tablist">
-          {SCOPES.map((s) => (
-            <Pressable key={s.key} accessibilityRole="tab" accessibilityState={{ selected: scope === s.key }} aria-selected={scope === s.key} onPress={() => setScope(s.key)} style={[styles.scope, scope === s.key && styles.scopeOn]}>
-              <T variant="bodyStrong" color={scope === s.key ? colors.nearBlack : colors.mutedGrey} style={{ fontSize: 14 }}>{s.label}</T>
+
+        <View style={styles.segment} accessibilityRole="tablist">
+          {([['offers', 'Offers near you'], ['promotions', 'Promotions']] as const).map(([k, label]) => (
+            <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: section === k }} aria-selected={section === k} onPress={() => setSection(k)} style={[styles.segBtn, section === k && styles.segOn]}>
+              <T variant="bodyStrong" color={section === k ? colors.white : colors.nearBlack} style={{ fontSize: 14 }}>{label}</T>
             </Pressable>
           ))}
-        </ScrollView>
-      </View>
+        </View>
 
-      {!eventScope ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingTop: 14 }}>
-          <Chip label={`Sort: ${SORTS.find((s) => s.key === sort)!.label}`} icon="chevronDown" onPress={nextSort} />
-          <Chip label="Open now" selected={f.openNow} onPress={() => toggle('openNow')} />
-          <Chip label="Member offers" selected={f.memberOffers} onPress={() => toggle('memberOffers')} />
-          <Chip label="Rating 4.0+" selected={f.rating4} onPress={() => toggle('rating4')} />
-          <Chip label="₹₹ and under" selected={f.budget} onPress={() => toggle('budget')} />
-          <Chip label="Within 3 km" selected={f.near} onPress={() => toggle('near')} />
-        </ScrollView>
-      ) : null}
-
-      <View style={styles.resultsRow}>
-        <T variant="caption" color={colors.mutedGrey}>
-          <T variant="captionStrong">{state.loading ? 'Searching…' : `${eventScope ? count : places.total ?? count} ${eventScope ? 'events' : 'places'}`}</T>
-          {active && !eventScope ? ` · ${active} filter${active > 1 ? 's' : ''}` : ''}
-        </T>
-        {!eventScope ? (
-          <View style={styles.toggle} accessibilityRole="radiogroup">
-            {(['list', 'map'] as const).map((v) => (
-              <Pressable key={v} accessibilityRole="radio" accessibilityState={{ checked: view === v }} aria-checked={view === v} onPress={() => setView(v)} style={[styles.toggleBtn, view === v && { backgroundColor: colors.nearBlack }]}>
-                <Icon name={v} size={14} color={view === v ? colors.white : colors.mutedGrey} strokeWidth={2} />
-                <T variant="small" color={view === v ? colors.white : colors.mutedGrey} style={{ fontFamily: fonts.semibold }}>{v === 'list' ? 'List' : 'Map'}</T>
-              </Pressable>
-            ))}
+        {section === 'offers' ? (
+          <View style={styles.search}>
+            <Icon name="search" size={20} />
+            <TextInput value={text} onChangeText={setText} placeholder="Search places, offers or areas" placeholderTextColor={colors.mutedGrey} accessibilityLabel="Search offers" returnKeyType="search" style={styles.input} />
+            {text ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setText('')} hitSlop={10}><Icon name="close" size={18} color={colors.mutedGrey} /></Pressable>
+            ) : null}
           </View>
         ) : null}
-      </View>
 
-      {view === 'map' && !eventScope ? (
-        <View style={styles.map}>
-          <Icon name="map" size={28} color={colors.mutedGrey} />
-          <T variant="captionStrong" align="center">Map view needs a maps provider</T>
-          <T variant="small" color={colors.mutedGrey} align="center">Google Maps or Mappls will be connected once a provider and API key are chosen. Results are listed below.</T>
-        </View>
-      ) : null}
-
-      <View style={{ paddingHorizontal: 20, gap: 12 }}>
-        {state.error ? <ErrorState message={state.error} onRetry={state.reload} /> : null}
-        {state.loading && !state.data ? <LoadingState rows={2} /> : null}
-        {!state.loading && !state.error && count === 0 ? (
-          <EmptyState icon="search" title="Nothing matches yet" message="Try removing a filter or searching for something broader." actionLabel={active ? 'Clear filters' : undefined} onAction={() => setF({ openNow: false, memberOffers: false, rating4: false, budget: false, near: false })} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: top?.children.length ? 0 : 12 }} accessibilityLabel="Categories">
+          <Chip label="All" tone="pink" selected={!top} onPress={() => pickTop(null)} />
+          {tops.map((c) => <Chip key={c.id} label={c.name} tone="pink" selected={top?.id === c.id} onPress={() => pickTop(c)} />)}
+        </ScrollView>
+        {top?.children.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }} accessibilityLabel={`${top.name} categories`}>
+            <Chip label={`All ${top.name}`} selected={!sub} onPress={() => setSub(null)} />
+            {top.children.map((c) => <Chip key={c.id} label={c.name} selected={sub?.id === c.id} onPress={() => setSub(c)} />)}
+          </ScrollView>
         ) : null}
-        {eventScope ? events.data?.map((e) => <EventRow key={e.id} e={e} />) : places.data?.map((b) => <BusinessRow key={b.id} b={b} />)}
-        {!eventScope && places.hasMore ? <Button label={`Show more (${Math.max(0, (places.total ?? 0) - count)} left)`} variant="outline" onPress={places.loadMore} loading={places.loadingMore} /> : null}
       </View>
+
+      {section === 'offers' ? (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingTop: 14 }}>
+            <Chip label={`Sort: ${SORTS.find((s) => s.key === sort)!.label}`} icon="chevronDown" onPress={nextSort} />
+            <Chip label="Open now" selected={f.openNow} onPress={() => toggle('openNow')} />
+            <Chip label="Within 3 km" selected={f.near} onPress={() => toggle('near')} />
+            <Chip label="Member offers" selected={f.members} onPress={() => toggle('members')} />
+          </ScrollView>
+          <View style={styles.resultsRow}>
+            <T variant="caption" color={colors.mutedGrey}>
+              <T variant="captionStrong">{offers.loading && !offers.data ? 'Finding offers…' : `${offers.total ?? 0} ${offers.total === 1 ? 'offer' : 'offers'}`}</T>
+              {where ? ` in ${where}` : ' near you'}{active ? ` · ${active} filter${active > 1 ? 's' : ''}` : ''}
+            </T>
+          </View>
+          <View style={{ paddingHorizontal: 20, gap: 12 }}>
+            {offers.error ? <ErrorState message={offers.error} onRetry={offers.reload} /> : null}
+            {offers.loading && !offers.data ? <LoadingState rows={3} /> : null}
+            {!offers.loading && !offers.error && offers.data?.length === 0 ? (
+              <EmptyState icon="offer" title="No offers here yet" message={active || q ? 'Try removing a filter or searching for something broader.' : 'Try another category, or check back soon.'}
+                actionLabel={active ? 'Clear filters' : undefined} onAction={() => setF(NO_FILTERS)} />
+            ) : null}
+            {offers.data?.map((o) => <NearbyOfferRow key={o.id} o={o} />)}
+            {offers.hasMore ? <Button label={`Show more (${Math.max(0, (offers.total ?? 0) - (offers.data?.length ?? 0))} left)`} variant="outline" onPress={offers.loadMore} loading={offers.loadingMore} /> : null}
+          </View>
+        </>
+      ) : (
+        <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: 16 }}>
+          <T variant="caption" color={colors.mutedGrey}>Places near you, telling you what’s new.{where ? ` In ${where}.` : ''}</T>
+          {promos.error ? <ErrorState message={promos.error} onRetry={promos.reload} /> : null}
+          {promos.loading && !promos.data ? <LoadingState rows={2} /> : null}
+          {promos.data?.length === 0 ? <EmptyState icon="sparkle" title="No promotions here right now" message="Try another category, or see Offers near you." actionLabel="See offers" onAction={() => setSection('offers')} /> : null}
+          {promos.data?.map((p) => <PromotionCard key={p.id} p={p} />)}
+        </View>
+      )}
     </ScrollView>
   );
 }
 
+function NearbyOfferRow({ o }: { o: NearbyOffer }) {
+  const days = daysUntil(o.endsAt);
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${o.headline} ${o.headlineSub}: ${o.title} at ${o.businessName}, ${o.distanceKm} kilometres, ${o.status.label}`}
+      onPress={() => router.push(`/offer/${o.id}`)} style={styles.offer}>
+      <View style={styles.offerLeft}>
+        <T style={styles.offerBig}>{o.headline}</T>
+        <T variant="label" color={colors.pinkDeep}>{o.headlineSub}</T>
+      </View>
+      <View style={{ flex: 1, padding: 12, gap: 3 }}>
+        <T variant="bodyStrong" numberOfLines={2}>{o.title}</T>
+        <T variant="caption" numberOfLines={1}>{o.businessName}</T>
+        <T variant="small" color={colors.mutedGrey} numberOfLines={1}>{o.categoryLabel} · {o.area} · {o.distanceKm} km</T>
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+          <T variant="small" color={o.status.open ? colors.success : colors.mutedGrey} style={{ fontFamily: fonts.semibold }}>{o.status.open ? 'Open now' : o.status.label}</T>
+          {o.memberOnly ? <Badge label="Members" tone="pinkSoft" /> : null}
+          {days <= 7 ? <Badge label={`Ends in ${days} day${days === 1 ? '' : 's'}`} tone="warning" /> : null}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function PromotionCard({ p }: { p: Promotion }) {
+  const open = () => {
+    void api.tapPromotion(p.id);
+    router.push(p.offerId ? `/offer/${p.offerId}` : `/business/${p.businessId}`);
+  };
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Promotion from ${p.businessName}: ${p.title}`} onPress={open} style={styles.promo}>
+      <Photo uri={p.imageUrl} seed={p.id} style={{ height: 150 }} accessibilityLabel={`Photo from ${p.businessName}`}>
+        <View style={styles.promoTag}><T variant="label" color={colors.white}>Promoted</T></View>
+      </Photo>
+      <View style={{ padding: 14, gap: 4 }}>
+        <T variant="small" color={colors.mutedGrey} numberOfLines={1}>{p.businessName} · {p.categoryLabel} · {p.distanceKm} km</T>
+        <T variant="headline" numberOfLines={2}>{p.title}</T>
+        {p.message ? <T variant="caption" color={colors.mutedGrey} numberOfLines={3}>{p.message}</T> : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          {p.offerHeadline ? <Badge label={p.offerHeadline} tone="pinkSoft" /> : null}
+          {p.status ? <T variant="small" color={p.status.open ? colors.success : colors.mutedGrey} style={{ fontFamily: fonts.semibold }}>{p.status.open ? 'Open now' : p.status.label}</T> : null}
+          <View style={{ flex: 1 }} />
+          <T variant="captionStrong" color={colors.pinkDeep}>{p.offerId ? 'See offer' : 'Visit'}</T>
+          <Icon name="chevronRight" size={16} color={colors.pinkDeep} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  header: { backgroundColor: colors.white, paddingHorizontal: 20, gap: 14, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  header: { backgroundColor: colors.white, paddingHorizontal: 20, gap: 12, borderBottomWidth: 1, borderBottomColor: colors.hairline },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   area: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
-  search: { height: 52, borderRadius: 16, borderWidth: 1.5, borderColor: colors.hairline, backgroundColor: colors.softWhite, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 },
+  segment: { flexDirection: 'row', backgroundColor: colors.softWhite, borderRadius: 999, padding: 4, gap: 4 },
+  segBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 999 },
+  segOn: { backgroundColor: colors.nearBlack },
+  search: { height: 48, borderRadius: 16, borderWidth: 1.5, borderColor: colors.hairline, backgroundColor: colors.softWhite, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 },
   input: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.nearBlack, height: '100%' },
-  scope: { paddingTop: 4, paddingBottom: 12, borderBottomWidth: 2.5, borderBottomColor: 'transparent' },
-  scopeOn: { borderBottomColor: colors.pink },
-  resultsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
-  toggle: { flexDirection: 'row', backgroundColor: colors.white, borderRadius: 999, padding: 3, borderWidth: 1, borderColor: colors.hairline },
-  toggleBtn: { flexDirection: 'row', gap: 5, alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
-  map: { marginHorizontal: 20, marginBottom: 16, height: 180, borderRadius: 24, backgroundColor: colors.hairline, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 24 },
+  resultsRow: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
+  offer: { flexDirection: 'row', backgroundColor: colors.white, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.hairline, overflow: 'hidden' },
+  offerLeft: { width: 84, backgroundColor: colors.pinkTint, alignItems: 'center', justifyContent: 'center', padding: 8 },
+  offerBig: { fontFamily: fonts.display, fontSize: 24, color: colors.pinkDeep },
+  promo: { backgroundColor: colors.white, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.hairline, overflow: 'hidden' },
+  promoTag: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
 });

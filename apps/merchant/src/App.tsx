@@ -9,6 +9,7 @@ import { EventEditPage } from './pages/EventEditPage';
 import { EventSalesPage, EventsPage } from './pages/EventsPage';
 import { MenuPage } from './pages/MenuPage';
 import { OffersPage } from './pages/OffersPage';
+import { PromotionsPage } from './pages/PromotionsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ReservationsPage } from './pages/ReservationsPage';
 import { ResultsPage } from './pages/ResultsPage';
@@ -58,6 +59,7 @@ function SignedIn() {
     { group: 'Today', path: 'bookings', label: 'Bookings & members', area: 'bookings', element: <VenuePage />, when: !!settings.slotBooking },
     { group: 'Today', path: 'bills', label: 'Bills', area: 'bills', element: <BillsPage />, when: settings.payRedeem },
     { group: 'Sell on VIBE', path: 'offers', label: 'Offers', area: 'offers', element: <OffersPage />, when: settings.payRedeem },
+    { group: 'Sell on VIBE', path: 'promotions', label: 'Promotions', area: 'offers', element: <PromotionsPage /> },
     { group: 'Sell on VIBE', path: 'events', label: 'Events', area: 'events', element: <EventsPage /> },
     { group: 'Money', path: 'results', label: 'Your results', area: 'money', element: <ResultsPage /> },
     { group: 'Money', path: 'settlements', label: 'Settlements', area: 'money', element: <SettlementsPage /> },

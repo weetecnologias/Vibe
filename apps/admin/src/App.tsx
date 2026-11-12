@@ -15,6 +15,7 @@ import { EventSalesPage, EventsPage } from './pages/EventsPage';
 import { HomePage } from './pages/HomePage';
 import { MembersPage } from './pages/MembersPage';
 import { OfferReviewPage } from './pages/OfferReviewPage';
+import { PromotionReviewPage } from './pages/PromotionReviewPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { PlansPage } from './pages/PlansPage';
 import { ReviewsPage } from './pages/ReviewsPage';
@@ -34,6 +35,7 @@ const NAV: NavItem[] = [
   { to: '/applications', label: 'Applications' },
   { to: '/businesses', label: 'Businesses' },
   { to: '/offers', label: 'Offer review' },
+  { to: '/promotions', label: 'Promotion review' },
   { to: '/events', label: 'Events' },
   { to: '/reviews', label: 'Reviews' },
   { heading: 'What customers see' },
@@ -65,6 +67,7 @@ export function App() {
         <Route path="businesses" element={<BusinessesPage />} />
         <Route path="businesses/:id" element={<BusinessEditPage />} />
         <Route path="offers" element={<OfferReviewPage />} />
+        <Route path="promotions" element={<PromotionReviewPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="events/:id" element={<EventEditPage />} />
         <Route path="events/:id/sales" element={<EventSalesPage />} />

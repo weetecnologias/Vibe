@@ -17,6 +17,7 @@ React + Vite + TypeScript. For VIBE staff. Shares its UI, API client and money h
 - **Categories:** add, edit, reorder, switch off and delete categories and subcategories (3 levels), and set whether bills apply to them and what their item list is called. Icons are a built-in name or an uploaded icon link. New categories appear in the customer app the next time it loads.
 - **Businesses:** search, create and edit listings (profile, hours, photos, categories, verified, live), set **commercial terms** (commission, auto-approve offers and events), and create merchant logins.
 - **Offer review:** approve or reject merchant offers (rejecting needs a note the merchant sees). Only approved offers reach customers.
+- **Promotion review:** approve or reject the promotions businesses want shown in Discover (rejecting needs a note). Trusted businesses' promotions go live at once and show as auto-approved; rejecting one takes it off the app.
 - **Events:** review merchant events and publish or reject them, create your own (they publish straight away), edit, cancel. Ticket types and prices are set on the event.
 - **Home content:** the sliding banners (image, headline, what they open, dates) and the pinned popular offers, trending places and featured events, in the order you choose. With nothing pinned the app picks automatically.
 - **Membership plans:** name, price, billing period, benefits, and whether it is on sale.

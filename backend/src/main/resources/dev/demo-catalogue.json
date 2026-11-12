@@ -698,7 +698,7 @@
     {
      "id": "movies.open-air-screenings",
      "slug": "open-air-screenings",
-     "name": "Open-air Screenings",
+     "name": "Open-air Theatres",
      "children": [],
      "imageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/500px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
     },
@@ -8288,6 +8288,410 @@
      "today": false
     }
    ]
+  },
+  {
+   "verified": true,
+   "coverUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/500px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "photos": [
+    "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/960px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+   ],
+   "isNew": false,
+   "hasMemberOffer": false,
+   "offerBadge": null,
+   "bookingEnabled": true,
+   "menu": [
+    {
+     "id": "b-cinebox-m1",
+     "name": "Private screen, per hour",
+     "note": "Up to 12 guests",
+     "price": 149900,
+     "imageUrl": null
+    },
+    {
+     "id": "b-cinebox-m2",
+     "name": "Birthday add-on",
+     "note": "Balloons, cake and fog entry",
+     "price": 199900,
+     "imageUrl": null
+    }
+   ],
+   "branches": [],
+   "reviews": [],
+   "terms": [
+    "Prices include applicable taxes unless stated.",
+    "Offers are subject to availability."
+   ],
+   "id": "b-cinebox",
+   "name": "CineBox Private Screens",
+   "primaryCategoryId": "movies.private-theatres",
+   "categoryIds": [
+    "movies.private-theatres"
+   ],
+   "categoryNames": [
+    {
+     "id": "movies.private-theatres",
+     "name": "Private Theatres",
+     "primary": true
+    }
+   ],
+   "categoryLabel": "Private theatre · 2 to 12 guests",
+   "area": "Gachibowli",
+   "distanceKm": 6.4,
+   "rating": 4.6,
+   "reviewCount": 410,
+   "priceLevel": 3,
+   "costForTwo": null,
+   "status": {
+    "open": true,
+    "label": "Open now",
+    "tone": "success"
+   },
+   "description": "Three soundproof private screens with recliners, 4K projection and Dolby sound. Stream your own film or pick from the library.",
+   "address": "Gachibowli, Hyderabad",
+   "location": {
+    "lat": 17.4423,
+    "lng": 78.3502
+   },
+   "hours": [
+    {
+     "day": "Sunday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Monday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Tuesday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Wednesday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Thursday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": true
+    },
+    {
+     "day": "Friday",
+     "hours": "9:00 AM – 1:30 AM",
+     "today": false
+    },
+    {
+     "day": "Saturday",
+     "hours": "9:00 AM – 1:30 AM",
+     "today": false
+    }
+   ]
+  },
+  {
+   "verified": true,
+   "coverUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/500px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "photos": [
+    "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/960px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+   ],
+   "isNew": true,
+   "hasMemberOffer": false,
+   "offerBadge": null,
+   "bookingEnabled": true,
+   "menu": [
+    {
+     "id": "b-reellounge-m1",
+     "name": "Couple screening",
+     "note": "2 guests, 3 hours",
+     "price": 249900,
+     "imageUrl": null
+    },
+    {
+     "id": "b-reellounge-m2",
+     "name": "Proposal setup",
+     "note": "Flowers, lights and a photographer",
+     "price": 499900,
+     "imageUrl": null
+    }
+   ],
+   "branches": [],
+   "reviews": [],
+   "terms": [
+    "Prices include applicable taxes unless stated.",
+    "Offers are subject to availability."
+   ],
+   "id": "b-reellounge",
+   "name": "Reel Lounge",
+   "primaryCategoryId": "movies.private-theatres",
+   "categoryIds": [
+    "movies.private-theatres"
+   ],
+   "categoryNames": [
+    {
+     "id": "movies.private-theatres",
+     "name": "Private Theatres",
+     "primary": true
+    }
+   ],
+   "categoryLabel": "Private theatre · Couples and small groups",
+   "area": "Banjara Hills",
+   "distanceKm": 2.7,
+   "rating": 4.5,
+   "reviewCount": 190,
+   "priceLevel": 3,
+   "costForTwo": null,
+   "status": {
+    "open": true,
+    "label": "Open now",
+    "tone": "success"
+   },
+   "description": "A cosy private cinema for two to eight, made for date nights, proposals and anniversaries.",
+   "address": "Banjara Hills, Hyderabad",
+   "location": {
+    "lat": 17.4148,
+    "lng": 78.4405
+   },
+   "hours": [
+    {
+     "day": "Sunday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Monday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Tuesday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Wednesday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Thursday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": true
+    },
+    {
+     "day": "Friday",
+     "hours": "9:00 AM – 1:30 AM",
+     "today": false
+    },
+    {
+     "day": "Saturday",
+     "hours": "9:00 AM – 1:30 AM",
+     "today": false
+    }
+   ]
+  },
+  {
+   "verified": true,
+   "coverUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/500px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "photos": [
+    "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/960px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+   ],
+   "isNew": false,
+   "hasMemberOffer": false,
+   "offerBadge": null,
+   "bookingEnabled": true,
+   "menu": [
+    {
+     "id": "b-rooftopreels-m1",
+     "name": "Rooftop seat",
+     "note": "With headphones",
+     "price": 44900,
+     "imageUrl": null
+    },
+    {
+     "id": "b-rooftopreels-m2",
+     "name": "Bean bag for two",
+     "note": "With popcorn",
+     "price": 89900,
+     "imageUrl": null
+    }
+   ],
+   "branches": [],
+   "reviews": [],
+   "terms": [
+    "Prices include applicable taxes unless stated.",
+    "Offers are subject to availability."
+   ],
+   "id": "b-rooftopreels",
+   "name": "Rooftop Reels",
+   "primaryCategoryId": "movies.open-air-screenings",
+   "categoryIds": [
+    "movies.open-air-screenings"
+   ],
+   "categoryNames": [
+    {
+     "id": "movies.open-air-screenings",
+     "name": "Open-air Screenings",
+     "primary": true
+    }
+   ],
+   "categoryLabel": "Open-air theatre · Rooftop",
+   "area": "Hitech City",
+   "distanceKm": 5.6,
+   "rating": 4.4,
+   "reviewCount": 280,
+   "priceLevel": 2,
+   "costForTwo": null,
+   "status": {
+    "open": true,
+    "label": "Open now",
+    "tone": "success"
+   },
+   "description": "Cult classics and new indies on a rooftop screen, with wireless headphones, bean bags and a café bar.",
+   "address": "Hitech City, Hyderabad",
+   "location": {
+    "lat": 17.449599999999997,
+    "lng": 78.3775
+   },
+   "hours": [
+    {
+     "day": "Sunday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Monday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Tuesday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Wednesday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Thursday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": true
+    },
+    {
+     "day": "Friday",
+     "hours": "9:00 AM – 1:30 AM",
+     "today": false
+    },
+    {
+     "day": "Saturday",
+     "hours": "9:00 AM – 1:30 AM",
+     "today": false
+    }
+   ]
+  },
+  {
+   "verified": true,
+   "coverUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/500px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "photos": [
+    "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/960px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+   ],
+   "isNew": false,
+   "hasMemberOffer": false,
+   "offerBadge": null,
+   "bookingEnabled": true,
+   "menu": [
+    {
+     "id": "b-lakeview-m1",
+     "name": "Lawn seat",
+     "note": "Weekend screening",
+     "price": 34900,
+     "imageUrl": null
+    },
+    {
+     "id": "b-lakeview-m2",
+     "name": "Picnic hamper",
+     "note": "For two",
+     "price": 59900,
+     "imageUrl": null
+    }
+   ],
+   "branches": [],
+   "reviews": [],
+   "terms": [
+    "Prices include applicable taxes unless stated.",
+    "Offers are subject to availability."
+   ],
+   "id": "b-lakeview",
+   "name": "Lakeview Open-Air Cinema",
+   "primaryCategoryId": "movies.open-air-screenings",
+   "categoryIds": [
+    "movies.open-air-screenings"
+   ],
+   "categoryNames": [
+    {
+     "id": "movies.open-air-screenings",
+     "name": "Open-air Screenings",
+     "primary": true
+    }
+   ],
+   "categoryLabel": "Open-air theatre · By Durgam Cheruvu",
+   "area": "Madhapur",
+   "distanceKm": 4.9,
+   "rating": 4.6,
+   "reviewCount": 350,
+   "priceLevel": 2,
+   "costForTwo": null,
+   "status": {
+    "open": true,
+    "label": "Open now",
+    "tone": "success"
+   },
+   "description": "Family screenings on the lawn by the lake every Friday to Sunday. Blankets, picnic hampers and a kids’ corner.",
+   "address": "Madhapur, Hyderabad",
+   "location": {
+    "lat": 17.450499999999998,
+    "lng": 78.3928
+   },
+   "hours": [
+    {
+     "day": "Sunday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Monday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Tuesday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Wednesday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": false
+    },
+    {
+     "day": "Thursday",
+     "hours": "10:00 AM – 12:30 AM",
+     "today": true
+    },
+    {
+     "day": "Friday",
+     "hours": "9:00 AM – 1:30 AM",
+     "today": false
+    },
+    {
+     "day": "Saturday",
+     "hours": "9:00 AM – 1:30 AM",
+     "today": false
+    }
+   ]
   }
  ],
  "offers": [
@@ -9717,6 +10121,126 @@
     }
    ],
    "terms": []
+  },
+  {
+   "id": "e-oa-starlight",
+   "title": "Under the Stars: 3 Idiots",
+   "kind": "Movies",
+   "openAir": true,
+   "startsAt": "2026-11-21T13:30:00.000Z",
+   "gatesOpenAt": "2026-11-21T13:00:00.000Z",
+   "venue": "Starlight Open-Air Cinema",
+   "area": "Kokapet",
+   "fromPrice": 39900,
+   "coverUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/500px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "tag": null,
+   "soldOut": false,
+   "featured": false,
+   "organiser": "Starlight Open-Air Cinema",
+   "ageLimit": null,
+   "description": "Bean bags, blankets and the film everyone can quote. Snack stall open from 6 PM.",
+   "ticketTypes": [
+    {
+     "id": "e-oa-starlight-gen",
+     "name": "Lawn or rooftop seat",
+     "description": "Free seating",
+     "price": 39900,
+     "remaining": 80,
+     "maxPerOrder": 6
+    },
+    {
+     "id": "e-oa-starlight-duo",
+     "name": "Bean bag for two",
+     "description": "Front row, with popcorn",
+     "price": 89700,
+     "remaining": 12,
+     "maxPerOrder": 2
+    }
+   ],
+   "terms": [
+    "Screenings are weather permitting; full refund if called off.",
+    "Outside food is not allowed."
+   ]
+  },
+  {
+   "id": "e-oa-rooftop",
+   "title": "Rooftop Reels: Cult Classics Night",
+   "kind": "Movies",
+   "openAir": true,
+   "startsAt": "2026-11-21T13:30:00.000Z",
+   "gatesOpenAt": "2026-11-21T13:00:00.000Z",
+   "venue": "Rooftop Reels",
+   "area": "Hitech City",
+   "fromPrice": 44900,
+   "coverUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/500px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "tag": null,
+   "soldOut": false,
+   "featured": false,
+   "organiser": "Rooftop Reels",
+   "ageLimit": null,
+   "description": "A double bill of cult classics on the rooftop, with wireless headphones for every seat.",
+   "ticketTypes": [
+    {
+     "id": "e-oa-rooftop-gen",
+     "name": "Lawn or rooftop seat",
+     "description": "Free seating",
+     "price": 44900,
+     "remaining": 80,
+     "maxPerOrder": 6
+    },
+    {
+     "id": "e-oa-rooftop-duo",
+     "name": "Bean bag for two",
+     "description": "Front row, with popcorn",
+     "price": 99700,
+     "remaining": 12,
+     "maxPerOrder": 2
+    }
+   ],
+   "terms": [
+    "Screenings are weather permitting; full refund if called off.",
+    "Outside food is not allowed."
+   ]
+  },
+  {
+   "id": "e-oa-lakeview",
+   "title": "Lakeside Family Screening",
+   "kind": "Movies",
+   "openAir": true,
+   "startsAt": "2026-11-21T13:30:00.000Z",
+   "gatesOpenAt": "2026-11-21T13:00:00.000Z",
+   "venue": "Lakeview Open-Air Cinema",
+   "area": "Madhapur",
+   "fromPrice": 34900,
+   "coverUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2a/Columbia_City_Cinema_main_hall.jpg/500px-Columbia_City_Cinema_main_hall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+   "tag": null,
+   "soldOut": false,
+   "featured": false,
+   "organiser": "Lakeview Open-Air Cinema",
+   "ageLimit": null,
+   "description": "An animated favourite on the lawn by the lake. Kids under 3 go free.",
+   "ticketTypes": [
+    {
+     "id": "e-oa-lakeview-gen",
+     "name": "Lawn or rooftop seat",
+     "description": "Free seating",
+     "price": 34900,
+     "remaining": 80,
+     "maxPerOrder": 6
+    },
+    {
+     "id": "e-oa-lakeview-duo",
+     "name": "Bean bag for two",
+     "description": "Front row, with popcorn",
+     "price": 79700,
+     "remaining": 12,
+     "maxPerOrder": 2
+    }
+   ],
+   "terms": [
+    "Screenings are weather permitting; full refund if called off.",
+    "Outside food is not allowed."
+   ]
   }
  ]
 }

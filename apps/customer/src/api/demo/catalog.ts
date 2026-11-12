@@ -300,6 +300,18 @@ const extraBusinesses: Biz[] = [
   biz('b-starlight', 'Starlight Open-Air Cinema', 'movies.open-air-screenings', 'Open-air screenings · Weekends', 'Kokapet', 9.9, 4.5, 310, 2, 'movie',
     'Weekend screenings under the sky with bean bags, blankets and a snack stall.',
     [['Bean bag seat', 'Weekend screening', 399], ['Blanket & snack pack', 'Add-on', 199]], { book: true, isNew: true }),
+  biz('b-cinebox', 'CineBox Private Screens', 'movies.private-theatres', 'Private theatre · 2 to 12 guests', 'Gachibowli', 6.4, 4.6, 410, 3, 'movie',
+    'Three soundproof private screens with recliners, 4K projection and Dolby sound. Stream your own film or pick from the library.',
+    [['Private screen, per hour', 'Up to 12 guests', 1499], ['Birthday add-on', 'Balloons, cake and fog entry', 1999]], { book: true, offer: { pct: 15, title: '15% off weekday screenings', minBill: 1500 } }),
+  biz('b-reellounge', 'Reel Lounge', 'movies.private-theatres', 'Private theatre · Couples and small groups', 'Banjara Hills', 2.7, 4.5, 190, 3, 'movie',
+    'A cosy private cinema for two to eight, made for date nights, proposals and anniversaries.',
+    [['Couple screening', '2 guests, 3 hours', 2499], ['Proposal setup', 'Flowers, lights and a photographer', 4999]], { book: true, isNew: true }),
+  biz('b-rooftopreels', 'Rooftop Reels', 'movies.open-air-screenings', 'Open-air theatre · Rooftop', 'Hitech City', 5.6, 4.4, 280, 2, 'movie',
+    'Cult classics and new indies on a rooftop screen, with wireless headphones, bean bags and a café bar.',
+    [['Rooftop seat', 'With headphones', 449], ['Bean bag for two', 'With popcorn', 899]], { book: true, offer: { flat: 100, member: true, title: '₹100 off for members', headline: '₹100', sub: 'OFF', minBill: 400 } }),
+  biz('b-lakeview', 'Lakeview Open-Air Cinema', 'movies.open-air-screenings', 'Open-air theatre · By Durgam Cheruvu', 'Madhapur', 4.9, 4.6, 350, 2, 'movie',
+    'Family screenings on the lawn by the lake every Friday to Sunday. Blankets, picnic hampers and a kids’ corner.',
+    [['Lawn seat', 'Weekend screening', 349], ['Picnic hamper', 'For two', 599]], { book: true }),
   biz('b-filmsociety', 'Hyderabad Film Society', 'movies.clubs-festivals', 'Movie club · Festivals & talks', 'Himayatnagar', 7.1, 4.8, 540, 1, 'movie',
     'A film society with weekly classic and world-cinema screenings, director talks and an annual short-film festival.',
     [['Monthly membership', 'All screenings', 400], ['Single screening', 'Per ticket', 150]], { book: true, offer: { pct: 10, max: 100 } }),
@@ -340,6 +352,23 @@ export const offers: DemoOffer[] = [
 const EVENT_IMAGE: Record<string, string> = {
   'e-jazz': 'jazz', 'e-pottery': 'pottery', 'e-heritage': 'charminar', 'e-standup': 'comedy', 'e-brunch': 'brunch', 'e-boardgames': 'boardgames',
 };
-export const events: EventDetail[] = coreEvents.map((e) => ({ ...e, coverUrl: img(EVENT_IMAGE[e.id] ?? 'events', 960) }));
+/** Days from today (India) to the next given weekday (0 = Sunday), never today. */
+const daysTo = (dow: number) => { const d = new Date(Date.now() + 330 * 60_000).getUTCDay(); return ((dow - d + 7) % 7) || 7; };
+/** Open-air screenings: ticketed like events, shown under Movies → Open-air theatres. */
+const openAir: EventDetail[] = [
+  ['e-oa-starlight', 'Under the Stars: 3 Idiots', 'Starlight Open-Air Cinema', 'Kokapet', 6, 19, 399, 'Bean bags, blankets and the film everyone can quote. Snack stall open from 6 PM.'],
+  ['e-oa-rooftop', 'Rooftop Reels: Cult Classics Night', 'Rooftop Reels', 'Hitech City', 5, 20, 449, 'A double bill of cult classics on the rooftop, with wireless headphones for every seat.'],
+  ['e-oa-lakeview', 'Lakeside Family Screening', 'Lakeview Open-Air Cinema', 'Madhapur', 0, 18, 349, 'An animated favourite on the lawn by the lake. Kids under 3 go free.'],
+].map(([id, title, venue, area, dow, hour, price, description]) => ({
+  id: id as string, title: title as string, kind: 'Movies' as const, startsAt: atIST(daysTo(dow as number), hour as number), gatesOpenAt: atIST(daysTo(dow as number), (hour as number) - 1),
+  venue: venue as string, area: area as string, fromPrice: r(price as number), coverUrl: img('movie', 960), tag: null, soldOut: false, featured: false, organiser: venue as string, ageLimit: null,
+  description: description as string,
+  ticketTypes: [
+    { id: `${id}-gen`, name: 'Lawn or rooftop seat', description: 'Free seating', price: r(price as number), remaining: 80, maxPerOrder: 6 },
+    { id: `${id}-duo`, name: 'Bean bag for two', description: 'Front row, with popcorn', price: r((price as number) * 2 + 99), remaining: 12, maxPerOrder: 2 },
+  ],
+  terms: ['Screenings are weather permitting; full refund if called off.', 'Outside food is not allowed.'],
+}));
+export const events: EventDetail[] = [...coreEvents.map((e) => ({ ...e, coverUrl: img(EVENT_IMAGE[e.id] ?? 'events', 960) })), ...openAir];
 
 export const eventImageKey = (eventId: string) => EVENT_IMAGE[eventId] ?? 'events';

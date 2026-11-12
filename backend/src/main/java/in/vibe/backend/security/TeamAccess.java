@@ -25,7 +25,7 @@ public class TeamAccess {
     /** Which area each staff alert belongs to, so a cashier sees bill alerts and not settlements. Kinds not listed are shown to everyone. */
     static final Map<String, String> ALERT_AREA = Map.ofEntries(
             Map.entry("redeem_started", "bills"), Map.entry("redeem_cancelled", "bills"), Map.entry("payment_received", "bills"),
-            Map.entry("offer_decision", "offers"), Map.entry("auto_approve", "offers"), Map.entry("event_decision", "events"), Map.entry("tickets_sold", "events"),
+            Map.entry("offer_decision", "offers"), Map.entry("promotion_decision", "offers"), Map.entry("auto_approve", "offers"), Map.entry("event_decision", "events"), Map.entry("tickets_sold", "events"),
             Map.entry("slot_booked", "bookings"), Map.entry("pass_bought", "bookings"), Map.entry("settlement_created", "money"), Map.entry("settlement_paid", "money"), Map.entry("review_received", "profile"));
 
     /** signedIn is false when the login no longer exists or the owner switched it off: the person must be signed out. */
@@ -36,7 +36,7 @@ public class TeamAccess {
     private static Map<String, String> areas() {
         Map<String, String> m = new LinkedHashMap<>();
         m.put("bills", "Bills: see waiting customers, raise and withdraw bills");
-        m.put("offers", "Offers: create, change, stop and delete");
+        m.put("offers", "Offers and promotions: create, change, stop and delete");
         m.put("events", "Events: create, change and cancel");
         m.put("menu", "Menu or price list: change items");
         m.put("profile", "Profile and photos");
@@ -94,7 +94,7 @@ public class TeamAccess {
         String p = path.substring("/v1/merchant".length());
         if (p.startsWith("/bills")) return "bills";
         if (p.startsWith("/menu")) return "GET".equals(method) ? "bills|menu" : "menu"; // staff raising a bill pick items from the menu
-        if (p.startsWith("/offers")) return "offers";
+        if (p.startsWith("/offers") || p.startsWith("/promotions")) return "offers";
         if (p.startsWith("/events")) return "events";
         if (p.startsWith("/business") || p.startsWith("/reviews")) return "profile";
         if (p.startsWith("/reservation-settings")) return "reservations";

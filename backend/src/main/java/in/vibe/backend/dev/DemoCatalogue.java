@@ -150,7 +150,8 @@ final class DemoCatalogue {
     void events(StaffPrincipal admin, Set<String> existing) {
         int i = 0;
         for (JsonNode e : root.get("events")) {
-            if (existing.contains(text(e, "title")) || "Movies".equals(text(e, "kind"))) continue;
+            // Film screenings come from the cinema module, except open-air ones, which are ticketed like events.
+            if (existing.contains(text(e, "title")) || ("Movies".equals(text(e, "kind")) && !e.path("openAir").asBoolean(false))) continue;
             OffsetDateTime starts = OffsetDateTime.now().plusDays(5 + 3L * i++).withHour(19).withMinute(0).withSecond(0).withNano(0);
             List<Events.TicketTypeInput> types = new ArrayList<>();
             for (JsonNode t : e.withArray("ticketTypes")) {
@@ -181,6 +182,7 @@ final class DemoCatalogue {
             Map.entry("fitness.gyms", List.of(new Setup("Gym", "Gym session", "spots", 1, 40, 25000, null, null, null, false))),
             Map.entry("fitness.training", List.of(new Setup("Personal training", "Coach", "court", 2, 1, 80000, null, null, null, false))),
             Map.entry("fitness.wellness", List.of(new Setup("Recovery", "Recovery session", "spots", 1, 6, 90000, null, null, null, false))),
+            Map.entry("movies.private-theatres", List.of(new Setup("Private screening", "Screen", "court", 2, 1, 149900, 199900L, "18:00", "23:00", true))),
             Map.entry("kids.sports.swimming", List.of(new Setup("Kids swimming", "Learn-to-swim class", "spots", 1, 10, 35000, null, null, null, false))),
             Map.entry("kids.sports.skating", List.of(new Setup("Kids skating", "Kids rink class", "spots", 1, 12, 30000, null, null, null, false))),
             Map.entry("kids.sports.martial-arts", List.of(new Setup("Kids martial arts", "Little ninjas class", "spots", 1, 12, 30000, null, null, null, false))));
@@ -201,6 +203,31 @@ final class DemoCatalogue {
                             .param("pt", st.peakTo(), java.sql.Types.VARCHAR).param("wp", st.weekendPeak()).param("sort", sort++).update();
                 }
             }
+        }
+    }
+
+    // ---------- promotions in Discover ----------
+    private record PromoSetup(String business, String title, String message, boolean withOffer) {}
+
+    private static final List<PromoSetup> PROMOS = List.of(
+            new PromoSetup("b-saffron", "Weekend biryani festival", "Dum biryanis from Hyderabad, Lucknow, Kolkata and Malabar, every Friday to Sunday.", true),
+            new PromoSetup("b-brew", "Our winter menu is here", "Spiced lattes, hot chocolate and fresh bakes. Any handcrafted coffee is 1+1.", true),
+            new PromoSetup("b-smash", "Floodlit courts till 11 PM", "Badminton and pickleball by the hour. Book your court in the app.", true),
+            new PromoSetup("b-pulse", "Join this month, train all next month", "Monthly memberships from ₹2,999 with a free fitness assessment.", true),
+            new PromoSetup("b-lumiere", "Wedding season looks", "Hair, makeup and skin packages for brides, grooms and guests.", true),
+            new PromoSetup("b-screeningroom", "Your own cinema for birthdays", "A private screen for up to 20 guests, with decor and cake packages.", false),
+            new PromoSetup("b-starlight", "Open-air screenings every weekend", "Bean bags, blankets and a snack stall under the sky in Kokapet.", false),
+            new PromoSetup("b-wonderworld", "Play all day this weekend", "Trampolines, soft play and a café for parents.", true));
+
+    /** A few places promoting themselves in Discover, approved and running for 30 days. */
+    void promotions() {
+        OffsetDateTime from = OffsetDateTime.now().minusDays(1), to = OffsetDateTime.now().plusDays(30);
+        for (PromoSetup p : PROMOS) {
+            UUID biz = businessIds.get(p.business());
+            if (biz == null) continue;
+            UUID offer = p.withOffer() ? jdbc.sql("select id from offers where business_id = :b order by member_only desc, created_at limit 1").param("b", biz).query(UUID.class).optional().orElse(null) : null;
+            jdbc.sql("insert into promotions (id, business_id, title, message, offer_id, starts_at, ends_at, review_status, reviewed_at) values (:id, :b, :t, :m, :o, :s, :e, 'approved', now())")
+                    .param("id", UUID.randomUUID()).param("b", biz).param("t", p.title()).param("m", p.message()).param("o", offer).param("s", from).param("e", to).update();
         }
     }
 

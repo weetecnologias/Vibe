@@ -1,6 +1,6 @@
 import type {
   AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
-  HomeFeed, ID, RedeemMode, SlotBooking, SlotGrid, SlotPick, VenuePass, VenuePlan, VenueSport, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
+  HomeFeed, ID, NearbyOffer, NearbyOfferQuery, Promotion, RedeemMode, SlotBooking, SlotGrid, SlotPick, VenuePass, VenuePlan, VenueSport, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
   ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
 
@@ -31,6 +31,12 @@ export interface VibeApi {
 
   // Offers, Pay & Redeem
   getOffers(view: OfferView): Promise<OfferSummary[]>;
+  /** Discover's "Offers near you": live offers filtered by category, search, distance, open now and members-only. */
+  getNearbyOffers(query: NearbyOfferQuery, offset?: number, limit?: number): Promise<Page<NearbyOffer>>;
+  /** Places promoting themselves (approved by VIBE), nearest first; optionally one category. */
+  getPromotions(category?: string): Promise<Promotion[]>;
+  /** Counts a tap on a promotion for the business's results. Never blocks the customer. */
+  tapPromotion(id: ID): Promise<void>;
   getOffer(id: ID): Promise<OfferDetail>;
   getOfferEligibility(id: ID): Promise<OfferEligibility>;
   /** mode 'code' gives a 6-digit code to show at the counter (pay the place); 'bill' (default) waits for the bill in the app. */
@@ -191,6 +197,9 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     searchBusinessesPage: (q, offset = 0, limit = 12) => call('GET', `/businesses${qs({ ...q, offset, limit })}`),
     getBusiness: (id) => call('GET', `/businesses/${id}`),
     getOffers: (view) => call('GET', `/offers${qs({ view })}`),
+    getNearbyOffers: (q, offset = 0, limit = 12) => call('GET', `/offers/nearby${qs({ ...q, offset, limit })}`),
+    getPromotions: (category) => call('GET', `/promotions${qs({ category })}`),
+    tapPromotion: (pid) => call<void>('POST', `/promotions/${pid}/tap`).catch(() => undefined),
     getOffer: (id) => call('GET', `/offers/${id}`),
     getOfferEligibility: (id) => call('GET', `/offers/${id}/eligibility`),
     createRedemption: (offerId, mode) => call('POST', '/redemptions', { offerId, mode: mode ?? 'bill' }),

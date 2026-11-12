@@ -37,6 +37,11 @@ public class Businesses {
     public record OfferView(String id, String businessId, String businessName, String businessLogoUrl, String area, String title, String type, String headline,
                             String headlineSub, boolean memberOnly, String coverUrl, String scheduleLabel, OffsetDateTime endsAt, Long maxDiscount, Long minBill) {}
 
+    /** An offer with what Discover needs to filter and show it: how far the place is, what kind of place, and whether it's open now. */
+    public record NearbyOffer(String id, String businessId, String businessName, String businessLogoUrl, String area, String title, String type, String headline,
+                              String headlineSub, boolean memberOnly, String coverUrl, String scheduleLabel, OffsetDateTime endsAt, Long maxDiscount, Long minBill,
+                              double distanceKm, String categoryLabel, String primaryCategorySlug, OpenStatus status) {}
+
     public record MenuView(String id, String name, String note, long price, String imageUrl, String section) {}
 
     public record HourView(String day, String hours, boolean today) {}
@@ -215,6 +220,72 @@ public class Businesses {
                 jdbc.sql("select accepts_vibe_payments from businesses where id = :id").param("id", UUID.fromString(o.businessId())).query(Boolean.class).single() ? List.of("code", "bill") : List.of("code"));
     }
 
+    /** SQL for the distance in km from the reference point, so lists can sort and cut by it in the database. */
+    public static String distanceSql(String b) {
+        return "(case when " + b + ".lat is null or " + b + ".lng is null then 9999 else 6371 * acos(least(1, cos(radians(" + REF_LAT + ")) * cos(radians(" + b + ".lat)) * cos(radians(" + b + ".lng) - radians(" + REF_LNG
+                + ")) + sin(radians(" + REF_LAT + ")) * sin(radians(" + b + ".lat)))) end)";
+    }
+
+    /**
+     * Discover's "Offers near you": live offers at places in a category (and everything under it), optionally matching a search, members-only,
+     * within a distance, or at places open right now. sort: nearest (default), saving (biggest first) or ending (soonest first).
+     * Open-now depends on each place's hours, so it is worked out here and the page is cut after it.
+     */
+    public Page<NearbyOffer> nearbyOffers(String q, UUID categoryId, String sort, boolean openNow, Double maxDistanceKm, boolean memberOnly, int limit, int offset) {
+        int lim = Math.min(Math.max(limit, 1), 50), off = Math.max(offset, 0);
+        Map<String, Object> p = new HashMap<>();
+        p.put("now", OffsetDateTime.now(clock));
+        StringBuilder where = new StringBuilder(" where b.active and o.active and o.review_status = 'approved' and o.starts_at <= :now and o.ends_at > :now");
+        String cte = "";
+        if (categoryId != null) {
+            cte = "with recursive tree as (select id from categories where id = :cat union all select c.id from categories c join tree t on c.parent_id = t.id) ";
+            where.append(" and exists (select 1 from business_categories bc where bc.business_id = b.id and bc.category_id in (select id from tree))");
+            p.put("cat", categoryId);
+        }
+        if (q != null && !q.isBlank()) {
+            where.append(" and (lower(b.name) like :q escape '\\' or lower(o.title) like :q escape '\\' or lower(b.area) like :q escape '\\')");
+            p.put("q", "%" + q.trim().toLowerCase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%");
+        }
+        if (memberOnly) where.append(" and o.member_only");
+        String dist = distanceSql("b");
+        if (maxDistanceKm != null) { where.append(" and ").append(dist).append(" <= :maxd"); p.put("maxd", maxDistanceKm); }
+        String order = "saving".equals(sort) ? "coalesce(o.rate_bps, 0) desc, o.flat_amount desc nulls last, " + dist
+                : "ending".equals(sort) ? "o.ends_at, " + dist : dist + ", coalesce(o.rate_bps, 0) desc";
+        JdbcClient.StatementSpec spec = jdbc.sql(cte + "select o.*, b.name bname, b.area, b.logo_url, b.cover_url, b.lat, b.lng, c.name clabel, c.slug cslug from offers o join businesses b on b.id = o.business_id "
+                + "join categories c on c.id = b.primary_category_id" + where + " order by " + order + ", o.id limit 500");
+        p.forEach(spec::param);
+        record R(OfferView o, UUID business, double km, String label, String slug) {}
+        List<R> rows = spec.query((rs, i) -> {
+            boolean pct = "percentage".equals(rs.getString("kind"));
+            Object max = rs.getObject("max_discount"), min = rs.getObject("min_bill"), lat = rs.getObject("lat"), lng = rs.getObject("lng");
+            UUID bid = (UUID) rs.getObject("business_id");
+            OfferView o = new OfferView(rs.getString("id"), bid.toString(), rs.getString("bname"), rs.getString("logo_url"), rs.getString("area"), rs.getString("title"), rs.getString("kind"),
+                    pct ? trim(rs.getInt("rate_bps") / 100.0) + "%" : "₹" + (rs.getLong("flat_amount") / 100), "OFF", rs.getBoolean("member_only"), rs.getString("cover_url"), rs.getString("schedule_label"),
+                    rs.getObject("ends_at", OffsetDateTime.class), max == null ? null : ((Number) max).longValue(), min == null ? null : ((Number) min).longValue());
+            return new R(o, bid, distance(lat == null ? null : ((Number) lat).doubleValue(), lng == null ? null : ((Number) lng).doubleValue()), rs.getString("clabel"), rs.getString("cslug"));
+        }).list();
+        Map<UUID, Map<Integer, LocalTime[]>> hours = rows.isEmpty() ? Map.of() : hoursOf(rows.stream().map(R::business).distinct().toList());
+        List<NearbyOffer> all = new ArrayList<>();
+        for (R r : rows) {
+            OpenStatus st = status(hours.getOrDefault(r.business(), Map.of()));
+            if (openNow && !st.open()) continue;
+            OfferView o = r.o();
+            all.add(new NearbyOffer(o.id(), o.businessId(), o.businessName(), o.businessLogoUrl(), o.area(), o.title(), o.type(), o.headline(), o.headlineSub(), o.memberOnly(), o.coverUrl(),
+                    o.scheduleLabel(), o.endsAt(), o.maxDiscount(), o.minBill(), r.km(), r.label(), r.slug(), st));
+        }
+        List<NearbyOffer> page = off >= all.size() ? List.of() : all.subList(off, Math.min(all.size(), off + lim));
+        return new Page<>(page, all.size(), off + lim < all.size() ? off + lim : null);
+    }
+
+    /** Opening status of these places right now, for lists built elsewhere (promotions). */
+    public Map<UUID, OpenStatus> statuses(List<UUID> ids) {
+        if (ids.isEmpty()) return Map.of();
+        Map<UUID, Map<Integer, LocalTime[]>> hours = hoursOf(ids);
+        Map<UUID, OpenStatus> out = new HashMap<>();
+        for (UUID id : ids) out.put(id, status(hours.getOrDefault(id, Map.of())));
+        return out;
+    }
+
     /** Pinned offers, in the order VIBE set. An offer that is no longer live is skipped. */
     public List<OfferView> pinnedOffers(List<UUID> ids) {
         if (ids.isEmpty()) return List.of();
@@ -246,7 +317,7 @@ public class Businesses {
         return out;
     }
 
-    static double distance(Double lat, Double lng) {
+    public static double distance(Double lat, Double lng) {
         if (lat == null || lng == null) return 0;
         double dLat = Math.toRadians(lat - REF_LAT), dLng = Math.toRadians(lng - REF_LNG);
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(Math.toRadians(REF_LAT)) * Math.cos(Math.toRadians(lat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);

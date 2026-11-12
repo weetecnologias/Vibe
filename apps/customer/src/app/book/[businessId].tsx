@@ -149,7 +149,7 @@ export default function BookSlots() {
 
           {g && time ? (
             <Card style={{ marginHorizontal: 16, padding: 16, gap: 10 }}>
-              <T variant="headline">{g.kind === 'court' ? `Choose a ${g.sport === 'Football' || g.sport === 'Box cricket' ? 'turf' : g.sport === 'Cricket' ? 'net' : 'court'}` : 'How many people?'} · {time.label}</T>
+              <T variant="headline">{g.kind === 'court' ? `Choose a ${g.sport === 'Football' || g.sport === 'Box cricket' ? 'turf' : g.sport === 'Cricket' ? 'net' : g.sport === 'Private screening' ? 'screen' : 'court'}` : 'How many people?'} · {time.label}</T>
               {g.kind === 'spots' ? (
                 <View style={[styles.row, { alignItems: 'center' }]}>
                   <Button label="−" variant="outline" size="md" disabled={spots <= 1} onPress={() => setSpots(spots - 1)} />

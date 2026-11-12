@@ -24,6 +24,7 @@ const SETUPS: Record<string, Setup[]> = {
   'fitness.gyms': [{ sport: 'Gym', name: 'Gym session', kind: 'spots', count: 1, capacity: 40, price: r(250) }],
   'fitness.training': [{ sport: 'Personal training', name: 'Coach', kind: 'court', count: 2, capacity: 1, price: r(800) }],
   'fitness.wellness': [{ sport: 'Recovery', name: 'Recovery session', kind: 'spots', count: 1, capacity: 6, price: r(900) }],
+  'movies.private-theatres': [{ sport: 'Private screening', name: 'Screen', kind: 'court', count: 2, capacity: 1, price: r(1499), peak: { price: r(1999), from: 18, to: 23, weekend: true } }],
 };
 
 const OPEN = 6, CLOSE = 22, HOLD_MS = 10 * 60_000, DAYS_AHEAD = 14;

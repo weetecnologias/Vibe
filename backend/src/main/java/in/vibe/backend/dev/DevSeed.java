@@ -81,6 +81,7 @@ class DevSeed implements ApplicationRunner {
         offerReview.decide(admin, UUID.fromString(offer.id()), true, null);
         menuAndOffers.addOffer(merchant, new MenuAndOffers.OfferInput("Free dessert on dinner bills", "flat", null, 10000L, null, 50000L, false, "Every day", OffsetDateTime.now().minusDays(1), OffsetDateTime.now().plusMonths(3), true));
         demo.offers(java.util.Set.of("b-saffron")); // the other places' offers, approved
+        demo.promotions(); // places promoting themselves in Discover (after the offers, so they can link to one)
 
         plans.create(admin, new Plans.Input("Monthly", "month", 29900L, "Billed every month. Cancel anytime.", null, List.of("Member-only offers at partner places", "Member prices on movie and event tickets"), 1, true));
         plans.create(admin, new Plans.Input("Yearly", "year", 299900L, "Billed once a year.", "Save 17%", List.of("Everything in Monthly", "Two months free"), 2, true));

@@ -486,6 +486,18 @@ export type HomeFeed = {
   membershipPromo: { price: Paise; interval: 'month' | 'year' } | null;
 };
 
+// ---------- Discover: offers near you, and promotions ----------
+/** An offer with how far the place is, what kind of place it is, and whether it's open now. */
+export type NearbyOffer = OfferSummary & { distanceKm: number; categoryLabel: string; primaryCategorySlug: string | null; status: OpenStatus };
+export type OfferSort = 'nearest' | 'saving' | 'ending';
+/** category: a category id (or slug); everything under it is included. */
+export type NearbyOfferQuery = { category?: string; q?: string; sort?: OfferSort; openNow?: boolean; maxDistanceKm?: number; memberOnly?: boolean };
+/** A place promoting itself in Discover. imageUrl falls back to the place's cover; offerId is set when it links to a live offer. */
+export type Promotion = {
+  id: ID; businessId: ID; businessName: string; businessLogoUrl: string | null; area: string; distanceKm: number; categoryLabel: string; primaryCategorySlug: string | null;
+  status: OpenStatus | null; title: string; message: string; imageUrl: string | null; offerId: ID | null; offerHeadline: string | null; endsAt: ISODate;
+};
+
 export type SearchScope = 'all' | 'places' | 'services' | 'experiences' | 'events';
 export type SortKey = 'nearest' | 'rating' | 'popular';
 

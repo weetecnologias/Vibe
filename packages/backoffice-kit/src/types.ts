@@ -65,6 +65,12 @@ export type MenuRow = { id: string; name: string; note: string; price: number; s
 export type MenuInput = { name: string; note: string; price: number; section: string | null; imageUrl: string | null; sortOrder: number; active: boolean };
 
 export type OfferKind = 'percentage' | 'flat';
+/** A business promoting itself in the customer app's Discover tab. */
+export type PromotionRow = {
+  id: string; businessId: string; businessName: string; title: string; message: string; imageUrl: string | null; offerId: string | null; offerTitle: string | null;
+  startsAt: string; endsAt: string; active: boolean; reviewStatus: ReviewStatus; reviewNote: string | null; autoApproved: boolean; taps: number; liveNow: boolean; createdAt: string;
+};
+export type PromotionInput = { title: string; message: string; imageUrl: string | null; offerId: string | null; startsAt: string; endsAt: string; active: boolean };
 export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 
 export type OfferRow = {
