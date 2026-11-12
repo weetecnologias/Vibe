@@ -33,7 +33,7 @@ public class Events {
     static final String KINDS = "Workshops|Meetups|Tours|Live Events|Experiences|Movies";
 
     public record TicketTypeInput(@NotBlank @Size(max = 80) String name, @Size(max = 200) String description, @NotNull @Min(0) Long price,
-                                  @NotNull @Min(0) @Max(100_000) Integer capacity, @Min(1) @Max(20) Integer maxPerOrder) {}
+                                  @NotNull @Min(0) @Max(100_000) Integer capacity, @Min(1) @Max(20) Integer maxPerOrder, @Size(max = 40) String id) {}
 
     public record Input(
             @NotBlank @Size(max = 120) String title,
@@ -50,12 +50,13 @@ public class Events {
             Boolean featured,
             @NotEmpty @Size(max = 10) List<@Valid TicketTypeInput> ticketTypes) {}
 
-    public record TicketTypeRow(String id, String name, String description, long price, int capacity, int maxPerOrder) {}
+    /** sold: paid for. held: being bought right now (counts against what's left until the hold ends). */
+    public record TicketTypeRow(String id, String name, String description, long price, int capacity, int maxPerOrder, int sold, int held) {}
 
     public record Row(String id, String businessId, String businessName, String organiser, String title, String kind, String description, String venue, String area, OffsetDateTime startsAt,
                       OffsetDateTime gatesOpenAt, String coverUrl, Integer ageLimit, boolean featured, List<String> terms, String status, String reviewNote, List<TicketTypeRow> ticketTypes) {}
 
-    public record ListRow(String id, String title, String kind, String organiser, String venue, OffsetDateTime startsAt, String status, long fromPrice, int capacity, boolean autoApproved) {}
+    public record ListRow(String id, String title, String kind, String organiser, String venue, OffsetDateTime startsAt, String status, long fromPrice, int capacity, boolean autoApproved, int sold) {}
 
     // ---- what the customer app reads (EventSummary, EventDetail) ----
     public record Tag(String label, String tone) {}
@@ -72,7 +73,10 @@ public class Events {
     private final Clock clock;
     private final in.vibe.backend.notify.StaffNotifications staffNotifications;
 
-    Events(JdbcClient jdbc, AuditService audit, Clock clock, in.vibe.backend.notify.StaffNotifications staffNotifications) {
+    private final in.vibe.backend.tickets.Ticketing ticketing;
+
+    Events(JdbcClient jdbc, AuditService audit, Clock clock, in.vibe.backend.notify.StaffNotifications staffNotifications, in.vibe.backend.tickets.Ticketing ticketing) {
+        this.ticketing = ticketing;
         this.jdbc = jdbc;
         this.audit = audit;
         this.clock = clock;
@@ -88,8 +92,12 @@ public class Events {
     }
 
     private List<TicketTypeRow> types(UUID eventId) {
-        return jdbc.sql("select * from ticket_types where event_id = :id order by sort_order, price").param("id", eventId)
-                .query((rs, i) -> new TicketTypeRow(rs.getString("id"), rs.getString("name"), rs.getString("description"), rs.getLong("price"), rs.getInt("capacity"), rs.getInt("max_per_order"))).list();
+        Map<UUID, int[]> counts = ticketing.counts(eventId);
+        return jdbc.sql("select * from ticket_types where event_id = :id and not archived order by sort_order, price").param("id", eventId)
+                .query((rs, i) -> {
+                    int[] c = counts.getOrDefault((UUID) rs.getObject("id"), new int[2]);
+                    return new TicketTypeRow(rs.getString("id"), rs.getString("name"), rs.getString("description"), rs.getLong("price"), rs.getInt("capacity"), rs.getInt("max_per_order"), c[0], c[1]);
+                }).list();
     }
 
     public Row get(UUID id) {
@@ -109,11 +117,11 @@ public class Events {
         Map<String, Object> p = new HashMap<>();
         if (status != null && !status.isBlank()) { w.append(" and e.status = :st"); p.put("st", status); }
         if (businessId != null) { w.append(" and e.business_id = :b"); p.put("b", businessId); }
-        JdbcClient.StatementSpec s = jdbc.sql("select e.*, b.name bname, coalesce((select min(price) from ticket_types t where t.event_id = e.id), 0) from_price, "
-                + "coalesce((select sum(capacity) from ticket_types t where t.event_id = e.id), 0) cap from events e left join businesses b on b.id = e.business_id" + w + " order by e.starts_at desc limit 200");
+        JdbcClient.StatementSpec s = jdbc.sql("select e.*, b.name bname, coalesce((select min(price) from ticket_types t where t.event_id = e.id and not t.archived), 0) from_price, "
+                + "coalesce((select sum(capacity) from ticket_types t where t.event_id = e.id and not t.archived), 0) cap, (select count(*) from tickets k where k.event_id = e.id and k.status <> 'cancelled') sold from events e left join businesses b on b.id = e.business_id" + w + " order by e.starts_at desc limit 200");
         p.forEach(s::param);
         return s.query((rs, i) -> new ListRow(rs.getString("id"), rs.getString("title"), rs.getString("kind"), rs.getString("organiser"), rs.getString("venue"),
-                rs.getObject("starts_at", OffsetDateTime.class), rs.getString("status"), rs.getLong("from_price"), rs.getInt("cap"), rs.getBoolean("auto_approved"))).list();
+                rs.getObject("starts_at", OffsetDateTime.class), rs.getString("status"), rs.getLong("from_price"), rs.getInt("cap"), rs.getBoolean("auto_approved"), rs.getInt("sold"))).list();
     }
 
     // ---------- merchant: own events ----------
@@ -167,6 +175,7 @@ public class Events {
     @Transactional
     public Row merchantCancel(StaffPrincipal who, UUID id) {
         Row before = merchantGet(who, id);
+        if (ticketing.soldCount(id) > 0) throw ApiException.conflict("has_sales", "Tickets have been sold for this event. Ask VIBE to cancel it, so every buyer is told and refunded.");
         setStatus(id, "cancelled", null);
         audit.record(who, "cancel", "event", id, before.title());
         return get(id);
@@ -206,7 +215,9 @@ public class Events {
     public Row adminCancel(StaffPrincipal who, UUID id) {
         Row r = get(id);
         setStatus(id, "cancelled", null);
-        audit.record(who, "cancel", "event", id, r.title());
+        int cancelled = ticketing.cancelTickets(id, r.title());
+        audit.record(who, "cancel", "event", id, r.title() + (cancelled > 0 ? " (" + cancelled + " tickets cancelled, refunds due)" : ""));
+        if (cancelled > 0 && r.businessId() != null) staffNotifications.toBusiness(UUID.fromString(r.businessId()), "event_decision", "Event cancelled by VIBE", r.title() + ": " + cancelled + " tickets cancelled. Buyers have been told and will be refunded.", "/events");
         return get(id);
     }
 
@@ -236,14 +247,18 @@ public class Events {
         if (!"published".equals(r.status())) throw ApiException.notFound("This event is no longer available.");
         PublicSummary s = summary(r);
         return new PublicDetail(s.id(), s.title(), s.kind(), s.startsAt(), s.venue(), s.area(), s.fromPrice(), s.coverUrl(), s.tag(), s.soldOut(), s.featured(), r.description(), r.gatesOpenAt(), r.organiser(),
-                r.ageLimit(), r.ticketTypes().stream().map(t -> new PublicTicketType(t.id(), t.name(), t.description(), t.price(), t.capacity(), t.maxPerOrder())).toList(), r.terms());
+                r.ageLimit(), r.ticketTypes().stream().map(t -> new PublicTicketType(t.id(), t.name(), t.description(), t.price(), left(t), t.maxPerOrder())).toList(), r.terms());
     }
 
     private static PublicSummary summary(Row r) {
         long from = r.ticketTypes().stream().mapToLong(TicketTypeRow::price).min().orElse(0);
-        boolean soldOut = !r.ticketTypes().isEmpty() && r.ticketTypes().stream().allMatch(t -> t.capacity() == 0);
-        return new PublicSummary(r.id(), r.title(), r.kind(), r.startsAt(), r.venue(), r.area(), from, r.coverUrl(), soldOut ? new Tag("Sold out", "muted") : null, soldOut, r.featured());
+        int left = r.ticketTypes().stream().mapToInt(Events::left).sum(), capacity = r.ticketTypes().stream().mapToInt(TicketTypeRow::capacity).sum();
+        boolean soldOut = !r.ticketTypes().isEmpty() && left == 0;
+        Tag tag = soldOut ? new Tag("Sold out", "muted") : capacity > 0 && left * 10 <= capacity ? new Tag("Few left", "warning") : null;
+        return new PublicSummary(r.id(), r.title(), r.kind(), r.startsAt(), r.venue(), r.area(), from, r.coverUrl(), tag, soldOut, r.featured());
     }
+
+    static int left(TicketTypeRow t) { return Math.max(0, t.capacity() - t.sold() - t.held()); }
 
     // ---------- writes ----------
     private void check(Input in, boolean creating) {
@@ -274,13 +289,38 @@ public class Events {
         replaceTypes(id, in);
     }
 
+    /**
+     * Editing an event changes its ticket types in place (matched by id, or by name when the form didn't send one), because tickets already sold point at them.
+     * A type can't go below what's sold or being bought. A type with sales can't be removed; one that only had released holds is hidden instead.
+     */
     private void replaceTypes(UUID id, Input in) {
-        jdbc.sql("delete from ticket_types where event_id = :id").param("id", id).update();
+        Map<UUID, int[]> counts = ticketing.counts(id);
+        record Existing(UUID id, String name) {}
+        List<Existing> existing = jdbc.sql("select id, name from ticket_types where event_id = :e and not archived").param("e", id).query((rs, i) -> new Existing((UUID) rs.getObject(1), rs.getString(2))).list();
+        java.util.Set<UUID> kept = new java.util.HashSet<>();
         int n = 0;
         for (TicketTypeInput t : in.ticketTypes()) {
-            jdbc.sql("insert into ticket_types (id, event_id, name, description, price, capacity, max_per_order, sort_order) values (:i, :e, :n, :d, :p, :c, :m, :o)")
-                    .param("i", UUID.randomUUID()).param("e", id).param("n", t.name().trim()).param("d", t.description() == null ? "" : t.description().trim()).param("p", t.price())
-                    .param("c", t.capacity()).param("m", t.maxPerOrder() == null ? 6 : t.maxPerOrder()).param("o", n++).update();
+            UUID match = existing.stream().filter(x -> !kept.contains(x.id()) && (x.id().toString().equals(t.id()) || (t.id() == null && x.name().equalsIgnoreCase(t.name().trim())))).map(Existing::id).findFirst().orElse(null);
+            String desc = t.description() == null ? "" : t.description().trim();
+            int max = t.maxPerOrder() == null ? 6 : t.maxPerOrder();
+            if (match != null) {
+                int[] c = counts.getOrDefault(match, new int[2]);
+                if (t.capacity() < c[0] + c[1]) throw ApiException.conflict("capacity_below_sold", t.name().trim() + ": " + (c[0] + c[1]) + " tickets are already sold or being bought, so it can’t be fewer than that.");
+                jdbc.sql("update ticket_types set name = :n, description = :d, price = :p, capacity = :c, max_per_order = :m, sort_order = :o where id = :i")
+                        .param("i", match).param("n", t.name().trim()).param("d", desc).param("p", t.price()).param("c", t.capacity()).param("m", max).param("o", n++).update();
+                kept.add(match);
+            } else {
+                jdbc.sql("insert into ticket_types (id, event_id, name, description, price, capacity, max_per_order, sort_order) values (:i, :e, :n, :d, :p, :c, :m, :o)")
+                        .param("i", UUID.randomUUID()).param("e", id).param("n", t.name().trim()).param("d", desc).param("p", t.price()).param("c", t.capacity()).param("m", max).param("o", n++).update();
+            }
+        }
+        for (Existing x : existing) {
+            if (kept.contains(x.id())) continue;
+            int[] c = counts.getOrDefault(x.id(), new int[2]);
+            if (c[0] + c[1] > 0) throw ApiException.conflict("type_has_sales", x.name() + " has tickets sold, so it can’t be removed. Lower its number to what’s sold to stop selling it.");
+            boolean referenced = jdbc.sql("select count(*) from ticket_reservation_items where ticket_type_id = :t").param("t", x.id()).query(Integer.class).single() > 0;
+            if (referenced) jdbc.sql("update ticket_types set archived = true where id = :t").param("t", x.id()).update();
+            else jdbc.sql("delete from ticket_types where id = :t").param("t", x.id()).update();
         }
     }
 

@@ -125,15 +125,15 @@ export type PickSection = 'trending' | 'offers' | 'events';
 // ---------- events ----------
 export const EVENT_KINDS = ['Workshops', 'Meetups', 'Tours', 'Live Events', 'Experiences', 'Movies'] as const;
 export type EventStatus = 'pending' | 'published' | 'rejected' | 'cancelled';
-export type TicketTypeRow = { id?: string; name: string; description: string; price: number; capacity: number; maxPerOrder: number };
+export type TicketTypeRow = { id?: string; name: string; description: string; price: number; capacity: number; maxPerOrder: number; sold?: number; held?: number };
 export type EventRow = {
   id: string; businessId: string | null; businessName: string | null; organiser: string; title: string; kind: string; description: string; venue: string; area: string; startsAt: string;
   gatesOpenAt: string; coverUrl: string | null; ageLimit: number | null; featured: boolean; terms: string[]; status: EventStatus; reviewNote: string | null; ticketTypes: TicketTypeRow[];
 };
-export type EventListRow = { id: string; title: string; kind: string; organiser: string; venue: string; startsAt: string; status: EventStatus; fromPrice: number; capacity: number; autoApproved?: boolean };
+export type EventListRow = { id: string; title: string; kind: string; organiser: string; venue: string; startsAt: string; status: EventStatus; fromPrice: number; capacity: number; autoApproved?: boolean; sold?: number };
 export type EventInput = {
   title: string; kind: string; description: string; venue: string; area: string; startsAt: string; gatesOpenAt: string | null; coverUrl: string | null; ageLimit: number | null; terms: string[];
-  organiser?: string | null; featured?: boolean; ticketTypes: Omit<TicketTypeRow, 'id'>[];
+  organiser?: string | null; featured?: boolean; ticketTypes: (Omit<TicketTypeRow, 'id' | 'sold' | 'held'> & { id?: string })[];
 };
 
 // ---------- reservation settings ----------
@@ -178,7 +178,9 @@ export type ApplicationStatus = 'pending' | 'changes_requested' | 'approved' | '
 export type ApplicationRow = { id: string; businessName: string; categoryName: string | null; area: string; contactName: string; email: string; phone: string; status: ApplicationStatus; submittedAt: string };
 export type ApplicationDetail = { row: ApplicationRow; categoryId: string | null; address: string; about: string; documents: string[]; reviewNote: string | null; decidedAt: string | null; businessId: string | null };
 export type ApplicationApproved = { businessId: string; loginEmail: string; temporaryPassword: string };
-export type MerchantSettings = { payRedeem: boolean; menuLabel: string };
+export type StaffRole = 'manager' | 'cashier' | 'custom';
+export type MerchantSettings = { payRedeem: boolean; menuLabel: string; owner?: boolean; staffRole?: StaffRole | null; permissions?: string[]; areas?: Record<string, string> };
+export type TeamMember = { id: string; email: string; name: string; active: boolean; owner: boolean; mustChangePassword: boolean; staffRole: StaffRole | null; permissions: string[] };
 
 // ---------- settlements and results ----------
 export type SettlementDue = { businessId: string; businessName: string; area: string; commissionBps: number; count: number; gross: number; vibeFees: number; commission: number; payout: number; customerSavings: number; oldest: string; newest: string };
@@ -197,3 +199,12 @@ export type MerchantResults = {
   offersLive: number; offersPending: number; eventsLive: number; eventsPending: number; unsettled: SettlementBalance; awaitingPayout: number; paidOut: number;
   offers: OfferResult[]; lastDays: { day: string; sales: number; bills: number }[];
 };
+
+// ---------- ticket sales ----------
+export type TicketTypeSales = { ticketTypeId: string; name: string; price: number; capacity: number; sold: number; held: number; left: number; revenue: number; archived: boolean };
+export type TicketBooking = { bookingId: string; customerName: string; vibeId: string; tickets: number; paid: number; saved: number; paidAt: string | null; paymentReference: string | null; checkedIn: number };
+export type EventSales = {
+  eventId: string; title: string; startsAt: string; status: EventStatus; capacity: number; sold: number; held: number; left: number; checkedIn: number; revenue: number;
+  types: TicketTypeSales[]; bookings: TicketBooking[];
+};
+export type CheckInResult = { result: 'admitted' | 'already' | 'wrong_event' | 'cancelled'; message: string; attendeeName: string; typeName: string; bookingId: string; checkedInAt: string | null; index: number; of: number };

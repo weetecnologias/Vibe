@@ -151,8 +151,19 @@ public class MenuAndOffers {
     /** Offers that customers have already used can't be deleted, only switched off. Until redemptions exist, delete removes it. */
     @Transactional
     public void deleteOffer(StaffPrincipal who, UUID id) {
+        int used = jdbc.sql("select count(*) from redemptions r join offers o on o.id = r.offer_id where o.id = :id and o.business_id = :b").param("id", id).param("b", who.requireBusiness()).query(Integer.class).single();
+        if (used > 0) throw ApiException.conflict("in_use", "Customers have already used this offer, so it’s kept for their receipts and your reports. Stop it instead: customers won’t see it any more.");
         if (jdbc.sql("delete from offers where id = :id and business_id = :b").param("id", id).param("b", who.requireBusiness()).update() == 0) throw ApiException.notFound("Offer not found.");
         audit.record(who, "delete", "offer", id, "");
+    }
+
+    /** Stops or resumes an offer straight away. Doesn't change what the offer is, so it doesn't need VIBE's review again. */
+    @Transactional
+    public OfferRow setOfferActive(StaffPrincipal who, UUID id, boolean active) {
+        UUID b = who.requireBusiness();
+        if (jdbc.sql("update offers set active = :a, updated_at = now() where id = :id and business_id = :b").param("a", active).param("id", id).param("b", b).update() == 0) throw ApiException.notFound("Offer not found.");
+        audit.record(who, active ? "resume" : "stop", "offer", id, "");
+        return offerRow(b, id);
     }
 
     private OfferRow offerRow(UUID b, UUID id) {

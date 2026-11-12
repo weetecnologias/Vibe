@@ -81,7 +81,8 @@ tr.dim td { color: var(--muted); }
 .field small { font-weight: 400; }
 input, select, textarea { font: inherit; font-weight: 400; padding: 9px 12px; border: 1.5px solid var(--hairline); border-radius: 10px; background: var(--white); color: var(--near-black); width: 100%; }
 textarea { resize: vertical; }
-input[type='checkbox'] { width: auto; }
+input[type='checkbox'], input[type='radio'] { width: auto; flex: none; accent-color: var(--pink); }
+input[type='radio'] { margin: 3px 0 0; }
 .check { display: flex; align-items: center; gap: 8px; font-weight: 500; }
 input:disabled { background: var(--soft-white); color: var(--muted); }
 
@@ -148,3 +149,15 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .attention a:hover { background: var(--soft-white); }
 .attention a.hot { border-color: var(--pink); background: var(--pink-tint); }
 .secret { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; letter-spacing: 0.04em; background: var(--soft-white); border: 1.5px dashed var(--pink); border-radius: 10px; padding: 10px 14px; user-select: all; }
+
+/* numbered how-to steps */
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.steps li { line-height: 1.45; }
+
+/* ticket sales */
+.meter { height: 6px; background: var(--hairline); border-radius: 99px; overflow: hidden; margin-top: 6px; max-width: 180px; }
+.meter > span { display: block; height: 100%; background: var(--pink); }
+.checkin { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid; }
+.checkin.success { background: var(--success-tint); border-color: var(--success); }
+.checkin.warning { background: var(--warning-tint, var(--soft-white)); border-color: var(--warning); }
+.checkin.error { background: var(--error-tint); border-color: var(--error); }

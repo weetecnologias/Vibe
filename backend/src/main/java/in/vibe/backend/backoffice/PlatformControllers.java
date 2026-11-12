@@ -110,12 +110,23 @@ public class PlatformControllers {
     @RequestMapping("/v1/merchant/settings")
     public static class MerchantSettingsApi {
         private final BillingRules rules;
+        private final in.vibe.backend.security.TeamAccess access;
 
-        MerchantSettingsApi(BillingRules rules) { this.rules = rules; }
+        MerchantSettingsApi(BillingRules rules, in.vibe.backend.security.TeamAccess access) {
+            this.rules = rules;
+            this.access = access;
+        }
 
-        /** Whether this kind of business uses Pay & Redeem bills, and what its item list is called. Set by VIBE on the category. */
+        public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas) {}
+
+        /** Whether this kind of business uses Pay & Redeem bills and what its item list is called (set by VIBE on the category), and what this person may do. */
         @GetMapping
-        BillingRules.Rules settings(@AuthenticationPrincipal Jwt jwt) { return rules.forBusiness(StaffPrincipal.from(jwt).requireBusiness()); }
+        Settings settings(@AuthenticationPrincipal Jwt jwt) {
+            StaffPrincipal who = StaffPrincipal.from(jwt);
+            BillingRules.Rules r = rules.forBusiness(who.requireBusiness());
+            in.vibe.backend.security.TeamAccess.Access a = access.access(who);
+            return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.AREAS);
+        }
     }
 
     // ---------- admin ----------

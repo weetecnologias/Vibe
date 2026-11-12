@@ -22,7 +22,12 @@ public class StaffNotifications {
 
     private final JdbcClient jdbc;
 
-    StaffNotifications(JdbcClient jdbc) { this.jdbc = jdbc; }
+    private final in.vibe.backend.security.TeamAccess access;
+
+    StaffNotifications(JdbcClient jdbc, in.vibe.backend.security.TeamAccess access) {
+        this.jdbc = jdbc;
+        this.access = access;
+    }
 
     /** Saved in the same transaction as whatever caused it. `link` is a dashboard path such as "/bills". */
     public void toBusiness(UUID business, String kind, String title, String body, String link) {
@@ -43,9 +48,10 @@ public class StaffNotifications {
 
     public Inbox inbox(StaffPrincipal who, int limit) {
         Scope s = scope(who);
-        String where = "audience = :a and business_id is not distinct from :b";
-        int unread = jdbc.sql("select count(*) from staff_notifications where " + where + " and read_at is null").param("a", s.audience()).param("b", s.business(), java.sql.Types.OTHER).query(Integer.class).single();
-        List<Item> items = jdbc.sql("select * from staff_notifications where " + where + " order by created_at desc limit :n").param("a", s.audience()).param("b", s.business(), java.sql.Types.OTHER).param("n", Math.min(Math.max(limit, 1), 100))
+        String[] hidden = access.hiddenAlertKinds(who).toArray(new String[0]);
+        String where = "audience = :a and business_id is not distinct from :b and not (kind = any(:h))";
+        int unread = jdbc.sql("select count(*) from staff_notifications where " + where + " and read_at is null").param("a", s.audience()).param("b", s.business(), java.sql.Types.OTHER).param("h", hidden).query(Integer.class).single();
+        List<Item> items = jdbc.sql("select * from staff_notifications where " + where + " order by created_at desc limit :n").param("a", s.audience()).param("b", s.business(), java.sql.Types.OTHER).param("h", hidden).param("n", Math.min(Math.max(limit, 1), 100))
                 .query((rs, i) -> new Item(rs.getString("id"), rs.getString("kind"), rs.getString("title"), rs.getString("body"), rs.getString("link"), rs.getObject("created_at", OffsetDateTime.class), rs.getObject("read_at") != null)).list();
         return new Inbox(unread, items);
     }
@@ -59,6 +65,7 @@ public class StaffNotifications {
     @Transactional
     public void markAllRead(StaffPrincipal who) {
         Scope s = scope(who);
-        jdbc.sql("update staff_notifications set read_at = now() where audience = :a and business_id is not distinct from :b and read_at is null").param("a", s.audience()).param("b", s.business(), java.sql.Types.OTHER).update();
+        jdbc.sql("update staff_notifications set read_at = now() where audience = :a and business_id is not distinct from :b and read_at is null and not (kind = any(:h))").param("a", s.audience()).param("b", s.business(), java.sql.Types.OTHER)
+                .param("h", access.hiddenAlertKinds(who).toArray(new String[0])).update();
     }
 }

@@ -13,7 +13,7 @@ function state(o: OfferRow): { label: string; tone: 'success' | 'warning' | 'mut
   const now = Date.now();
   if (o.reviewStatus === 'pending') return { label: 'Waiting for VIBE', tone: 'warning', hint: 'Customers can’t see it until VIBE approves it.' };
   if (o.reviewStatus === 'rejected') return { label: 'Not approved', tone: 'muted', hint: o.reviewNote ? `VIBE’s note: ${o.reviewNote}` : undefined };
-  if (!o.active) return { label: 'Switched off', tone: 'muted' };
+  if (!o.active) return { label: 'Stopped', tone: 'muted', hint: 'Customers can’t see it. Resume to bring it back.' };
   if (Date.parse(o.endsAt) <= now) return { label: 'Ended', tone: 'muted' };
   if (Date.parse(o.startsAt) > now) return { label: 'Scheduled', tone: 'warning' };
   return { label: 'Live', tone: 'success' };
@@ -48,8 +48,21 @@ export function OffersPage() {
     }
   };
 
+  /** Stopping or resuming is instant and doesn't need VIBE's review again: the offer itself hasn't changed. */
+  const setActive = async (o: OfferRow, active: boolean) => {
+    setError(null);
+    try {
+      await client.post<OfferRow>(`/v1/merchant/offers/${o.id}/active`, { active });
+      setNotice(active ? `“${o.title}” is back on. Customers can use it again.` : `“${o.title}” is stopped. Customers can’t see or use it until you resume it.`);
+      list.reload();
+    } catch (e) {
+      setNotice(null);
+      setError(errorText(e));
+    }
+  };
+
   const remove = async (o: OfferRow) => {
-    if (!window.confirm(`Delete “${o.title}”? To stop it for now, edit it and switch it off instead.`)) return;
+    if (!window.confirm(`Delete “${o.title}” for good? To pause it instead, use Stop. An offer customers have already used can’t be deleted, only stopped.`)) return;
     try {
       await client.del(`/v1/merchant/offers/${o.id}`);
       setNotice('Offer deleted.');
@@ -67,7 +80,7 @@ export function OffersPage() {
 
   return (
     <>
-      <PageHead title="Offers" sub="Pay & Redeem offers on your page. VIBE reviews each offer before customers see it. Changing an offer sends it back for review."
+      <PageHead title="Offers" sub="Pay & Redeem offers on your page. VIBE reviews each new or changed offer before customers see it. Stop pauses an offer straight away; set an end date to stop it automatically."
         actions={<button className="btn primary" onClick={() => { setError(null); setDraft(blank()); }}>Create offer</button>} />
       {notice ? <Notice tone="success">{notice}</Notice> : null}
       {error && !draft ? <Notice tone="error">{error}</Notice> : null}
@@ -87,7 +100,11 @@ export function OffersPage() {
                     <td className="small">{ruleSummary(o)}</td>
                     <td className="small">{showDateTime(o.startsAt)}<br />to {showDateTime(o.endsAt)}</td>
                     <td><Badge tone={s.tone}>{s.label}</Badge>{s.hint ? <div className="muted small" style={{ marginTop: 4, maxWidth: 220 }}>{s.hint}</div> : null}</td>
-                    <td className="actions"><button className="btn ghost sm" onClick={() => edit(o)}>Edit</button><button className="btn ghost sm danger" onClick={() => remove(o)}>Delete</button></td>
+                    <td className="actions">
+                      <button className="btn ghost sm" onClick={() => edit(o)}>Edit</button>
+                      {o.active ? <button className="btn ghost sm" onClick={() => setActive(o, false)}>Stop</button> : <button className="btn ghost sm" onClick={() => setActive(o, true)}>Resume</button>}
+                      <button className="btn ghost sm danger" onClick={() => remove(o)}>Delete</button>
+                    </td>
                   </tr>
                 );
               })}

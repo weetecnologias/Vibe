@@ -160,7 +160,7 @@ public class AdminOversight {
         }
         String from = " from payments p join payment_requests pr on pr.id = p.payment_request_id join customers c on c.id = p.customer_id left join businesses b on b.id = pr.business_id";
         JdbcClient.StatementSpec cnt = jdbc.sql("select count(*), coalesce(sum(p.amount) filter (where p.status = 'verified'), 0), coalesce(sum(p.savings) filter (where p.status = 'verified'), 0)" + from + where);
-        JdbcClient.StatementSpec list = jdbc.sql("select p.reference, pr.kind, p.status, p.method, p.amount, p.savings, c.name cname, c.vibe_id, coalesce(b.name, 'VIBE Membership') payee, p.provider, p.created_at, p.verified_at" + from + where + " order by p.created_at desc limit :lim offset :off");
+        JdbcClient.StatementSpec list = jdbc.sql("select p.reference, pr.kind, p.status, p.method, p.amount, p.savings, c.name cname, c.vibe_id, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) payee, p.provider, p.created_at, p.verified_at" + from + where + " order by p.created_at desc limit :lim offset :off");
         p.forEach((k, v) -> { cnt.param(k, v); list.param(k, v); });
         TransactionTotals totals = cnt.query((rs, i) -> new TransactionTotals(rs.getInt(1), rs.getLong(2), rs.getLong(3))).single();
         List<TransactionRow> items = list.param("lim", Math.min(Math.max(limit, 1), 100)).param("off", Math.max(offset, 0)).query((rs, i) -> row(rs)).list();
@@ -173,7 +173,7 @@ public class AdminOversight {
     }
 
     public TransactionDetail transaction(String reference) {
-        var d = jdbc.sql("select p.reference, pr.kind, p.status, p.method, p.amount, p.savings, c.name cname, c.vibe_id, coalesce(b.name, 'VIBE Membership') payee, p.provider, p.created_at, p.verified_at, p.failure_reason, p.provider_payment_id, "
+        var d = jdbc.sql("select p.reference, pr.kind, p.status, p.method, p.amount, p.savings, c.name cname, c.vibe_id, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) payee, p.provider, p.created_at, p.verified_at, p.failure_reason, p.provider_payment_id, "
                         + "p.provider_order_id, pr.id prid, pr.bill_ref, pr.raised_by, pr.eligible_amount, pr.discount, pr.discount_label from payments p join payment_requests pr on pr.id = p.payment_request_id join customers c on c.id = p.customer_id "
                         + "left join businesses b on b.id = pr.business_id where p.reference = :r").param("r", reference).query((rs, i) -> new Object[]{row(rs), rs.getString("failure_reason"), rs.getString("provider_payment_id"), rs.getString("bill_ref"),
                         rs.getString("raised_by"), (UUID) rs.getObject("prid"), rs.getLong("eligible_amount"), rs.getLong("discount"), rs.getString("discount_label"), rs.getString("provider_order_id")}).optional()

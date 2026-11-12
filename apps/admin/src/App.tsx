@@ -11,7 +11,7 @@ import { CouponsPage } from './pages/CouponsPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { DeletionsPage } from './pages/DeletionsPage';
 import { EventEditPage } from './pages/EventEditPage';
-import { EventsPage } from './pages/EventsPage';
+import { EventSalesPage, EventsPage } from './pages/EventsPage';
 import { HomePage } from './pages/HomePage';
 import { MembersPage } from './pages/MembersPage';
 import { OfferReviewPage } from './pages/OfferReviewPage';
@@ -64,6 +64,7 @@ export function App() {
         <Route path="offers" element={<OfferReviewPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="events/:id" element={<EventEditPage />} />
+        <Route path="events/:id/sales" element={<EventSalesPage />} />
         <Route path="home" element={<HomePage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="plans" element={<PlansPage />} />

@@ -3,7 +3,8 @@ import { fromLocalInput, nowLocal, toLocalInput } from './time';
 import type { EventInput, EventRow } from './types';
 
 /** What a person types for an event and its tickets. Money is typed in rupees and sent in paise; times are India time. */
-export type TicketDraft = { name: string; description: string; price: string; capacity: string; maxPerOrder: string };
+/** id is kept for ticket types that already exist, so an edit changes them instead of replacing them (tickets may already be sold). */
+export type TicketDraft = { id?: string; name: string; description: string; price: string; capacity: string; maxPerOrder: string };
 
 export type EventDraft = {
   title: string; kind: string; description: string; venue: string; area: string; startsAt: string; doorsMinutes: string; coverUrl: string; ageLimit: string; terms: string;
@@ -21,7 +22,7 @@ export function eventToDraft(e: EventRow): EventDraft {
   return {
     title: e.title, kind: e.kind, description: e.description, venue: e.venue, area: e.area, startsAt: toLocalInput(e.startsAt), doorsMinutes: String(doors), coverUrl: e.coverUrl ?? '',
     ageLimit: e.ageLimit === null ? '' : String(e.ageLimit), terms: e.terms.join('\n'), organiser: e.organiser, featured: e.featured,
-    tickets: e.ticketTypes.map((t) => ({ name: t.name, description: t.description, price: paiseToRupees(t.price), capacity: String(t.capacity), maxPerOrder: String(t.maxPerOrder) })),
+    tickets: e.ticketTypes.map((t) => ({ id: t.id, name: t.name, description: t.description, price: paiseToRupees(t.price), capacity: String(t.capacity), maxPerOrder: String(t.maxPerOrder) })),
   };
 }
 
@@ -54,7 +55,7 @@ export function buildEvent(d: EventDraft, admin: boolean): { ok: true; input: Ev
     if (capacity === null || capacity > 100_000) return { ok: false, error: `${t.name}: enter how many tickets are available.` };
     const max = wholeNumber(t.maxPerOrder);
     if (max === null || max < 1 || max > 20) return { ok: false, error: `${t.name}: the most one person can buy must be between 1 and 20.` };
-    tickets.push({ name: t.name.trim(), description: t.description.trim(), price, capacity, maxPerOrder: max });
+    tickets.push({ ...(t.id ? { id: t.id } : {}), name: t.name.trim(), description: t.description.trim(), price, capacity, maxPerOrder: max });
   }
   return {
     ok: true,

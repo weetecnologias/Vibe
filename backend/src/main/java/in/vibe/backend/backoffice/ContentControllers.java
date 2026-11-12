@@ -240,10 +240,13 @@ public class ContentControllers {
         ReservationSettings.Settings saveSettings(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ReservationSettings.Input in) { return reservations.save(StaffPrincipal.from(jwt), in); }
 
         @GetMapping("/team")
-        List<StaffService.Staff> team(@AuthenticationPrincipal Jwt jwt) { return staff.team(StaffPrincipal.from(jwt)); }
+        List<StaffService.TeamMember> team(@AuthenticationPrincipal Jwt jwt) { return staff.team(StaffPrincipal.from(jwt)); }
 
         @PostMapping("/team")
-        ResponseEntity<StaffService.Staff> addMember(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody StaffService.NewMerchant in) { return ResponseEntity.status(HttpStatus.CREATED).body(staff.addTeamMember(StaffPrincipal.from(jwt), in)); }
+        ResponseEntity<StaffService.TeamMember> addMember(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody StaffService.TeamInput in) { return ResponseEntity.status(HttpStatus.CREATED).body(staff.addTeamMember(StaffPrincipal.from(jwt), in)); }
+
+        @PutMapping("/team/{id}/access")
+        StaffService.TeamMember access(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @Valid @RequestBody StaffService.AccessInput in) { return staff.updateAccess(StaffPrincipal.from(jwt), uuid(id), in); }
 
         @PostMapping("/team/{id}/deactivate")
         ResponseEntity<Void> deactivate(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {

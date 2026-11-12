@@ -1,11 +1,12 @@
+import type { ReactNode } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 
-import { ChangePasswordPage, LoginPage, Shell, useAsync, useAuth, type MerchantSettings, type NavItem } from '@kit';
+import { ChangePasswordPage, Loading, LoginPage, Notice, Shell, useAsync, useAuth, type MerchantSettings, type NavItem } from '@kit';
 
 import { ApplyPage } from './pages/ApplyPage';
 import { BillsPage } from './pages/BillsPage';
 import { EventEditPage } from './pages/EventEditPage';
-import { EventsPage } from './pages/EventsPage';
+import { EventSalesPage, EventsPage } from './pages/EventsPage';
 import { MenuPage } from './pages/MenuPage';
 import { OffersPage } from './pages/OffersPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -32,43 +33,52 @@ export function App() {
   return <SignedIn />;
 }
 
-function SignedIn() {
-  const { client } = useAuth();
-  const s = useAsync(() => client.get<MerchantSettings>('/v1/merchant/settings'), [client]);
-  const settings: MerchantSettings = s.data ?? { payRedeem: true, menuLabel: 'Menu' };
-  const home = settings.payRedeem ? '/bills' : '/events';
+type Page = { path: string; label: string; area: string | 'team'; element: ReactNode; group: string; when?: boolean };
 
-  // Grouped by what the owner is doing: serving customers today, selling on VIBE, money, and the business itself.
-  const nav: NavItem[] = [
-    ...(settings.payRedeem ? [{ heading: 'Today' }, { to: '/bills', label: 'Bills' }] : []),
-    { heading: 'Sell on VIBE' },
-    ...(settings.payRedeem ? [{ to: '/offers', label: 'Offers' }] : []),
-    { to: '/events', label: 'Events' },
-    { heading: 'Money' },
-    { to: '/results', label: 'Your results' },
-    { to: '/settlements', label: 'Settlements' },
-    { heading: 'My business' },
-    { to: '/profile', label: 'Profile and photos' },
-    { to: '/menu', label: settings.menuLabel },
-    { to: '/reservations', label: 'Reservations' },
-    { to: '/team', label: 'Team' },
-  ];
+function SignedIn() {
+  const { client, signOut } = useAuth();
+  const s = useAsync(() => client.get<MerchantSettings>('/v1/merchant/settings'), [client]);
+
+  // Don't show any menu until we know what this person may do, so a cashier never sees pages they can't open.
+  if (!s.data) {
+    return (
+      <div className="login">
+        <div className="card login-card">{s.error ? <><Notice tone="error">{s.error}</Notice><button className="btn" onClick={s.reload}>Try again</button><button className="btn ghost" onClick={signOut}>Sign out</button></> : <Loading />}</div>
+      </div>
+    );
+  }
+  const settings = s.data;
+  const can = (area: string) => (area === 'team' ? !!settings.owner : !!settings.owner || (settings.permissions ?? []).includes(area));
+
+  // Grouped by what the owner is doing: serving customers today, selling on VIBE, money, and the business itself. Each page shows only to people whose role includes it.
+  const pages: Page[] = [
+    { group: 'Today', path: 'bills', label: 'Bills', area: 'bills', element: <BillsPage />, when: settings.payRedeem },
+    { group: 'Sell on VIBE', path: 'offers', label: 'Offers', area: 'offers', element: <OffersPage />, when: settings.payRedeem },
+    { group: 'Sell on VIBE', path: 'events', label: 'Events', area: 'events', element: <EventsPage /> },
+    { group: 'Money', path: 'results', label: 'Your results', area: 'money', element: <ResultsPage /> },
+    { group: 'Money', path: 'settlements', label: 'Settlements', area: 'money', element: <SettlementsPage /> },
+    { group: 'My business', path: 'profile', label: 'Profile and photos', area: 'profile', element: <ProfilePage /> },
+    { group: 'My business', path: 'menu', label: settings.menuLabel, area: 'menu', element: <MenuPage /> },
+    { group: 'My business', path: 'reservations', label: 'Reservations', area: 'reservations', element: <ReservationsPage /> },
+    { group: 'My business', path: 'team', label: 'Team', area: 'team', element: <TeamPage /> },
+  ].filter((p) => p.when !== false && can(p.area));
+
+  const nav: NavItem[] = [];
+  for (const p of pages) {
+    if (!nav.some((n) => 'heading' in n && n.heading === p.group)) nav.push({ heading: p.group });
+    nav.push({ to: `/${p.path}`, label: p.label });
+  }
+  const home = pages.length ? `/${pages[0].path}` : '/nothing';
 
   return (
     <SettingsContext.Provider value={settings}>
       <Routes>
         <Route element={<Shell title="Merchant" nav={nav} />}>
           <Route index element={<Navigate to={home} replace />} />
-          <Route path="bills" element={settings.payRedeem ? <BillsPage /> : <Navigate to="/events" replace />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="menu" element={<MenuPage />} />
-          <Route path="offers" element={settings.payRedeem ? <OffersPage /> : <Navigate to="/events" replace />} />
-          <Route path="events" element={<EventsPage />} />
-          <Route path="events/:id" element={<EventEditPage />} />
-          <Route path="reservations" element={<ReservationsPage />} />
-          <Route path="team" element={<TeamPage />} />
-          <Route path="results" element={<ResultsPage />} />
-          <Route path="settlements" element={<SettlementsPage />} />
+          {pages.map((p) => <Route key={p.path} path={p.path} element={p.element} />)}
+          {can('events') ? <Route path="events/:id" element={<EventEditPage />} /> : null}
+          {can('events') ? <Route path="events/:id/sales" element={<EventSalesPage />} /> : null}
+          <Route path="nothing" element={<Notice tone="info">Your role doesn’t include any part of this dashboard yet. Ask the owner to give you access.</Notice>} />
           <Route path="*" element={<Navigate to={home} replace />} />
         </Route>
       </Routes>

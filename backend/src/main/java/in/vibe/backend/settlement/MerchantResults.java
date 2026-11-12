@@ -35,7 +35,7 @@ public class MerchantResults {
         int span = Math.min(Math.max(days, 1), 365);
         OffsetDateTime now = OffsetDateTime.now(clock), since = now.minusDays(span);
         String paidAtB = " from payments p join payment_requests pr on pr.id = p.payment_request_id where pr.business_id = :b and p.status = 'verified' and p.verified_at >= :s";
-        long[] t = jdbc.sql("select count(*), coalesce(sum(p.amount), 0), coalesce(sum(p.savings), 0), count(distinct p.customer_id)" + paidAtB).param("b", b).param("s", since)
+        long[] t = jdbc.sql("select count(*), coalesce(sum(p.amount + pr.vibe_funded), 0), coalesce(sum(p.savings), 0), count(distinct p.customer_id)" + paidAtB).param("b", b).param("s", since)
                 .query((rs, i) -> new long[]{rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getLong(4)}).single();
         int repeat = jdbc.sql("select count(*) from (select p.customer_id" + paidAtB + " group by p.customer_id having count(*) > 1) x").param("b", b).param("s", since).query(Integer.class).single();
         int started = jdbc.sql("select count(*) from redemptions where business_id = :b and created_at >= :s").param("b", b).param("s", since).query(Integer.class).single();
@@ -45,7 +45,7 @@ public class MerchantResults {
         int eventsPending = jdbc.sql("select count(*) from events where business_id = :b and status = 'pending'").param("b", b).query(Integer.class).single();
 
         List<OfferResult> offers = jdbc.sql("select o.id, o.title, o.review_status, (o.review_status = 'approved' and o.active and o.starts_at <= :n and o.ends_at > :n) live, count(distinct r.id) started, "
-                        + "count(distinct p.id) paid, coalesce(sum(p.amount), 0) sales, coalesce(sum(p.savings), 0) discount from offers o "
+                        + "count(distinct p.id) paid, coalesce(sum(p.amount + pr.vibe_funded), 0) sales, coalesce(sum(p.savings), 0) discount from offers o "
                         + "left join redemptions r on r.offer_id = o.id and r.created_at >= :s left join payment_requests pr on pr.redemption_id = r.id "
                         + "left join payments p on p.payment_request_id = pr.id and p.status = 'verified' where o.business_id = :b group by o.id, o.title, o.review_status, o.active, o.starts_at, o.ends_at "
                         + "order by sales desc, started desc, o.title")
@@ -57,7 +57,7 @@ public class MerchantResults {
         List<Day> lastDays = new ArrayList<>();
         for (int d = 13; d >= 0; d--) {
             OffsetDateTime from = today.minusDays(d);
-            long[] r = jdbc.sql("select count(*), coalesce(sum(p.amount), 0) from payments p join payment_requests pr on pr.id = p.payment_request_id "
+            long[] r = jdbc.sql("select count(*), coalesce(sum(p.amount + pr.vibe_funded), 0) from payments p join payment_requests pr on pr.id = p.payment_request_id "
                             + "where pr.business_id = :b and p.status = 'verified' and p.verified_at >= :f and p.verified_at < :u").param("b", b).param("f", from).param("u", from.plusDays(1))
                     .query((rs, i) -> new long[]{rs.getLong(1), rs.getLong(2)}).single();
             lastDays.add(new Day(from.toLocalDate().toString(), r[1], (int) r[0]));

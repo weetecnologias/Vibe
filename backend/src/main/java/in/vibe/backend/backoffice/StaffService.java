@@ -4,6 +4,7 @@ import in.vibe.backend.audit.AuditService;
 import in.vibe.backend.common.ApiException;
 import in.vibe.backend.security.JwtService;
 import in.vibe.backend.security.StaffPrincipal;
+import in.vibe.backend.security.TeamAccess;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -42,6 +43,14 @@ public class StaffService {
     public record Staff(String id, String email, String name, String role, String businessId, boolean active, boolean owner, boolean mustChangePassword) {}
 
     public record Session(String token, Instant expiresAt, Staff staff) {}
+
+    /** A person on a merchant's team, with the role the owner gave them. The owner has every area. */
+    public record TeamMember(String id, String email, String name, boolean active, boolean owner, boolean mustChangePassword, String staffRole, List<String> permissions) {}
+
+    public record TeamInput(@NotBlank @Email @Size(max = 200) String email, @NotBlank @Size(max = 120) String name, @NotBlank @Size(min = MIN_PASSWORD, max = 100) String password,
+                            @NotBlank String staffRole, List<String> permissions) {}
+
+    public record AccessInput(@NotBlank String staffRole, List<String> permissions) {}
 
     private final JdbcClient jdbc;
     private final PasswordEncoder encoder;
@@ -133,29 +142,55 @@ public class StaffService {
         return me;
     }
 
-    /** Everyone with a login for this business. */
-    public List<Staff> team(StaffPrincipal who) {
+    /** Everyone with a login for this business, with their role. */
+    public List<TeamMember> team(StaffPrincipal who) {
         UUID b = who.requireBusiness();
         return jdbc.sql("select * from staff_users where business_id = :b order by owner desc, lower(email)").param("b", b)
-                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"), rs.getBoolean("must_change_password"))).list();
+                .query((rs, i) -> {
+                    boolean owner = rs.getBoolean("owner");
+                    java.sql.Array a = rs.getArray("permissions");
+                    List<String> p = owner ? List.copyOf(TeamAccess.AREAS.keySet()) : a == null ? List.of() : java.util.Arrays.asList((String[]) a.getArray());
+                    return new TeamMember(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getBoolean("active"), owner, rs.getBoolean("must_change_password"), owner ? null : rs.getString("staff_role"), p);
+                }).list();
     }
 
+    /** The owner adds someone and decides what they may do: manager, cashier (bills only) or a custom set of areas. */
     @Transactional
-    public Staff addTeamMember(StaffPrincipal who, NewMerchant in) {
+    public TeamMember addTeamMember(StaffPrincipal who, TeamInput in) {
         requireOwner(who);
+        List<String> perms = TeamAccess.permissionsFor(in.staffRole(), in.permissions());
         String email = in.email().trim().toLowerCase(Locale.ROOT);
         if (byEmail(email).isPresent()) throw ApiException.conflict("duplicate", "That email already has an account.");
         UUID id = UUID.randomUUID();
-        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner, must_change_password) values (:id, :e, :n, :h, 'MERCHANT', :b, false, true)")
-                .param("id", id).param("e", email).param("n", in.name().trim()).param("h", encoder.encode(in.password())).param("b", who.requireBusiness()).update();
-        audit.record(who, "create", "staff", id, email);
-        return me(new StaffPrincipal(id, "MERCHANT", who.requireBusiness()));
+        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, business_id, owner, must_change_password, staff_role, permissions) values (:id, :e, :n, :h, 'MERCHANT', :b, false, true, :r, :p)")
+                .param("id", id).param("e", email).param("n", in.name().trim()).param("h", encoder.encode(in.password())).param("b", who.requireBusiness())
+                .param("r", in.staffRole()).param("p", perms.toArray(new String[0])).update();
+        audit.record(who, "create", "staff", id, email + " as " + in.staffRole() + " " + perms);
+        return teamMember(who, id);
+    }
+
+    /** The owner changes what someone may do. It applies on their next click; nobody has to sign in again. The owner's own access can't be limited. */
+    @Transactional
+    public TeamMember updateAccess(StaffPrincipal who, UUID id, AccessInput in) {
+        Staff t = teamTarget(who, id);
+        if (t.owner()) throw ApiException.conflict("owner", "The owner can always do everything.");
+        List<String> perms = TeamAccess.permissionsFor(in.staffRole(), in.permissions());
+        jdbc.sql("update staff_users set staff_role = :r, permissions = :p where id = :id").param("r", in.staffRole()).param("p", perms.toArray(new String[0])).param("id", id).update();
+        audit.record(who, "access", "staff", id, t.email() + " -> " + in.staffRole() + " " + perms);
+        return teamMember(who, id);
+    }
+
+    private TeamMember teamMember(StaffPrincipal who, UUID id) {
+        return team(who).stream().filter(m -> m.id().equals(id.toString())).findFirst().orElseThrow(() -> ApiException.notFound("Account not found."));
     }
 
     /** The target must be on the owner's own team. The owner can't switch themselves off, and nobody can touch another owner. */
     private Staff teamTarget(StaffPrincipal who, UUID id) {
         requireOwner(who);
-        return team(who).stream().filter(s -> s.id().equals(id.toString())).findFirst().orElseThrow(() -> ApiException.notFound("Account not found."));
+        UUID b = who.requireBusiness();
+        return jdbc.sql("select * from staff_users where id = :id and business_id = :b").param("id", id).param("b", b)
+                .query((rs, i) -> new Staff(rs.getString("id"), rs.getString("email"), rs.getString("name"), rs.getString("role"), rs.getString("business_id"), rs.getBoolean("active"), rs.getBoolean("owner"), rs.getBoolean("must_change_password")))
+                .optional().orElseThrow(() -> ApiException.notFound("Account not found."));
     }
 
     @Transactional

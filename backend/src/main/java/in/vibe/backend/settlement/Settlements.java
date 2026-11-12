@@ -82,7 +82,7 @@ public class Settlements {
 
     // ---------- admin ----------
     public List<Due> due() {
-        return jdbc.sql("select b.id, b.name, b.area, b.commission_bps, count(*) n, sum(p.amount) gross, sum(pr.vibe_fee) fees, sum(((p.amount - pr.vibe_fee) * b.commission_bps) / 10000) comm, "
+        return jdbc.sql("select b.id, b.name, b.area, b.commission_bps, count(*) n, sum(p.amount + pr.vibe_funded) gross, sum(pr.vibe_fee) fees, sum(((p.amount + pr.vibe_funded - pr.vibe_fee) * b.commission_bps) / 10000) comm, "
                         + "sum(p.savings) saved, min(p.verified_at) oldest, max(p.verified_at) newest" + UNSETTLED + " group by b.id, b.name, b.area, b.commission_bps order by min(p.verified_at)")
                 .query((rs, i) -> {
                     long gross = rs.getLong("gross"), fees = rs.getLong("fees"), comm = rs.getLong("comm");
@@ -100,7 +100,7 @@ public class Settlements {
         OffsetDateTime upTo = in.upTo() == null ? OffsetDateTime.now(clock) : in.upTo();
         // Two admins pressing the button together must not draw up two settlements for the same payments.
         jdbc.sql("select pg_advisory_xact_lock(hashtext(:k))").param("k", "settle:" + business).query((rs, i) -> 0).list();
-        List<Owed> owed = jdbc.sql("select p.id, p.amount, pr.vibe_fee, p.savings, p.verified_at" + UNSETTLED + " and pr.business_id = :b and p.verified_at <= :u order by p.verified_at")
+        List<Owed> owed = jdbc.sql("select p.id, p.amount + pr.vibe_funded amount, pr.vibe_fee, p.savings, p.verified_at" + UNSETTLED + " and pr.business_id = :b and p.verified_at <= :u order by p.verified_at")
                 .param("b", business).param("u", upTo)
                 .query((rs, i) -> new Owed((UUID) rs.getObject("id"), rs.getLong("amount"), rs.getLong("vibe_fee"), rs.getLong("savings"), rs.getObject("verified_at", OffsetDateTime.class))).list();
         if (owed.isEmpty()) throw ApiException.conflict("nothing_to_settle", "There are no confirmed payments to settle for this business up to that date.");
@@ -155,9 +155,9 @@ public class Settlements {
     /** `business` limits it to one business (a merchant may only open their own). */
     public Detail detail(UUID id, UUID business) {
         Summary s = summary(id, business);
-        List<Item> items = jdbc.sql("select p.reference, p.verified_at, c.name, c.vibe_id, pr.bill_ref, o.title, si.amount, si.vibe_fee, si.commission, si.payout, p.savings "
+        List<Item> items = jdbc.sql("select p.reference, p.verified_at, c.name, c.vibe_id, pr.bill_ref, coalesce(o.title, ev.title) title, si.amount, si.vibe_fee, si.commission, si.payout, p.savings "
                         + "from settlement_items si join payments p on p.id = si.payment_id join payment_requests pr on pr.id = p.payment_request_id join customers c on c.id = p.customer_id "
-                        + "left join redemptions r on r.id = pr.redemption_id left join offers o on o.id = r.offer_id where si.settlement_id = :id order by p.verified_at")
+                        + "left join redemptions r on r.id = pr.redemption_id left join offers o on o.id = r.offer_id left join ticket_reservations tr on tr.id = pr.reservation_id left join events ev on ev.id = tr.event_id where si.settlement_id = :id order by p.verified_at")
                 .param("id", id).query((rs, i) -> new Item(rs.getString("reference"), rs.getObject("verified_at", OffsetDateTime.class), Customers.displayName(rs.getString("name")), rs.getString("vibe_id"),
                         rs.getString("bill_ref"), rs.getString("title"), rs.getLong("amount"), rs.getLong("vibe_fee"), rs.getLong("commission"), rs.getLong("payout"), rs.getLong("savings"))).list();
         return new Detail(s, items);
@@ -199,7 +199,7 @@ public class Settlements {
 
     // ---------- merchant ----------
     public MerchantView merchantView(UUID business) {
-        Balance unsettled = jdbc.sql("select count(*), coalesce(sum(p.amount), 0), coalesce(sum(((p.amount - pr.vibe_fee) * b.commission_bps) / 10000), 0), coalesce(sum(p.amount - pr.vibe_fee), 0)" + UNSETTLED
+        Balance unsettled = jdbc.sql("select count(*), coalesce(sum(p.amount + pr.vibe_funded), 0), coalesce(sum(((p.amount + pr.vibe_funded - pr.vibe_fee) * b.commission_bps) / 10000), 0), coalesce(sum(p.amount + pr.vibe_funded - pr.vibe_fee), 0)" + UNSETTLED
                         + " and pr.business_id = :b").param("b", business)
                 .query((rs, i) -> new Balance(rs.getInt(1), rs.getLong(2), rs.getLong(3), rs.getLong(4) - rs.getLong(3))).single();
         long[] paid = jdbc.sql("select coalesce(sum(payout) filter (where status = 'pending'), 0), coalesce(sum(payout) filter (where status = 'paid'), 0) from settlements where business_id = :b")

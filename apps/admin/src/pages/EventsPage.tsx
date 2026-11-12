@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
-import { Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, showDateTime, useAsync, useAuth, type EventListRow, type EventStatus } from '@kit';
+import { Badge, EventSalesView, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, showDateTime, useAsync, useAuth, type EventListRow, type EventStatus } from '@kit';
 
 const FILTERS: { key: EventStatus | ''; label: string }[] = [{ key: 'pending', label: 'Waiting for review' }, { key: 'published', label: 'Published' }, { key: 'rejected', label: 'Rejected' }, { key: 'cancelled', label: 'Cancelled' }, { key: '', label: 'All' }];
 const TONE: Record<EventStatus, 'warning' | 'success' | 'muted'> = { pending: 'warning', published: 'success', rejected: 'muted', cancelled: 'muted' };
@@ -54,7 +54,7 @@ export function EventsPage() {
       {list.loading && !list.data ? <Loading /> : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Event</th><th>Organiser</th><th>When</th><th>From</th><th>Tickets</th><th>Status</th><th /></tr></thead>
+            <thead><tr><th>Event</th><th>Organiser</th><th>When</th><th>From</th><th>Sold</th><th>Status</th><th /></tr></thead>
             <tbody>
               {list.data?.map((e) => (
                 <tr key={e.id} className={e.status === 'cancelled' ? 'dim' : ''}>
@@ -62,9 +62,10 @@ export function EventsPage() {
                   <td className="small">{e.organiser}</td>
                   <td className="small">{showDateTime(e.startsAt)}</td>
                   <td>{formatINR(e.fromPrice)}</td>
-                  <td>{e.capacity}</td>
+                  <td><strong>{e.sold ?? 0}</strong> <span className="muted small">/ {e.capacity}</span></td>
                   <td><Badge tone={TONE[e.status]}>{LABEL[e.status]}</Badge>{e.autoApproved ? <div style={{ marginTop: 4 }}><Badge tone="success">Auto-approved</Badge></div> : null}</td>
                   <td className="actions">
+                    <Link className="btn sm" to={`/events/${e.id}/sales`} style={{ textDecoration: 'none' }}>Sales</Link>
                     <Link className="btn ghost sm" to={`/events/${e.id}`} style={{ textDecoration: 'none' }}>{e.status === 'pending' ? 'Review' : 'Edit'}</Link>
                     {e.status === 'pending' || e.status === 'rejected' ? <button className="btn primary sm" onClick={() => act(e, 'approve')}>Publish</button> : null}
                     {e.status === 'pending' || e.status === 'published' ? <button className="btn ghost sm danger" onClick={() => { setError(null); setNote(''); setRejecting(e); }}>Reject</button> : null}
@@ -92,4 +93,9 @@ export function EventsPage() {
       ) : null}
     </>
   );
+}
+
+export function EventSalesPage() {
+  const { id } = useParams();
+  return id ? <EventSalesView base="/v1/admin" eventId={id} backTo="/events" /> : null;
 }

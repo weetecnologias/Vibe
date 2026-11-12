@@ -232,15 +232,15 @@ class ContentToolsTest extends ApiTestSupport {
         String email = "staff-" + uniq() + "@test.local";
 
         mvc.perform(as(ownerA, get("/v1/merchant/team"))).andExpect(jsonPath("$", hasSize(1))).andExpect(jsonPath("$[0].owner", is(true)));
-        String staffId = id(mvc.perform(as(ownerA, post("/v1/merchant/team")).content("{\"email\":\"" + email + "\",\"name\":\"Waiter\",\"password\":\"" + PASSWORD + "\"}")).andExpect(status().isCreated())
-                .andExpect(jsonPath("$.owner", is(false))).andExpect(jsonPath("$.businessId", is(bizA))).andReturn());
-        mvc.perform(as(ownerA, post("/v1/merchant/team")).content("{\"email\":\"" + email + "\",\"name\":\"Dup\",\"password\":\"" + PASSWORD + "\"}")).andExpect(status().isConflict());
-        mvc.perform(as(ownerA, post("/v1/merchant/team")).content("{\"email\":\"s2-" + uniq() + "@test.local\",\"name\":\"Short\",\"password\":\"short\"}")).andExpect(status().isBadRequest());
+        String staffId = id(mvc.perform(as(ownerA, post("/v1/merchant/team")).content("{\"email\":\"" + email + "\",\"name\":\"Waiter\",\"password\":\"" + PASSWORD + "\",\"staffRole\":\"manager\"}")).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.owner", is(false))).andExpect(jsonPath("$.staffRole", is("manager"))).andReturn());
+        mvc.perform(as(ownerA, post("/v1/merchant/team")).content("{\"email\":\"" + email + "\",\"name\":\"Dup\",\"password\":\"" + PASSWORD + "\",\"staffRole\":\"manager\"}")).andExpect(status().isConflict());
+        mvc.perform(as(ownerA, post("/v1/merchant/team")).content("{\"email\":\"s2-" + uniq() + "@test.local\",\"name\":\"Short\",\"password\":\"short\",\"staffRole\":\"manager\"}")).andExpect(status().isBadRequest());
 
         // Staff can sign in and work on the business, but can't add people.
         String staffToken = signInSettled(email, PASSWORD);
         mvc.perform(as(staffToken, get("/v1/merchant/business"))).andExpect(jsonPath("$.id", is(bizA)));
-        mvc.perform(as(staffToken, post("/v1/merchant/team")).content("{\"email\":\"s3-" + uniq() + "@test.local\",\"name\":\"X\",\"password\":\"" + PASSWORD + "\"}")).andExpect(status().isForbidden());
+        mvc.perform(as(staffToken, post("/v1/merchant/team")).content("{\"email\":\"s3-" + uniq() + "@test.local\",\"name\":\"X\",\"password\":\"" + PASSWORD + "\",\"staffRole\":\"manager\"}")).andExpect(status().isForbidden());
         mvc.perform(as(staffToken, post("/v1/merchant/team/" + staffId + "/deactivate"))).andExpect(status().isForbidden());
 
         // Another business's owner can't see or touch this team.

@@ -12,3 +12,4 @@ export * from './types';
 export * from './ui';
 export { ChangePasswordPage } from './ChangePasswordPage';
 export { NotificationBell } from './NotificationBell';
+export { EventSalesView } from './EventSales';

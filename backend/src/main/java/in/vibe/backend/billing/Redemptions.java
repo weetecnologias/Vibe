@@ -190,10 +190,11 @@ public class Redemptions {
     // ---------- payment request view ----------
     public PaymentRequestView paymentRequest(UUID id) {
         List<BillLine> lines = jdbc.sql("select label, amount from payment_request_lines where payment_request_id = :id order by position").param("id", id).query((rs, i) -> new BillLine(rs.getString(1), rs.getLong(2))).list();
-        return jdbc.sql("select * from payment_requests where id = :id").param("id", id).query((rs, i) -> {
+        return jdbc.sql("select pr.*, cc.code ccode, cc.title ctitle, cc.member_only cmember from payment_requests pr left join checkout_coupons cc on cc.id = pr.coupon_id where pr.id = :id").param("id", id).query((rs, i) -> {
             Object taxes = rs.getObject("taxes");
+            Object applied = rs.getObject("coupon_id") == null ? null : Map.of("id", rs.getString("coupon_id"), "code", rs.getString("ccode"), "title", rs.getString("ctitle"), "memberOnly", rs.getBoolean("cmember"));
             return new PaymentRequestView(rs.getString("id"), rs.getString("bill_ref"), rs.getString("raised_by"), rs.getObject("raised_at", OffsetDateTime.class), lines, rs.getLong("eligible_amount"),
-                    rs.getLong("discount"), rs.getString("discount_label"), taxes == null ? null : ((Number) taxes).longValue(), rs.getLong("vibe_fee"), rs.getLong("payable"), "INR", null, rs.getObject("expires_at", OffsetDateTime.class));
+                    rs.getLong("discount"), rs.getString("discount_label"), taxes == null ? null : ((Number) taxes).longValue(), rs.getLong("vibe_fee"), rs.getLong("payable"), "INR", applied, rs.getObject("expires_at", OffsetDateTime.class));
         }).optional().orElseThrow(() -> ApiException.notFound("This bill is no longer available."));
     }
 

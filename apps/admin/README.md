@@ -7,6 +7,7 @@ React + Vite + TypeScript. For VIBE staff. Shares its UI, API client and money h
 - **Overview:** money collected, redemptions, customers, members, what members saved, and what is waiting for you (applications, offers and events to review, deletion requests).
 - **Customers:** search everyone, see their membership, payments and redemptions, reveal a phone number (audited), grant membership with a reason.
 - **Transactions:** every payment, who paid, where, how much, and whether the payment partner confirmed it. Downloads to Excel with the same filters.
+- **Event sales:** tickets sold per event, and a Sales page with bookings and door check-in for VIBE's own events. Cancelling an event with sales cancels every ticket and tells the buyers.
 - **Settlements:** what each merchant is owed, drawing up a settlement, recording the bank transfer (UTR); each settlement and every list downloads to Excel. Merchants are told at each step.
 - **Members:** who holds a plan, from which date, and how they got it (bought or granted).
 - **Applications:** businesses that applied to join. Approve (creates the listing, switched off, and the owner's login), ask for changes, or reject with a reason.

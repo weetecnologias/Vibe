@@ -29,6 +29,7 @@ export function BillsPage() {
   const [billing, setBilling] = useState<BillRow | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [howTo, setHowTo] = useState(false);
 
   // New customers appear and payments land without anyone pressing refresh.
   const reload = board.reload;
@@ -53,7 +54,8 @@ export function BillsPage() {
 
   return (
     <>
-      <PageHead title="Bills" sub="Customers who tapped Redeem in the VIBE app show up here. Enter their bill and send it: they see it in the app and pay there." />
+      <PageHead title="Bills" sub="Customers who want to pay through VIBE show up here. Enter their bill and send it: it appears on their phone and they pay there." actions={<button className="btn ghost" onClick={() => setHowTo(!howTo)}>{howTo ? 'Hide how it works' : 'How a bill starts'}</button>} />
+      {howTo || (board.data && board.data.rows.length === 0 && view === 'open' && !term) ? <HowABillStarts /> : null}
       <div className="stats">
         <div className="card"><span className="muted small">Paid today</span><strong>{s?.paidToday ?? '–'}</strong></div>
         <div className="card"><span className="muted small">Collected today</span><strong>{s ? formatINR(s.paidTodayAmount) : '–'}</strong></div>
@@ -116,6 +118,22 @@ export function BillsPage() {
 
       {billing ? <RaiseBill row={billing} onClose={() => setBilling(null)} onSent={(msg) => { setBilling(null); setNotice(msg); board.reload(); }} /> : null}
     </>
+  );
+}
+
+/** What staff tell a customer who wants to pay through VIBE. The customer starts it, so VIBE knows who is paying and which offer applies. */
+function HowABillStarts() {
+  return (
+    <div className="card stack" style={{ marginBottom: 14 }}>
+      <strong>How a customer pays through VIBE</strong>
+      <ol className="steps">
+        <li><strong>The customer</strong> opens your place in the VIBE app, picks an offer and taps <strong>Redeem</strong>. Their phone shows their first name and a 6-digit VIBE ID.</li>
+        <li><strong>They appear here</strong> under Waiting, with a sound and an alert. Match the VIBE ID on their phone.</li>
+        <li><strong>You tap Raise bill</strong>, pick what they had from your menu (or type amounts) and send it. VIBE works out the discount.</li>
+        <li><strong>The bill appears on their phone</strong> and they pay there. You see it turn to Paid, and the money comes to you in your next settlement.</li>
+      </ol>
+      <span className="muted small">If a customer isn’t in the list, ask them to tap Redeem on your offer in the VIBE app. A wrong bill can be withdrawn until they start paying.</span>
+    </div>
   );
 }
 

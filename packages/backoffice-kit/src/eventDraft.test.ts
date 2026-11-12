@@ -50,9 +50,11 @@ describe('event form', () => {
     };
     const d = eventToDraft(row);
     expect(d).toMatchObject({ startsAt: '2027-01-15T20:00', doorsMinutes: '45', ageLimit: '21', terms: 'A\nB', coverUrl: '' });
-    expect(d.tickets[0]).toEqual({ name: 'VIP', description: '', price: '1499', capacity: '30', maxPerOrder: '4' });
+    expect(d.tickets[0]).toEqual({ id: 't1', name: 'VIP', description: '', price: '1499', capacity: '30', maxPerOrder: '4' });
     const back = buildEvent(d, false);
     expect(back.ok && back.input.startsAt).toBe(row.startsAt);
     expect(back.ok && back.input.gatesOpenAt).toBe(row.gatesOpenAt);
+    // The ticket type keeps its id, so an edit changes it in place and tickets already sold stay valid.
+    expect(back.ok && back.input.ticketTypes[0].id).toBe('t1');
   });
 });

@@ -14,9 +14,9 @@ Status key: ✅ built and tested · 🟡 partly built · ⛔ not built yet.
 | Discover and business pages | 4 | ✅ (ratings and reviews are empty) | ✅ listings | ✅ profile, menu, hours, photos, upload |
 | Offers (list, detail, eligibility) | 3 | ✅ | ✅ review and approve | ✅ create (reviewed) |
 | **Pay & Redeem** (redeem, bill, pay, receipt) | 7 | ✅ | ✅ transactions list and detail, overview totals | ✅ alert on redeem, bills from the menu, per-category rules |
-| Events: browse, book, my tickets, ticket | 5 | 🟡 browse only; **no booking, holds, tickets** | ✅ review and publish | 🟡 create; **no sales view** |
+| Events: browse, book, my tickets, ticket | 5 | ✅ holds, payment, QR tickets, coupons (free tickets not yet) | ✅ review, publish, sales, cancel with buyers told | ✅ sold and left, bookings, alerts, door check-in |
 | Movies: films, cinemas, shows, seats, hold | 6 | ⛔ | ⛔ | ⛔ no showtimes or seat layouts |
-| Checkout coupons | 3 | 🟡 stored; **not applied** | ✅ manage | n/a |
+| Checkout coupons | 3 | ✅ applied to ticket orders (movies when they exist) | ✅ manage | n/a |
 | Membership: plans, subscribe, change, cancel | 5 | ✅ purchase, stacking, cancel (no auto-renew yet: needs the partner's recurring payments) | ✅ plans, members list, grant with reason | n/a |
 | Social: activities, groups, hosting | 5 | ⛔ | ⛔ no hosts, no approvals, no moderation | ⛔ no hosting |
 | One-on-one: invites, chat, safety | 9 | ⛔ | ⛔ no moderation queue | n/a |
@@ -55,6 +55,10 @@ Status key: ✅ built and tested · 🟡 partly built · ⛔ not built yet.
 
 **Settlements (built 12 Nov 2026).** Every confirmed payment at a business is owed to it, less VIBE's fee (when the customer paid one) and VIBE's commission (set per merchant by the admin, with a reason, audited). The admin sees what each merchant is owed, draws up a settlement (each payment can be in one settlement only, ever), transfers the money and records the bank reference (UTR). The merchant is told when a settlement is drawn up and when it is paid, and sees every payment in it. Transactions, members, customers, settlements and each settlement's payments download as spreadsheets that open in Excel.
 
+**Merchant team roles (built 12 Nov 2026).** The owner can do everything and chooses each person's role: cashier / waiter (bills only), manager (everything except the team) or custom areas. Enforced by the server, applied at once, and each person sees only their alerts.
+
+**How a bill starts.** The customer starts it by tapping Redeem on an offer at the place; staff see them under Bills, raise the bill from the menu, and the customer pays in the app. A bill started by staff for a customer who hasn't tapped Redeem (by VIBE ID) needs a "bills for you" screen in the customer app first: planned.
+
 **Auto-approval (built 12 Nov 2026).** The admin can mark a merchant as trusted: its new and changed offers and events go live straight away, marked "Auto-approved", and admins are still told. Trust can be taken away; the merchant is told either way.
 
 ## 3. Who is told what
@@ -83,7 +87,7 @@ Each phase ends with tests green and a browser walk-through of the whole flow ac
 | --- | --- | --- |
 | **P1** (done) | Staff notifications; billing from the menu with merchant alerts; per-category billing rules; admin overview, customers and transactions; membership purchase and the admin members list; merchant onboarding with approval | Finishes the money flow you described and gives admin eyes on everything that already exists |
 | **P1.5** (done) | Settlements with commission, merchant settlement reports and alerts, Excel downloads, auto-approval for trusted merchants, merchant results page, grouped dashboard menus | The money has to reconcile before tickets add more of it |
-| **P2** | Events ticketing: booking, holds, tickets with QR, merchant sales, check-in, coupons at checkout | Needs P1's notifications and payments |
+| **P2** (done) | Events ticketing: booking, holds, tickets with QR, merchant sales, check-in, coupons at checkout | Needs P1's notifications and payments |
 | **P3** | Movies: cinema setup (screens, seat layouts, showtimes), seat maps, holds, tickets | Builds on P2 |
 | **P4** | Social: hosting programme, activities, groups, join and approvals, moderation | Needs P1 admin queues |
 | **P5** | One-on-one, chat with the safety rules, meet reservations, split payment | Needs P2, P3 and P4 |

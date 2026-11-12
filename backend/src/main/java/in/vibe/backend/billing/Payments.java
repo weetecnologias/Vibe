@@ -63,8 +63,11 @@ public class Payments {
     private final long simulateAfterMs;
     private final SecureRandom random = new SecureRandom();
 
+    private final in.vibe.backend.tickets.Ticketing ticketing;
+
     Payments(JdbcClient jdbc, Redemptions redemptions, Notifications notifications, StaffNotifications staffNotifications, Memberships memberships, PaymentProvider provider, JsonMapper json, Clock clock,
-             @Value("${vibe.payments.webhook-secret:}") String webhookSecret, @Value("${vibe.payments.simulate-after-ms:0}") long simulateAfterMs) {
+             @Value("${vibe.payments.webhook-secret:}") String webhookSecret, @Value("${vibe.payments.simulate-after-ms:0}") long simulateAfterMs, in.vibe.backend.tickets.Ticketing ticketing) {
+        this.ticketing = ticketing;
         this.jdbc = jdbc;
         this.redemptions = redemptions;
         this.notifications = notifications;
@@ -81,7 +84,7 @@ public class Payments {
 
     // ---------- the bill, as the checkout screen reads it ----------
     public CheckoutRequest paymentRequest(UUID customer, UUID id) {
-        var owner = jdbc.sql("select p.status, coalesce(b.name, 'VIBE Membership'), p.kind from payment_requests p left join businesses b on b.id = p.business_id where p.id = :id and p.customer_id = :c").param("id", id).param("c", customer)
+        var owner = jdbc.sql("select p.status, coalesce(b.name, case p.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end), p.kind from payment_requests p left join businesses b on b.id = p.business_id where p.id = :id and p.customer_id = :c").param("id", id).param("c", customer)
                 .query((rs, i) -> new String[]{rs.getString(1), rs.getString(2), rs.getString(3)}).optional().orElseThrow(() -> ApiException.notFound("This bill is no longer available."));
         if ("void".equals(owner[0])) throw ApiException.notFound("This bill was withdrawn.");
         Redemptions.PaymentRequestView v = redemptions.paymentRequest(id);
@@ -102,12 +105,12 @@ public class Payments {
             if (!customer.equals(prior.get()[1]) || !requestId.equals(prior.get()[2])) throw ApiException.conflict("key_reuse", "That payment key was already used for something else.");
             return new Start((String) prior.get()[0], provider.simulated() ? Map.of("mode", "demo") : Map.of("mode", "provider", "provider", provider.name(), "orderId", prior.get()[3], "publicKey", ""));
         }
-        record Pr(String status, OffsetDateTime expiresAt, long payable, long discount, UUID redemption) {}
-        Pr pr = jdbc.sql("select status, expires_at, payable, discount, redemption_id from payment_requests where id = :id and customer_id = :c for update").param("id", requestId).param("c", customer)
-                .query((rs, i) -> new Pr(rs.getString(1), rs.getObject(2, OffsetDateTime.class), rs.getLong(3), rs.getLong(4), (UUID) rs.getObject(5))).optional().orElseThrow(() -> ApiException.notFound("This bill is no longer available."));
+        record Pr(String status, OffsetDateTime expiresAt, long payable, long discount, UUID redemption, String kind) {}
+        Pr pr = jdbc.sql("select status, expires_at, payable, discount, redemption_id, kind from payment_requests where id = :id and customer_id = :c for update").param("id", requestId).param("c", customer)
+                .query((rs, i) -> new Pr(rs.getString(1), rs.getObject(2, OffsetDateTime.class), rs.getLong(3), rs.getLong(4), (UUID) rs.getObject(5), rs.getString(6))).optional().orElseThrow(() -> ApiException.notFound("This bill is no longer available."));
         if (pr.status().equals("void")) throw ApiException.notFound("This bill was withdrawn.");
         if (pr.status().equals("paid")) throw ApiException.conflict("already_paid", "This bill is already paid.");
-        if (pr.expiresAt().isBefore(now())) throw new ApiException(HttpStatus.GONE, "expired", "This bill has expired. Ask the staff to send it again.");
+        if (pr.expiresAt().isBefore(now())) throw new ApiException(HttpStatus.GONE, "expired", "tickets".equals(pr.kind()) ? "Your tickets were held for " + in.vibe.backend.tickets.Ticketing.HOLD_MINUTES + " minutes and have been released. Choose them again." : "This bill has expired. Ask the staff to send it again.");
         String reference = "VB-" + code(4) + "-" + code(4);
         PaymentProviders.Order order = provider.createOrder(reference, pr.payable(), method); // refuses when no partner is connected
         try {
@@ -129,9 +132,9 @@ public class Payments {
         if (provider.simulated() && "pending".equals(p[1]) && provider.name().equals(p[3]) && ((OffsetDateTime) p[2]).plusNanos(simulateAfterMs * 1_000_000).isBefore(now())) {
             applyVerified((UUID) p[0], "pay_sim_" + code(10));
         }
-        return jdbc.sql("select p.*, coalesce(b.name, 'VIBE Membership') bname, pr.discount_label, pr.id prid, pr.kind prkind from payments p join payment_requests pr on pr.id = p.payment_request_id left join businesses b on b.id = pr.business_id where p.reference = :r").param("r", reference)
+        return jdbc.sql("select p.*, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) bname, pr.discount_label, pr.id prid, pr.kind prkind from payments p join payment_requests pr on pr.id = p.payment_request_id left join businesses b on b.id = pr.business_id where p.reference = :r").param("r", reference)
                 .query((rs, i) -> new PaymentView(rs.getString("reference"), rs.getString("prkind"), rs.getString("status"), rs.getString("method"), rs.getLong("amount"), rs.getLong("savings"), rs.getString("bname"), rs.getString("provider_payment_id"),
-                        rs.getObject("verified_at", OffsetDateTime.class), rs.getString("failure_reason"), redemptions.paymentRequest((UUID) rs.getObject("prid")).lines(), List.of(), rs.getLong("savings") > 0 ? rs.getString("discount_label") : null)).single();
+                        rs.getObject("verified_at", OffsetDateTime.class), rs.getString("failure_reason"), redemptions.paymentRequest((UUID) rs.getObject("prid")).lines(), ticketing.ticketIds((UUID) rs.getObject("prid")), rs.getLong("savings") > 0 ? rs.getString("discount_label") : null)).single();
     }
 
     // ---------- the payment partner says it is paid ----------
@@ -148,6 +151,10 @@ public class Payments {
                 .query((rs, i) -> new P((UUID) rs.getObject(1), (UUID) rs.getObject(2), rs.getLong(3), rs.getLong(4))).single();
         var pr = jdbc.sql("select kind, redemption_id, business_id, plan_id from payment_requests where id = :id").param("id", p.pr()).query((rs, i) -> new Object[]{rs.getString(1), rs.getObject(2), rs.getObject(3), rs.getObject(4)}).single();
         jdbc.sql("update payment_requests set status = 'paid' where id = :id").param("id", p.pr()).update();
+        if ("tickets".equals(pr[0])) {
+            ticketing.issue(p.pr(), paymentId);
+            return true;
+        }
         if ("membership".equals(pr[0])) {
             OffsetDateTime until = memberships.activate(p.customer(), (UUID) pr[3], paymentId, p.amount(), "paid", null);
             notifications.notify(p.customer(), "membership_started", "Welcome to VIBE membership", "Your membership is active until " + until.toLocalDate() + ". Member offers are now open to you.", "membership", null);

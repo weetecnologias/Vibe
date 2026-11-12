@@ -97,13 +97,15 @@ class DevSeed implements ApplicationRunner {
 
         OffsetDateTime friday = OffsetDateTime.now().plusDays(4).withHour(20).withMinute(0).withSecond(0).withNano(0);
         events.adminCreate(admin, new Events.Input("Sunset Rooftop Jazz", "Live Events", "An evening of live jazz on the rooftop.", "Skyline Terrace", "Banjara Hills", friday, friday.minusMinutes(45), null, 18, List.of("Entry with a valid ticket only."), "VIBE Hosts", true,
-                List.of(new Events.TicketTypeInput("General", "Standing", 79900L, 120, 6), new Events.TicketTypeInput("VIP", "Reserved seating", 149900L, 30, 4))));
-        events.merchantCreate(merchant, new Events.Input("Biryani Masterclass", "Workshops", "Learn dum biryani from our head chef.", "Saffron Courtyard", "Jubilee Hills", friday.plusDays(2), null, null, null, List.of(), null, null,
-                List.of(new Events.TicketTypeInput("Seat", "Includes lunch", 99900L, 20, 4))));
+                List.of(new Events.TicketTypeInput("General", "Standing", 79900L, 120, 6, null), new Events.TicketTypeInput("VIP", "Reserved seating", 149900L, 30, 4, null))));
+        var masterclass = events.merchantCreate(merchant, new Events.Input("Biryani Masterclass", "Workshops", "Learn dum biryani from our head chef.", "Saffron Courtyard", "Jubilee Hills", friday.plusDays(2), null, null, null, List.of(), null, null,
+                List.of(new Events.TicketTypeInput("Seat", "Includes lunch", 99900L, 20, 4, null))));
+        events.review(admin, UUID.fromString(masterclass.id()), true, null);
 
         OffsetDateTime from = OffsetDateTime.now().minusDays(1), to = OffsetDateTime.now().plusMonths(6);
         coupons.create(admin, new Coupons.Input("MEMBERFLIX", "Members: 15% off movie tickets", "Up to ₹150 off bookings of ₹300 or more", true, List.of("movie"), "percentage", 1500, null, 15000L, 30000L, false, 4, List.of("For active VIBE members."), from, to, true));
         coupons.create(admin, new Coupons.Input("WELCOME50", "₹50 off your first booking", "Movies and events, on bookings of ₹250 or more", false, List.of("movie", "tickets"), "flat", null, 5000L, null, 25000L, true, 1, List.of(), from, to, true));
+        staff.addTeamMember(merchant, new StaffService.TeamInput("cashier@vibe.local", "Saffron cashier", password, "cashier", List.of()));
         jdbc.sql("update staff_users set must_change_password = false").update();
         log.warn("DEV SEED loaded: admin@vibe.local and merchant@vibe.local with the dev seed password. Development only.");
         log.info("Seeded businesses: {} and {}", saffron.name(), brew.name());

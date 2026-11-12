@@ -80,7 +80,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filters(HttpSecurity http, JsonMapper json) throws Exception {
+    SecurityFilterChain filters(HttpSecurity http, JsonMapper json, TeamAccess teamAccess) throws Exception {
         JwtGrantedAuthoritiesConverter roles = new JwtGrantedAuthoritiesConverter();
         roles.setAuthoritiesClaimName("role");
         roles.setAuthorityPrefix("ROLE_");
@@ -97,15 +97,17 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/v1/business-applications/*").permitAll()
                 .requestMatchers(HttpMethod.PUT, "/v1/business-applications/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/v1/offers/*/eligibility").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.POST, "/v1/events/*/reservations").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.GET, "/v1/categories", "/v1/businesses", "/v1/businesses/*", "/v1/home", "/v1/membership/plans", "/v1/events", "/v1/events/*", "/v1/offers", "/v1/offers/*", "/media/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/v1/media").hasAnyRole("ADMIN", "MERCHANT")
-                .requestMatchers("/v1/auth/logout", "/v1/me", "/v1/me/**", "/v1/redemptions", "/v1/redemptions/**", "/v1/payment-requests/**", "/v1/payments/**", "/v1/membership", "/v1/membership/subscriptions", "/v1/membership/plan-change", "/v1/membership/cancel").hasRole("CUSTOMER")
+                .requestMatchers("/v1/auth/logout", "/v1/me", "/v1/me/**", "/v1/redemptions", "/v1/redemptions/**", "/v1/payment-requests/**", "/v1/payments/**", "/v1/tickets/**", "/v1/membership", "/v1/membership/subscriptions", "/v1/membership/plan-change", "/v1/membership/cancel").hasRole("CUSTOMER")
                 .requestMatchers("/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/v1/merchant/**").hasRole("MERCHANT")
                 .requestMatchers("/v1/staff/**").hasAnyRole("ADMIN", "MERCHANT")
                 .anyRequest().denyAll())
             .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter)))
             .addFilterAfter(new PasswordChangeGate(json), BearerTokenAuthenticationFilter.class)
+            .addFilterAfter(new MerchantAccessGate(teamAccess, json), PasswordChangeGate.class)
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((req, res, ex) -> write(res, json, 401, new ApiError("unauthorized", "Please sign in.")))
                 .accessDeniedHandler((req, res, ex) -> write(res, json, 403, new ApiError("forbidden", "You don’t have access to this."))));

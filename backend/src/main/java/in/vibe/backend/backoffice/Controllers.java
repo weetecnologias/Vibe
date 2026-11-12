@@ -216,6 +216,11 @@ public class Controllers {
             return menuAndOffers.updateOffer(StaffPrincipal.from(jwt), uuid(id), in);
         }
 
+        public record Active(boolean active) {}
+
+        @PostMapping("/offers/{id}/active")
+        MenuAndOffers.OfferRow setActive(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Active in) { return menuAndOffers.setOfferActive(StaffPrincipal.from(jwt), uuid(id), in.active()); }
+
         @DeleteMapping("/offers/{id}")
         ResponseEntity<Void> deleteOffer(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
             menuAndOffers.deleteOffer(StaffPrincipal.from(jwt), uuid(id));
