@@ -30,7 +30,12 @@ public class Categories {
     public record Node(String id, String slug, String name, String icon, String iconUrl, String imageUrl, List<Node> children) {}
 
     /** The admin's flat view, including inactive categories. */
-    public record Row(String id, String parentId, int level, String slug, String name, String icon, String iconUrl, String imageUrl, int sortOrder, boolean active, int businessCount, boolean payRedeem, String menuLabel) {}
+    /** features: what this category sets itself (null = same as its parent). effectiveFeatures: what its businesses actually get. */
+    public record Row(String id, String parentId, int level, String slug, String name, String icon, String iconUrl, String imageUrl, int sortOrder, boolean active, int businessCount, boolean payRedeem, String menuLabel,
+                      List<String> features, List<String> effectiveFeatures) {}
+
+    /** What a business applying to join picks from: only categories a merchant can be in, with what they'd get. */
+    public record MerchantNode(String id, String slug, String name, List<String> features, List<MerchantNode> children) {}
 
     public record Input(
             String parentId,
@@ -44,7 +49,9 @@ public class Categories {
             /** Whether businesses here use Pay & Redeem bills. Off for cinemas and event organisers. Default on. */
             Boolean payRedeem,
             /** What the item list is called: Menu, Price list, Services. Empty means the parent's, or Menu. */
-            @Size(max = 30) String menuLabel) {}
+            @Size(max = 30) String menuLabel,
+            /** The merchant features businesses here get (see MerchantFeatures). Null = the same as the parent category. */
+            List<String> features) {}
 
     private final JdbcClient jdbc;
     private final AuditService audit;
@@ -54,13 +61,14 @@ public class Categories {
         this.audit = audit;
     }
 
-    private record Flat(UUID id, UUID parentId, String slug, String name, String icon, String iconUrl, String imageUrl, int sortOrder, boolean active, boolean payRedeem, String menuLabel) {}
+    private record Flat(UUID id, UUID parentId, String slug, String name, String icon, String iconUrl, String imageUrl, int sortOrder, boolean active, boolean payRedeem, String menuLabel, List<String> features) {}
 
     private List<Flat> flat(boolean activeOnly) {
-        return jdbc.sql("select id, parent_id, slug, name, icon, icon_url, image_url, sort_order, active, pay_redeem, menu_label from categories "
+        return jdbc.sql("select id, parent_id, slug, name, icon, icon_url, image_url, sort_order, active, pay_redeem, menu_label, features from categories "
                         + (activeOnly ? "where active " : "") + "order by sort_order, name")
                 .query((rs, i) -> new Flat((UUID) rs.getObject("id"), (UUID) rs.getObject("parent_id"), rs.getString("slug"), rs.getString("name"),
-                        rs.getString("icon"), rs.getString("icon_url"), rs.getString("image_url"), rs.getInt("sort_order"), rs.getBoolean("active"), rs.getBoolean("pay_redeem"), rs.getString("menu_label")))
+                        rs.getString("icon"), rs.getString("icon_url"), rs.getString("image_url"), rs.getInt("sort_order"), rs.getBoolean("active"), rs.getBoolean("pay_redeem"), rs.getString("menu_label"),
+                        rs.getArray("features") == null ? null : List.of((String[]) rs.getArray("features").getArray())))
                 .list();
     }
 
@@ -98,7 +106,38 @@ public class Categories {
         jdbc.sql("select category_id, count(*) n from business_categories group by category_id")
                 .query((rs, i) -> { counts.put((UUID) rs.getObject(1), rs.getInt(2)); return 0; }).list();
         return all.stream().map(f -> new Row(f.id().toString(), f.parentId() == null ? null : f.parentId().toString(), levelOf(f.id(), byId), f.slug(), f.name(),
-                f.icon(), f.iconUrl(), f.imageUrl(), f.sortOrder(), f.active(), counts.getOrDefault(f.id(), 0), f.payRedeem(), f.menuLabel())).toList();
+                f.icon(), f.iconUrl(), f.imageUrl(), f.sortOrder(), f.active(), counts.getOrDefault(f.id(), 0), f.payRedeem(), f.menuLabel(), f.features(), effective(f, byId))).toList();
+    }
+
+    /** The nearest features set going up the tree; if none are set anywhere, everything (minus bills and offers where Pay & Redeem is off). */
+    private static List<String> effective(Flat start, Map<UUID, Flat> byId) {
+        boolean bills = true;
+        for (Flat f = start; f != null; f = f.parentId() == null ? null : byId.get(f.parentId())) {
+            if (f.features() != null) return MerchantFeatures.ALL.keySet().stream().filter(f.features()::contains).toList();
+            bills &= f.payRedeem();
+        }
+        boolean keep = bills;
+        return MerchantFeatures.ALL.keySet().stream().filter(k -> keep || !(k.equals("bills") || k.equals("offers"))).toList();
+    }
+
+    /** Active categories a merchant can onboard in (those with at least one feature), as a tree, each with what its businesses get. */
+    public List<MerchantNode> merchantTree() {
+        List<Flat> all = flat(true);
+        Map<UUID, Flat> byId = new HashMap<>();
+        all.forEach(f -> byId.put(f.id(), f));
+        Map<UUID, List<Flat>> byParent = new HashMap<>();
+        for (Flat f : all) byParent.computeIfAbsent(f.parentId(), k -> new ArrayList<>()).add(f);
+        return merchantNodes(null, byParent, byId);
+    }
+
+    private List<MerchantNode> merchantNodes(UUID parent, Map<UUID, List<Flat>> byParent, Map<UUID, Flat> byId) {
+        List<MerchantNode> out = new ArrayList<>();
+        for (Flat f : byParent.getOrDefault(parent, List.of())) {
+            List<String> features = effective(f, byId);
+            List<MerchantNode> children = merchantNodes(f.id(), byParent, byId);
+            if (!features.isEmpty() || !children.isEmpty()) out.add(new MerchantNode(f.id().toString(), f.slug(), f.name(), features, children));
+        }
+        return out;
     }
 
     private static int levelOf(UUID id, Map<UUID, Flat> byId) {
@@ -112,10 +151,12 @@ public class Categories {
         UUID parent = parse(in.parentId());
         checkDepth(parent, null);
         UUID id = UUID.randomUUID();
-        jdbc.sql("insert into categories (id, parent_id, slug, name, icon, icon_url, image_url, sort_order, active, pay_redeem, menu_label) values (:id, :p, :s, :n, :i, :iu, :im, :o, :a, :pr, :ml)")
+        List<String> features = MerchantFeatures.clean(in.features());
+        jdbc.sql("insert into categories (id, parent_id, slug, name, icon, icon_url, image_url, sort_order, active, pay_redeem, menu_label, features) values (:id, :p, :s, :n, :i, :iu, :im, :o, :a, :pr, :ml, :f)")
                 .param("id", id).param("p", parent, java.sql.Types.OTHER).param("s", in.slug()).param("n", in.name().trim()).param("i", blank(in.icon()))
                 .param("iu", blank(in.iconUrl())).param("im", blank(in.imageUrl())).param("o", in.sortOrder() == null ? 0 : in.sortOrder())
-                .param("a", in.active() == null || in.active()).param("pr", in.payRedeem() == null || in.payRedeem()).param("ml", blank(in.menuLabel())).update();
+                .param("a", in.active() == null || in.active()).param("pr", payRedeem(in, features)).param("ml", blank(in.menuLabel()))
+                .param("f", features == null ? null : features.toArray(new String[0]), java.sql.Types.ARRAY).update();
         audit.record(who, "create", "category", id, in.slug());
         return row(id);
     }
@@ -125,11 +166,13 @@ public class Categories {
         row(id);
         UUID parent = parse(in.parentId());
         checkDepth(parent, id);
-        jdbc.sql("update categories set parent_id = :p, slug = :s, name = :n, icon = :i, icon_url = :iu, image_url = :im, sort_order = :o, active = :a, pay_redeem = :pr, menu_label = :ml, updated_at = now() where id = :id")
+        List<String> features = MerchantFeatures.clean(in.features());
+        jdbc.sql("update categories set parent_id = :p, slug = :s, name = :n, icon = :i, icon_url = :iu, image_url = :im, sort_order = :o, active = :a, pay_redeem = :pr, menu_label = :ml, features = :f, updated_at = now() where id = :id")
                 .param("id", id).param("p", parent, java.sql.Types.OTHER).param("s", in.slug()).param("n", in.name().trim()).param("i", blank(in.icon()))
                 .param("iu", blank(in.iconUrl())).param("im", blank(in.imageUrl())).param("o", in.sortOrder() == null ? 0 : in.sortOrder())
-                .param("a", in.active() == null || in.active()).param("pr", in.payRedeem() == null || in.payRedeem()).param("ml", blank(in.menuLabel())).update();
-        audit.record(who, "update", "category", id, in.slug());
+                .param("a", in.active() == null || in.active()).param("pr", payRedeem(in, features)).param("ml", blank(in.menuLabel()))
+                .param("f", features == null ? null : features.toArray(new String[0]), java.sql.Types.ARRAY).update();
+        audit.record(who, "update", "category", id, in.slug() + (features == null ? "" : " · features: " + String.join(", ", features)));
         return row(id);
     }
 
@@ -145,6 +188,11 @@ public class Categories {
         }
         jdbc.sql("delete from categories where id = :id").param("id", id).update();
         audit.record(who, "delete", "category", id, r.slug());
+    }
+
+    /** Once features are chosen, the old Pay & Redeem switch simply follows "bills". */
+    private static boolean payRedeem(Input in, List<String> features) {
+        return features != null ? features.contains("bills") : in.payRedeem() == null || in.payRedeem();
     }
 
     public Row row(UUID id) {

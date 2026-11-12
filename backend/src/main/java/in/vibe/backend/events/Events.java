@@ -75,7 +75,10 @@ public class Events {
 
     private final in.vibe.backend.tickets.Ticketing ticketing;
 
-    Events(JdbcClient jdbc, AuditService audit, Clock clock, in.vibe.backend.notify.StaffNotifications staffNotifications, in.vibe.backend.tickets.Ticketing ticketing) {
+    private final in.vibe.backend.billing.Refunds refunds;
+
+    Events(JdbcClient jdbc, AuditService audit, Clock clock, in.vibe.backend.notify.StaffNotifications staffNotifications, in.vibe.backend.tickets.Ticketing ticketing, in.vibe.backend.billing.Refunds refunds) {
+        this.refunds = refunds;
         this.ticketing = ticketing;
         this.jdbc = jdbc;
         this.audit = audit;
@@ -216,6 +219,7 @@ public class Events {
         Row r = get(id);
         setStatus(id, "cancelled", null);
         int cancelled = ticketing.cancelTickets(id, r.title());
+        refunds.raiseForEvent(id, r.title()); // every paid order goes on the Refunds list, so nobody is missed
         audit.record(who, "cancel", "event", id, r.title() + (cancelled > 0 ? " (" + cancelled + " tickets cancelled, refunds due)" : ""));
         if (cancelled > 0 && r.businessId() != null) staffNotifications.toBusiness(UUID.fromString(r.businessId()), "event_decision", "Event cancelled by VIBE", r.title() + ": " + cancelled + " tickets cancelled. Buyers have been told and will be refunded.", "/events");
         return get(id);

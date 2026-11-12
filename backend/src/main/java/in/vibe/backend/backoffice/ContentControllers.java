@@ -105,7 +105,10 @@ public class ContentControllers {
         private final OfferReview offerReview;
         private final Events events;
 
-        AdminContentApi(HomeContent home, Plans plans, Coupons coupons, OfferReview offerReview, Events events) {
+        private final in.vibe.backend.security.AdminAccess adminAccess;
+
+        AdminContentApi(HomeContent home, Plans plans, Coupons coupons, OfferReview offerReview, Events events, in.vibe.backend.security.AdminAccess adminAccess) {
+            this.adminAccess = adminAccess;
             this.home = home;
             this.plans = plans;
             this.coupons = coupons;
@@ -173,13 +176,19 @@ public class ContentControllers {
 
         // offer review
         @GetMapping("/offers")
-        List<OfferReview.Row> offers(@RequestParam(required = false) String status) { return offerReview.list(status); }
+        List<OfferReview.Row> offers(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status) { return offerReview.list(status, adminAccess.businessScope(StaffPrincipal.from(jwt), "b.id")); }
 
         @PostMapping("/offers/{id}/approve")
-        OfferReview.Row approveOffer(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) { return offerReview.decide(StaffPrincipal.from(jwt), uuid(id), true, null); }
+        OfferReview.Row approveOffer(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+            adminAccess.requireBusiness(StaffPrincipal.from(jwt), offerReview.businessOf(uuid(id)));
+            return offerReview.decide(StaffPrincipal.from(jwt), uuid(id), true, null);
+        }
 
         @PostMapping("/offers/{id}/reject")
-        OfferReview.Row rejectOffer(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Note in) { return offerReview.decide(StaffPrincipal.from(jwt), uuid(id), false, in.note()); }
+        OfferReview.Row rejectOffer(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Note in) {
+            adminAccess.requireBusiness(StaffPrincipal.from(jwt), offerReview.businessOf(uuid(id)));
+            return offerReview.decide(StaffPrincipal.from(jwt), uuid(id), false, in.note());
+        }
 
         // events
         @GetMapping("/events")

@@ -29,6 +29,30 @@ export type Editable = Profile & {
 
 export type AdminInput = { primaryCategoryId: string; categoryIds: string[]; verified: boolean; isNew: boolean; active: boolean; profile: Profile };
 
+// ---------- VIBE team roles ----------
+/** super_admin: everything incl. admin accounts. admin (CEO level): everything, and staff accounts. staff: only the areas ticked, optionally only some categories. */
+export type AdminRole = 'super_admin' | 'admin' | 'staff';
+export type AdminArea = 'reports' | 'partners' | 'content' | 'customers' | 'money' | 'catalogue' | 'audit';
+export type CategoryRef = { id: string; name: string };
+export type AdminMe = { id: string; name: string; email: string; role: AdminRole; areas: AdminArea[]; categories: CategoryRef[]; allAreas: Record<AdminArea, string> };
+export type AdminTeamMember = { id: string; email: string; name: string; role: AdminRole; areas: AdminArea[]; categories: CategoryRef[]; active: boolean; mustChangePassword: boolean; createdAt: string };
+
+// ---------- reports and refunds ----------
+export type CategoryReportRow = {
+  id: string; parentId: string | null; level: number; name: string; path: string; active: boolean; partners: number; livePartners: number; pendingApplications: number;
+  payments: number; collected: number; failed: number; refundsDue: number; refundDueAmount: number; refunded: number; refundedAmount: number; vibeFees: number; vibeFunded: number;
+};
+export type CategoryReport = { from: string | null; to: string | null; rows: CategoryReportRow[]; total: CategoryReportRow; membership: CategoryReportRow };
+export type MembersReport = {
+  customers: number; newCustomers30d: number; activeMembers: number; cancelledStillValid: number; lapsed: number; neverJoined: number; joined30d: number; revenue30d: number; savedByMembers30d: number;
+  plans: { plan: string; active: number; joined30d: number; revenue30d: number }[];
+};
+export type RefundRow = {
+  reference: string; kind: string; payee: string; customerName: string; vibeId: string; paid: number; refundAmount: number; reason: string; status: 'due' | 'refunded';
+  paidAt: string | null; requestedAt: string; requestedBy: string; refundedAt: string | null; refundedBy: string | null; partnerReference: string | null;
+};
+export type RefundPage = { items: RefundRow[]; totals: { due: number; dueAmount: number; refunded: number; refundedAmount: number } };
+
 export type CategoryRow = {
   id: string;
   parentId: string | null;
@@ -43,9 +67,14 @@ export type CategoryRow = {
   businessCount: number;
   payRedeem: boolean;
   menuLabel: string | null;
+  /** What this category sets itself (null = same as its parent), and what its businesses actually get. */
+  features: MerchantFeature[] | null;
+  effectiveFeatures: MerchantFeature[];
 };
 
 export type CategoryInput = {
+  /** Merchant features for businesses here; null = the same as the parent category. */
+  features?: MerchantFeature[] | null;
   parentId: string | null;
   slug: string;
   name: string;
@@ -163,6 +192,7 @@ export type DayTotal = { day: string; amount: number; count: number };
 export type Overview = {
   customers: number; newCustomers7d: number; activeMembers: number; redemptionsToday: number; paidToday: number; collectedToday: number; collected7d: number; membershipRevenue30d: number; savedByMembers30d: number;
   liveBusinesses: number; pendingOffers: number; pendingEvents: number; pendingApplications: number; pendingDeletions: number; last14Days: DayTotal[];
+  pendingPromotions: number; failed7d: number; refundsDue: number; refundsDueAmount: number; unsettledGross: number; lapsedMembers: number;
 };
 export type MembershipView = { status: 'active' | 'cancelled' | 'none'; plan: { id: string; name: string; interval: string; price: number } | null; memberNo: string | null; validUntil: string | null; payments: { id: string; at: string; amount: number; planName: string }[]; savings: { total: number; redemptions: number; places: number } };
 export type CustomerRow = { id: string; name: string; vibeId: string; phoneMasked: string; area: string | null; joinedAt: string; member: boolean; paidRedemptions: number; totalPaid: number };
@@ -172,7 +202,7 @@ export type CustomerDetail = {
   redemptions: { id: string; businessName: string; offerTitle: string; status: string; payable: number | null; at: string }[];
   payments: { reference: string; kind: string; status: string; payee: string; amount: number; savings: number; at: string }[];
 };
-export type TransactionRow = { reference: string; kind: string; status: string; method: string; amount: number; savings: number; customerName: string; vibeId: string; payee: string; provider: string; createdAt: string; verifiedAt: string | null };
+export type TransactionRow = { reference: string; kind: string; status: string; method: string; amount: number; savings: number; customerName: string; vibeId: string; payee: string; provider: string; createdAt: string; verifiedAt: string | null; refundStatus: 'due' | 'refunded' | null; refundAmount: number | null };
 export type TransactionPage = { items: TransactionRow[]; total: number; totals: { count: number; verifiedAmount: number; savings: number } };
 export type TransactionDetail = {
   row: TransactionRow; failureReason: string | null; providerPaymentId: string | null; billRef: string | null; raisedBy: string | null; lines: { label: string; amount: number }[];
@@ -188,7 +218,23 @@ export type ApplicationRow = { id: string; businessName: string; categoryName: s
 export type ApplicationDetail = { row: ApplicationRow; categoryId: string | null; address: string; about: string; documents: string[]; reviewNote: string | null; decidedAt: string | null; businessId: string | null };
 export type ApplicationApproved = { businessId: string; loginEmail: string; temporaryPassword: string };
 export type StaffRole = 'manager' | 'cashier' | 'custom';
-export type MerchantSettings = { payRedeem: boolean; menuLabel: string; owner?: boolean; staffRole?: StaffRole | null; permissions?: string[]; areas?: Record<string, string>; acceptsVibePayments?: boolean; slotBooking?: boolean };
+/** The merchant features a category can switch on. A business gets those of the category it onboarded in. */
+export type MerchantFeature = 'bills' | 'offers' | 'menu' | 'reservations' | 'bookings' | 'memberships' | 'events' | 'promotions';
+export const MERCHANT_FEATURES: { key: MerchantFeature; label: string; hint: string }[] = [
+  { key: 'bills', label: 'Bills', hint: 'Send the bill to the customer’s app and get paid through VIBE' },
+  { key: 'offers', label: 'Offers', hint: 'Discounts customers redeem at the counter or on the bill' },
+  { key: 'menu', label: 'Menu or price list', hint: 'Dishes, products or services with prices' },
+  { key: 'reservations', label: 'Reservations', hint: 'Table and slot reservations' },
+  { key: 'bookings', label: 'Bookings by the hour', hint: 'Courts, turfs, classes, private screens' },
+  { key: 'memberships', label: 'Monthly memberships', hint: 'Plans customers buy by the month, and members' },
+  { key: 'events', label: 'Events and tickets', hint: 'Ticketed events and screenings' },
+  { key: 'promotions', label: 'Promotions', hint: 'Show up in Discover → Promotions' },
+];
+export type MerchantSettings = {
+  payRedeem: boolean; menuLabel: string; owner?: boolean; staffRole?: StaffRole | null; permissions?: string[]; areas?: Record<string, string>; acceptsVibePayments?: boolean; slotBooking?: boolean;
+  /** What this business gets, from its category. Older servers don't send it: then everything shows, as before. */
+  features?: MerchantFeature[]; businessName?: string; categoryName?: string; topCategoryName?: string;
+};
 export type TeamMember = { id: string; email: string; name: string; active: boolean; owner: boolean; mustChangePassword: boolean; staffRole: StaffRole | null; permissions: string[] };
 
 // ---------- settlements and results ----------

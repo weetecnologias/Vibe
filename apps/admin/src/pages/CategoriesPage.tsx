@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { BUILT_IN_ICONS, Badge, Field, ImageField, Loading, Modal, Notice, PageHead, errorText, useAsync, useAuth, type CategoryInput, type CategoryRow } from '@kit';
+import { BUILT_IN_ICONS, Badge, Field, ImageField, Loading, Modal, Notice, PageHead, errorText, useAsync, useAuth, type CategoryInput, type CategoryRow, MERCHANT_FEATURES, type MerchantFeature } from '@kit';
 
 export type Ordered = CategoryRow & { depth: number };
 
@@ -21,7 +21,7 @@ export function order(rows: CategoryRow[]): Ordered[] {
 
 const slugify = (s: string) => s.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-type Draft = { id: string | null; parentId: string; name: string; slug: string; slugTouched: boolean; icon: string; iconUrl: string; imageUrl: string; sortOrder: string; active: boolean; payRedeem: boolean; menuLabel: string };
+type Draft = { id: string | null; parentId: string; name: string; slug: string; slugTouched: boolean; icon: string; iconUrl: string; imageUrl: string; sortOrder: string; active: boolean; payRedeem: boolean; menuLabel: string; inherit: boolean; features: MerchantFeature[] };
 
 export function CategoriesPage() {
   const { client } = useAuth();
@@ -47,8 +47,8 @@ export function CategoriesPage() {
   const open = (row: CategoryRow | null, parentId = '') => {
     setError(null);
     setDraft(row
-      ? { id: row.id, parentId: row.parentId ?? '', name: row.name, slug: row.slug, slugTouched: true, icon: row.icon ?? '', iconUrl: row.iconUrl ?? '', imageUrl: row.imageUrl ?? '', sortOrder: String(row.sortOrder), active: row.active, payRedeem: row.payRedeem, menuLabel: row.menuLabel ?? '' }
-      : { id: null, parentId, name: '', slug: '', slugTouched: false, icon: 'food', iconUrl: '', imageUrl: '', sortOrder: '0', active: true, payRedeem: true, menuLabel: '' });
+      ? { id: row.id, parentId: row.parentId ?? '', name: row.name, slug: row.slug, slugTouched: true, icon: row.icon ?? '', iconUrl: row.iconUrl ?? '', imageUrl: row.imageUrl ?? '', sortOrder: String(row.sortOrder), active: row.active, payRedeem: row.payRedeem, menuLabel: row.menuLabel ?? '', inherit: row.features === null, features: row.features ?? row.effectiveFeatures }
+      : { id: null, parentId, name: '', slug: '', slugTouched: false, icon: 'food', iconUrl: '', imageUrl: '', sortOrder: '0', active: true, payRedeem: true, menuLabel: '', inherit: !!parentId, features: parentId ? (rows.find((r) => r.id === parentId)?.effectiveFeatures ?? []) : ['bills', 'offers', 'menu', 'promotions'] });
   };
 
   const save = async () => {
@@ -57,7 +57,7 @@ export function CategoriesPage() {
     setError(null);
     const body: CategoryInput = {
       parentId: draft.parentId || null, slug: draft.slug.trim(), name: draft.name.trim(), icon: draft.icon || null, iconUrl: draft.iconUrl.trim() || null,
-      imageUrl: draft.imageUrl.trim() || null, sortOrder: Math.max(0, parseInt(draft.sortOrder, 10) || 0), active: draft.active, payRedeem: draft.payRedeem, menuLabel: draft.menuLabel.trim() || null,
+      imageUrl: draft.imageUrl.trim() || null, sortOrder: Math.max(0, parseInt(draft.sortOrder, 10) || 0), active: draft.active, payRedeem: draft.inherit ? draft.payRedeem : draft.features.includes('bills'), menuLabel: draft.menuLabel.trim() || null, features: draft.inherit ? null : draft.features,
     };
     try {
       if (draft.id) await client.put(`/v1/admin/categories/${draft.id}`, body); else await client.post('/v1/admin/categories', body);
@@ -95,13 +95,13 @@ export function CategoriesPage() {
       {list.loading && !list.data ? <Loading /> : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Slug</th><th>Icon</th><th>Businesses</th><th>Status</th><th /></tr></thead>
+            <thead><tr><th>Name</th><th>Slug</th><th>Merchants get</th><th>Businesses</th><th>Status</th><th /></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className={r.active ? '' : 'dim'}>
                   <td><span className={`indent-${r.depth + 1}`}>{r.depth > 0 ? '↳ ' : ''}<strong>{r.name}</strong></span></td>
                   <td className="muted small">{r.slug}</td>
-                  <td className="small">{r.iconUrl ? 'Uploaded' : r.icon ?? '—'}{!r.payRedeem ? <div><Badge>No bills</Badge></div> : null}</td>
+                  <td className="small">{r.effectiveFeatures.length ? MERCHANT_FEATURES.filter((f) => r.effectiveFeatures.includes(f.key)).map((f) => f.label).join(', ') : <span className="muted">Not for merchants</span>}{r.features === null && r.parentId ? <div className="muted">Same as parent</div> : null}</td>
                   <td>{r.businessCount}</td>
                   <td>{r.active ? <Badge tone="success">Live</Badge> : <Badge>Hidden</Badge>}</td>
                   <td className="actions">
@@ -142,9 +142,18 @@ export function CategoriesPage() {
             <ImageField label="Uploaded icon (optional)" value={draft.iconUrl} onChange={(v) => setDraft({ ...draft, iconUrl: v })} hint="PNG, JPEG or WebP. Used instead of the built-in icon when set." />
             <ImageField label="Picture (optional)" value={draft.imageUrl} onChange={(v) => setDraft({ ...draft, imageUrl: v })} />
             <fieldset className="hours">
-              <legend>How customers pay businesses here</legend>
-              <label className="check"><input type="checkbox" checked={draft.payRedeem} onChange={(e) => setDraft({ ...draft, payRedeem: e.target.checked })} /> Pay & Redeem bills (the merchant raises a bill, the customer pays in the app)</label>
-              <small className="muted">Switch off for cinemas and event organisers, which sell tickets instead. Applies to subcategories too.</small>
+              <legend>What merchants in this category get</legend>
+              <p className="muted small" style={{ marginTop: 0 }}>A business onboarded here sees only these in its dashboard, and the server refuses the rest. Subcategories follow unless they set their own. Untick everything for a category merchants can’t join (like VIBE Social).</p>
+              {draft.parentId ? <label className="check"><input type="checkbox" checked={draft.inherit} onChange={(e) => setDraft({ ...draft, inherit: e.target.checked, features: rows.find((r) => r.id === draft.parentId)?.effectiveFeatures ?? draft.features })} /> Same as the parent category</label> : null}
+              <div className="grid2">
+                {MERCHANT_FEATURES.map((f) => (
+                  <label key={f.key} className="check" style={{ opacity: draft.inherit ? 0.5 : 1 }}>
+                    <input type="checkbox" disabled={draft.inherit} checked={draft.features.includes(f.key)} onChange={(e) => setDraft({ ...draft, features: e.target.checked ? [...draft.features, f.key] : draft.features.filter((x) => x !== f.key) })} />
+                    <span><strong>{f.label}</strong> <span className="muted small">{f.hint}</span></span>
+                  </label>
+                ))}
+              </div>
+              <small className="muted">Always included: profile and photos, reviews, results, settlements and the team.</small>
               <Field label="What the item list is called" hint="Shown to merchants, for example Menu, Price list or Services. Empty uses the parent category’s, or Menu."><input value={draft.menuLabel} maxLength={30} onChange={(e) => setDraft({ ...draft, menuLabel: e.target.value })} placeholder="Menu" /></Field>
             </fieldset>
             <label className="check"><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /> Live in the customer app</label>

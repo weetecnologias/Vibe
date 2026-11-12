@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { Field, Notice, errorText, useAuth, type Client } from '@kit';
+import { Field, MERCHANT_FEATURES, Notice, errorText, useAuth, type Client, type MerchantFeature } from '@kit';
 
-type Node = { id: string; name: string; children: Node[] };
+type Node = { id: string; slug: string; name: string; features: MerchantFeature[]; children: Node[] };
 type Form = { businessName: string; categoryId: string; area: string; address: string; contactName: string; email: string; phone: string; about: string; documents: string };
 type Saved = { id: string; token: string; form: Form };
 type Status = { id: string; businessName: string; status: 'pending' | 'changes_requested' | 'approved' | 'rejected'; reviewNote: string | null; submittedAt: string; decidedAt: string | null };
@@ -14,7 +14,16 @@ const empty: Form = { businessName: '', categoryId: '', area: '', address: '', c
 const load = (): Saved | null => { try { return JSON.parse(localStorage.getItem(KEY) ?? 'null') as Saved | null; } catch { return null; } };
 const save = (s: Saved | null) => { try { if (s) localStorage.setItem(KEY, JSON.stringify(s)); else localStorage.removeItem(KEY); } catch { /* storage blocked */ } };
 
-const flatten = (nodes: Node[], depth = 0): { id: string; label: string }[] => nodes.flatMap((n) => [{ id: n.id, label: `${'— '.repeat(depth)}${n.name}` }, ...flatten(n.children, depth + 1)]);
+/** The top-level category a category sits under, and the category itself, found anywhere in the tree. */
+const findPath = (nodes: Node[], id: string, path: Node[] = []): Node[] | null => {
+  for (const n of nodes) {
+    if (n.id === id) return [...path, n];
+    const deeper = findPath(n.children, id, [...path, n]);
+    if (deeper) return deeper;
+  }
+  return null;
+};
+const flatChildren = (n: Node, depth = 0): { node: Node; depth: number }[] => n.children.flatMap((c) => [{ node: c, depth }, ...flatChildren(c, depth + 1)]);
 
 const body = (f: Form) => ({
   businessName: f.businessName.trim(), categoryId: f.categoryId || null, area: f.area.trim(), address: f.address.trim(), contactName: f.contactName.trim(), email: f.email.trim(), phone: f.phone.trim(), about: f.about.trim(),
@@ -75,18 +84,26 @@ function Tracker({ saved, status, client, onChanged, onNew }: { saved: Saved; st
 
 function ApplicationForm({ client, initial, submitLabel, resubmit, onDone }: { client: Client; initial: Form; submitLabel: string; resubmit?: { id: string; token: string }; onDone: (s: Saved) => void }) {
   const [f, setF] = useState<Form>(initial);
-  const [cats, setCats] = useState<{ id: string; label: string }[]>([]);
+  const [tree, setTree] = useState<Node[]>([]);
+  const [top, setTop] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF({ ...f, [k]: v });
 
   useEffect(() => {
     let live = true;
-    client.get<Node[]>('/v1/categories').then((n) => live && setCats(flatten(n)), () => undefined);
+    client.get<Node[]>('/v1/business-applications/categories').then((n) => {
+      if (!live) return;
+      setTree(n);
+      const path = initial.categoryId ? findPath(n, initial.categoryId) : null;
+      if (path) setTop(path[0].id);
+    }, () => undefined);
     return () => { live = false; };
-  }, [client]);
+  }, [client, initial.categoryId]);
 
-  const ready = f.businessName.trim() && f.area.trim() && f.contactName.trim() && /\S+@\S+\.\S+/.test(f.email) && f.phone.replace(/\D/g, '').length >= 10;
+  const topNode = tree.find((n) => n.id === top) ?? null;
+  const chosen = f.categoryId ? findPath(tree, f.categoryId)?.at(-1) ?? null : null;
+  const ready = !!f.categoryId && f.businessName.trim() && f.area.trim() && f.contactName.trim() && /\S+@\S+\.\S+/.test(f.email) && f.phone.replace(/\D/g, '').length >= 10;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,10 +127,34 @@ function ApplicationForm({ client, initial, submitLabel, resubmit, onDone }: { c
   return (
     <form className="stack" onSubmit={submit}>
       {!resubmit ? <p className="muted" style={{ margin: 0 }}>Tell us about your business. We review every application, and may ask for more details before you go live.</p> : null}
-      <div className="grid2">
-        <Field label="Business name"><input value={f.businessName} maxLength={120} onChange={(e) => set('businessName', e.target.value)} /></Field>
-        <Field label="Type of business"><select value={f.categoryId} onChange={(e) => set('categoryId', e.target.value)}><option value="">Choose…</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></Field>
-      </div>
+      <fieldset className="hours">
+        <legend>1. What kind of business is it?</legend>
+        <p className="muted small" style={{ marginTop: 0 }}>Choose one. Your VIBE dashboard shows only what this kind of business needs. Running two kinds of business (say a café and a gym)? Apply for each one separately; each gets its own login.</p>
+        <div className="choice-grid">
+          {tree.map((n) => (
+            <button type="button" key={n.id} className={`choice${top === n.id ? ' on' : ''}`} aria-pressed={top === n.id}
+              onClick={() => { setTop(n.id); setF({ ...f, categoryId: n.children.length ? '' : n.id }); }}>{n.name}</button>
+          ))}
+        </div>
+        {topNode && topNode.children.length ? (
+          <Field label={`2. Which kind of ${topNode.name}?`}>
+            <select value={f.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
+              <option value="">Choose…</option>
+              {flatChildren(topNode).map(({ node, depth }) => <option key={node.id} value={node.id}>{`${'— '.repeat(depth)}${node.name}`}</option>)}
+            </select>
+          </Field>
+        ) : null}
+        {chosen ? (
+          <div className="card" style={{ background: 'var(--soft, #f8f6f9)' }}>
+            <strong>On VIBE, {chosen.name} businesses get:</strong>
+            <ul className="small" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {MERCHANT_FEATURES.filter((x) => chosen.features.includes(x.key)).map((x) => <li key={x.key}><strong>{x.label}</strong>: {x.hint}</li>)}
+              <li><strong>Always</strong>: your profile and photos, reviews, results, settlements with Excel downloads, and your team’s logins</li>
+            </ul>
+          </div>
+        ) : null}
+      </fieldset>
+      <Field label="Business name"><input value={f.businessName} maxLength={120} onChange={(e) => set('businessName', e.target.value)} /></Field>
       <div className="grid2">
         <Field label="Area"><input value={f.area} maxLength={80} placeholder="Jubilee Hills" onChange={(e) => set('area', e.target.value)} /></Field>
         <Field label="Address"><input value={f.address} maxLength={300} onChange={(e) => set('address', e.target.value)} /></Field>

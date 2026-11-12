@@ -89,8 +89,12 @@ public class Controllers {
         private final BusinessStore businesses;
         private final StaffService staff;
         private final AuditService audit;
+        private final AdminTeam team;
+        private final in.vibe.backend.security.AdminAccess adminAccess;
 
-        AdminApi(Categories categories, BusinessStore businesses, StaffService staff, AuditService audit) {
+        AdminApi(Categories categories, BusinessStore businesses, StaffService staff, AuditService audit, AdminTeam team, in.vibe.backend.security.AdminAccess adminAccess) {
+            this.team = team;
+            this.adminAccess = adminAccess;
             this.categories = categories;
             this.businesses = businesses;
             this.staff = staff;
@@ -117,45 +121,69 @@ public class Controllers {
         }
 
         @GetMapping("/businesses")
-        BusinessStore.ListPage businesses(@RequestParam(required = false) String q, @RequestParam(defaultValue = "25") int limit, @RequestParam(defaultValue = "0") int offset) {
-            return businesses.list(q, limit, offset);
+        BusinessStore.ListPage businesses(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String q, @RequestParam(defaultValue = "25") int limit, @RequestParam(defaultValue = "0") int offset) {
+            return businesses.list(q, limit, offset, adminAccess.businessScope(StaffPrincipal.from(jwt), "b.id"));
         }
 
         @GetMapping("/businesses/{id}")
-        BusinessStore.Editable business(@PathVariable String id) { return businesses.get(uuid(id)); }
+        BusinessStore.Editable business(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+            adminAccess.requireBusiness(StaffPrincipal.from(jwt), uuid(id));
+            return businesses.get(uuid(id));
+        }
 
         @PostMapping("/businesses")
         ResponseEntity<BusinessStore.Editable> createBusiness(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody BusinessStore.AdminInput in) {
+            adminAccess.requireCategory(StaffPrincipal.from(jwt), in.primaryCategoryId() == null ? null : categories.resolve(in.primaryCategoryId()));
             return ResponseEntity.status(HttpStatus.CREATED).body(businesses.create(StaffPrincipal.from(jwt), in));
         }
 
         @PutMapping("/businesses/{id}")
         BusinessStore.Editable updateBusiness(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @Valid @RequestBody BusinessStore.AdminInput in) {
+            adminAccess.requireBusiness(StaffPrincipal.from(jwt), uuid(id));
             return businesses.adminUpdate(StaffPrincipal.from(jwt), uuid(id), in);
         }
 
         @PostMapping("/businesses/{id}/staff")
         ResponseEntity<StaffService.Staff> createMerchant(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @Valid @RequestBody StaffService.NewMerchant in) {
+            adminAccess.requireBusiness(StaffPrincipal.from(jwt), uuid(id));
             return ResponseEntity.status(HttpStatus.CREATED).body(staff.createMerchant(StaffPrincipal.from(jwt), uuid(id), in));
         }
+
+        // ---------- VIBE team: who may do what in this dashboard ----------
+        @GetMapping("/access")
+        AdminTeam.Me access(@AuthenticationPrincipal Jwt jwt) { return team.me(StaffPrincipal.from(jwt)); }
+
+        @GetMapping("/team")
+        List<AdminTeam.Member> adminTeam() { return team.list(); }
+
+        @PostMapping("/team")
+        ResponseEntity<AdminTeam.Member> addAdmin(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AdminTeam.NewMember in) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(team.add(StaffPrincipal.from(jwt), in));
+        }
+
+        @PutMapping("/team/{id}/access")
+        AdminTeam.Member adminAccess(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @Valid @RequestBody AdminTeam.AccessInput in) { return team.update(StaffPrincipal.from(jwt), uuid(id), in); }
 
         @GetMapping("/staff")
         List<StaffService.Staff> staff() { return staff.list(); }
 
         @PostMapping("/staff/{id}/deactivate")
         ResponseEntity<Void> deactivate(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+            team.guardAccount(StaffPrincipal.from(jwt), uuid(id), true);
             staff.setActive(StaffPrincipal.from(jwt), uuid(id), false);
             return ResponseEntity.noContent().build();
         }
 
         @PostMapping("/staff/{id}/activate")
         ResponseEntity<Void> activate(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+            team.guardAccount(StaffPrincipal.from(jwt), uuid(id), false);
             staff.setActive(StaffPrincipal.from(jwt), uuid(id), true);
             return ResponseEntity.noContent().build();
         }
 
         @PutMapping("/staff/{id}/password")
         ResponseEntity<Void> resetPassword(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @Valid @RequestBody StaffService.PasswordReset in) {
+            team.guardAccount(StaffPrincipal.from(jwt), uuid(id), false);
             staff.resetPassword(StaffPrincipal.from(jwt), uuid(id), in.password());
             return ResponseEntity.noContent().build();
         }

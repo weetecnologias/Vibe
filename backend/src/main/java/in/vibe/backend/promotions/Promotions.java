@@ -151,8 +151,15 @@ public class Promotions {
 
     // ---------- VIBE review ----------
     /** Waiting ones first, oldest first. */
-    public List<Row> list(String status) {
-        String where = status == null || status.isBlank() ? "" : "where p.review_status = :s ";
+    public List<Row> list(String status) { return list(status, ""); }
+
+    public UUID businessOf(UUID promotion) {
+        return jdbc.sql("select business_id from promotions where id = :id").param("id", promotion).query(UUID.class).optional().orElseThrow(() -> ApiException.notFound("Promotion not found."));
+    }
+
+    /** scope: from AdminAccess.businessScope on b.id. */
+    public List<Row> list(String status, String scope) {
+        String where = "where true" + scope + (status == null || status.isBlank() ? " " : " and p.review_status = :s ");
         JdbcClient.StatementSpec s = jdbc.sql(SELECT + where + "order by (p.review_status = 'pending') desc, case when p.review_status = 'pending' then p.updated_at end asc, p.updated_at desc limit 200");
         if (!where.isEmpty()) s.param("s", status);
         return s.query(this::map).list();

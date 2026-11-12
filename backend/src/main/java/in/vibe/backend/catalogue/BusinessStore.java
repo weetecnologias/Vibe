@@ -72,9 +72,12 @@ public class BusinessStore {
         this.audit = audit;
     }
 
-    public ListPage list(String q, int limit, int offset) {
+    public ListPage list(String q, int limit, int offset) { return list(q, limit, offset, ""); }
+
+    /** scope: from AdminAccess.businessScope, so a category manager sees only their categories. */
+    public ListPage list(String q, int limit, int offset, String scope) {
         String like = q == null || q.isBlank() ? null : "%" + q.trim().toLowerCase().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
-        String where = like == null ? "" : " where lower(b.name) like :q escape '\\'";
+        String where = " where true" + scope + (like == null ? "" : " and lower(b.name) like :q escape '\\'");
         JdbcClient.StatementSpec c = jdbc.sql("select count(*) from businesses b" + where);
         JdbcClient.StatementSpec s = jdbc.sql("select b.id, b.name, b.primary_category_id, c.name cname, b.area, b.verified, b.active, "
                 + "(select count(*) from staff_users u where u.business_id = b.id and u.active) accounts from businesses b join categories c on c.id = b.primary_category_id"

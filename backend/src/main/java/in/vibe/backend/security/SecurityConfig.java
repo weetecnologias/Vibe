@@ -80,7 +80,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filters(HttpSecurity http, JsonMapper json, TeamAccess teamAccess) throws Exception {
+    SecurityFilterChain filters(HttpSecurity http, JsonMapper json, TeamAccess teamAccess, in.vibe.backend.catalogue.MerchantFeatures merchantFeatures, AdminAccess adminAccess) throws Exception {
         JwtGrantedAuthoritiesConverter roles = new JwtGrantedAuthoritiesConverter();
         roles.setAuthoritiesClaimName("role");
         roles.setAuthorityPrefix("ROLE_");
@@ -110,7 +110,8 @@ public class SecurityConfig {
                 .anyRequest().denyAll())
             .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter)))
             .addFilterAfter(new PasswordChangeGate(json), BearerTokenAuthenticationFilter.class)
-            .addFilterAfter(new MerchantAccessGate(teamAccess, json), PasswordChangeGate.class)
+            .addFilterAfter(new MerchantAccessGate(teamAccess, merchantFeatures, json), PasswordChangeGate.class)
+            .addFilterAfter(new AdminAccessGate(adminAccess, json), MerchantAccessGate.class)
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((req, res, ex) -> write(res, json, 401, new ApiError("unauthorized", "Please sign in.")))
                 .accessDeniedHandler((req, res, ex) -> write(res, json, 403, new ApiError("forbidden", "You don’t have access to this."))));

@@ -90,6 +90,39 @@ public class TeamAccess {
     }
 
     /** The area a merchant request belongs to, or null when anyone on the team may make it. `team` means the owner only. */
+    /** Which merchant feature (MerchantFeatures) a request needs, or null if every business has it. "a|b" means either. */
+    static String featureFor(String method, String path) {
+        String p = path.substring("/v1/merchant".length());
+        if (p.startsWith("/bills")) return "bills";
+        if (p.startsWith("/menu")) return "GET".equals(method) ? "bills|menu" : "menu";
+        if (p.startsWith("/offers")) return "offers";
+        if (p.startsWith("/promotions")) return "promotions";
+        if (p.startsWith("/events")) return "events";
+        if (p.startsWith("/reservation-settings")) return "reservations";
+        if (p.startsWith("/venue/plans") || p.startsWith("/venue/members")) return "memberships";
+        if (p.startsWith("/venue/check-in")) return "bookings|memberships";
+        if (p.startsWith("/venue")) return "bookings";
+        return null;
+    }
+
+    /** The dashboard areas an owner can hand to a team member, for a business with these features. Profile and money are always there. */
+    public static Map<String, String> areasFor(List<String> features) {
+        Map<String, String> out = new LinkedHashMap<>();
+        AREAS.forEach((area, label) -> {
+            boolean on = switch (area) {
+                case "bills" -> features.contains("bills");
+                case "offers" -> features.contains("offers") || features.contains("promotions");
+                case "events" -> features.contains("events");
+                case "bookings" -> features.contains("bookings") || features.contains("memberships");
+                case "menu" -> features.contains("menu");
+                case "reservations" -> features.contains("reservations");
+                default -> true;
+            };
+            if (on) out.put(area, label);
+        });
+        return out;
+    }
+
     static String areaFor(String method, String path) {
         String p = path.substring("/v1/merchant".length());
         if (p.startsWith("/bills")) return "bills";

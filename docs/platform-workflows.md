@@ -63,6 +63,10 @@ Status key: ✅ built and tested · 🟡 partly built · ⛔ not built yet.
 
 **Discover in two parts (built 13 Nov 2026).** **Offers near you**: every live offer around the customer, by category (All, Food & Dining → Cafés, Fitness & Wellness → Sports, and so on), with search and filters for nearest / biggest saving / ending soon, open now, within 3 km and member offers. **Promotions**: businesses promoting themselves (written in the merchant dashboard, approved in the admin dashboard), nearest first, filtered by the same categories; a tap opens the place or its offer.
 
+**Merchants see only their category's features (built 13 Nov 2026).** A business applies in one category and subcategory and sees what it will get before sending. Its dashboard (and the server) offer only that category's features; VIBE sets them per category in Categories, and new subcategories follow their parent. Owners give team members only those areas.
+
+**VIBE team roles, reports and refunds (built 13 Nov 2026).** Super admin, admin (CEO level) and staff with chosen areas and, optionally, categories (category managers). Reports by category and for members, with Excel downloads. Refunds are tracked from raised (by staff, or automatically when an event is cancelled) to refunded with the partner's reference, and kept out of settlements.
+
 **Two ways to redeem (built 12 Nov 2026).** The customer taps Redeem and chooses: **show a code** (6 digits, valid 5 minutes, with the place's address and directions; pay the place directly; staff confirm the code, optionally typing the bill to see the discount) or **get the bill in VIBE** (staff send it; pay in the app; settled to the merchant). Places that don't take VIBE payments offer only the code. Either way the customer is then asked to rate the visit; ratings come only from real visits, show on the place's page, and VIBE can hide abusive ones.
 
 **Merchant team roles (built 12 Nov 2026).** The owner can do everything and chooses each person's role: cashier / waiter (bills only), manager (everything except the team) or custom areas. Enforced by the server, applied at once, and each person sees only their alerts.

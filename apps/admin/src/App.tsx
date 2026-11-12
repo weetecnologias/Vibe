@@ -1,6 +1,9 @@
+import type { ReactElement } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
-import { ChangePasswordPage, LoginPage, Shell, useAuth, type NavItem } from '@kit';
+import { ChangePasswordPage, Loading, LoginPage, Notice, Shell, useAsync, useAuth, type AdminArea, type AdminMe, type NavItem } from '@kit';
+
+import { AccessContext } from './access';
 
 import { ApplicationsPage } from './pages/ApplicationsPage';
 import { AuditPage } from './pages/AuditPage';
@@ -18,68 +21,82 @@ import { OfferReviewPage } from './pages/OfferReviewPage';
 import { PromotionReviewPage } from './pages/PromotionReviewPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { PlansPage } from './pages/PlansPage';
+import { RefundsPage } from './pages/RefundsPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { TeamPage } from './pages/TeamPage';
 import { ReviewsPage } from './pages/ReviewsPage';
 import { SettlementsPage } from './pages/SettlementsPage';
 import { StaffPage } from './pages/StaffPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 
-const NAV: NavItem[] = [
-  { to: '/overview', label: 'Overview' },
-  { heading: 'Money' },
-  { to: '/transactions', label: 'Transactions' },
-  { to: '/settlements', label: 'Settlements' },
-  { to: '/members', label: 'Members' },
-  { heading: 'People' },
-  { to: '/customers', label: 'Customers' },
-  { heading: 'Merchants' },
-  { to: '/applications', label: 'Applications' },
-  { to: '/businesses', label: 'Businesses' },
-  { to: '/offers', label: 'Offer review' },
-  { to: '/promotions', label: 'Promotion review' },
-  { to: '/events', label: 'Events' },
-  { to: '/reviews', label: 'Reviews' },
-  { heading: 'What customers see' },
-  { to: '/home', label: 'Home content' },
-  { to: '/categories', label: 'Categories' },
-  { to: '/plans', label: 'Membership plans' },
-  { to: '/coupons', label: 'Checkout coupons' },
-  { heading: 'Admin' },
-  { to: '/deletions', label: 'Deletion requests' },
-  { to: '/staff', label: 'Staff accounts' },
-  { to: '/audit', label: 'Audit log' },
+/** Each page and the area it belongs to. "team" is the VIBE team page: super admins and admins only. */
+type Page = { path: string; label: string; area: AdminArea | 'team'; group: string; element: ReactElement };
+const PAGES: Page[] = [
+  { group: '', path: 'overview', label: 'Overview', area: 'reports', element: <OverviewPage /> },
+  { group: '', path: 'reports', label: 'Reports', area: 'reports', element: <ReportsPage /> },
+  { group: 'Money', path: 'transactions', label: 'Transactions', area: 'money', element: <TransactionsPage /> },
+  { group: 'Money', path: 'refunds', label: 'Refunds', area: 'money', element: <RefundsPage /> },
+  { group: 'Money', path: 'settlements', label: 'Settlements', area: 'money', element: <SettlementsPage /> },
+  { group: 'Customers', path: 'customers', label: 'Customers', area: 'customers', element: <CustomersPage /> },
+  { group: 'Customers', path: 'members', label: 'Members', area: 'customers', element: <MembersPage /> },
+  { group: 'Customers', path: 'deletions', label: 'Deletion requests', area: 'customers', element: <DeletionsPage /> },
+  { group: 'Partners', path: 'applications', label: 'Applications', area: 'partners', element: <ApplicationsPage /> },
+  { group: 'Partners', path: 'businesses', label: 'Businesses', area: 'partners', element: <BusinessesPage /> },
+  { group: 'Reviews', path: 'offers', label: 'Offer review', area: 'content', element: <OfferReviewPage /> },
+  { group: 'Reviews', path: 'promotions', label: 'Promotion review', area: 'content', element: <PromotionReviewPage /> },
+  { group: 'Reviews', path: 'events', label: 'Events', area: 'content', element: <EventsPage /> },
+  { group: 'Reviews', path: 'reviews', label: 'Customer reviews', area: 'content', element: <ReviewsPage /> },
+  { group: 'Catalogue', path: 'categories', label: 'Categories', area: 'catalogue', element: <CategoriesPage /> },
+  { group: 'Catalogue', path: 'home', label: 'Home content', area: 'catalogue', element: <HomePage /> },
+  { group: 'Catalogue', path: 'plans', label: 'Membership plans', area: 'catalogue', element: <PlansPage /> },
+  { group: 'Catalogue', path: 'coupons', label: 'Checkout coupons', area: 'catalogue', element: <CouponsPage /> },
+  { group: 'Admin', path: 'team', label: 'VIBE team', area: 'team', element: <TeamPage /> },
+  { group: 'Admin', path: 'staff', label: 'All logins', area: 'team', element: <StaffPage /> },
+  { group: 'Admin', path: 'audit', label: 'Audit log', area: 'audit', element: <AuditPage /> },
 ];
 
 export function App() {
   const { staff } = useAuth();
   if (!staff) return <LoginPage title="Admin" hint="For VIBE staff. Merchants sign in to the merchant dashboard." />;
   if (staff.mustChangePassword) return <ChangePasswordPage />;
+  return <SignedIn />;
+}
+
+const ROLE_TITLE = { super_admin: 'Super admin', admin: 'Admin', staff: 'Staff' } as const;
+
+function SignedIn() {
+  const { client, signOut } = useAuth();
+  const me = useAsync(() => client.get<AdminMe>('/v1/admin/access'), [client]);
+  // No menu until we know what this person may open, so staff never see pages they can't use.
+  if (!me.data) {
+    return (
+      <div className="login"><div className="card login-card">{me.error ? <><Notice tone="error">{me.error}</Notice><button className="btn" onClick={me.reload}>Try again</button><button className="btn ghost" onClick={signOut}>Sign out</button></> : <Loading />}</div></div>
+    );
+  }
+  const access = me.data;
+  const full = access.role === 'super_admin' || access.role === 'admin';
+  const can = (area: AdminArea | 'team') => (area === 'team' ? full : full || access.areas.includes(area));
+  const pages = PAGES.filter((p) => can(p.area));
+  const nav: NavItem[] = [];
+  for (const p of pages) {
+    if (p.group && !nav.some((n) => 'heading' in n && n.heading === p.group)) nav.push({ heading: p.group });
+    nav.push({ to: `/${p.path}`, label: p.label });
+  }
+  const home = pages.length ? `/${pages[0].path}` : '/nothing';
+  const scope = access.categories.length ? ` · ${access.categories.map((c) => c.name).join(', ')}` : '';
   return (
-    <Routes>
-      <Route element={<Shell title="Admin" nav={NAV} />}>
-        <Route index element={<Navigate to="/overview" replace />} />
-        <Route path="overview" element={<OverviewPage />} />
-        <Route path="customers" element={<CustomersPage />} />
-        <Route path="transactions" element={<TransactionsPage />} />
-        <Route path="members" element={<MembersPage />} />
-        <Route path="settlements" element={<SettlementsPage />} />
-        <Route path="reviews" element={<ReviewsPage />} />
-        <Route path="applications" element={<ApplicationsPage />} />
-        <Route path="businesses" element={<BusinessesPage />} />
-        <Route path="businesses/:id" element={<BusinessEditPage />} />
-        <Route path="offers" element={<OfferReviewPage />} />
-        <Route path="promotions" element={<PromotionReviewPage />} />
-        <Route path="events" element={<EventsPage />} />
-        <Route path="events/:id" element={<EventEditPage />} />
-        <Route path="events/:id/sales" element={<EventSalesPage />} />
-        <Route path="home" element={<HomePage />} />
-        <Route path="categories" element={<CategoriesPage />} />
-        <Route path="plans" element={<PlansPage />} />
-        <Route path="coupons" element={<CouponsPage />} />
-        <Route path="deletions" element={<DeletionsPage />} />
-        <Route path="staff" element={<StaffPage />} />
-        <Route path="audit" element={<AuditPage />} />
-        <Route path="*" element={<Navigate to="/overview" replace />} />
-      </Route>
-    </Routes>
+    <AccessContext.Provider value={access}>
+      <Routes>
+        <Route element={<Shell title={`Admin · ${ROLE_TITLE[access.role]}${scope}`} nav={nav} />}>
+          <Route index element={<Navigate to={home} replace />} />
+          {pages.map((p) => <Route key={p.path} path={p.path} element={p.element} />)}
+          {can('partners') ? <Route path="businesses/:id" element={<BusinessEditPage />} /> : null}
+          {can('content') ? <Route path="events/:id" element={<EventEditPage />} /> : null}
+          {can('content') ? <Route path="events/:id/sales" element={<EventSalesPage />} /> : null}
+          <Route path="nothing" element={<Notice tone="info">Your access doesn’t include any part of this dashboard yet. Ask a VIBE admin.</Notice>} />
+          <Route path="*" element={<Navigate to={home} replace />} />
+        </Route>
+      </Routes>
+    </AccessContext.Provider>
   );
 }

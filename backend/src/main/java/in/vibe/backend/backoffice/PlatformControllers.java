@@ -67,8 +67,16 @@ public class PlatformControllers {
     @RequestMapping("/v1/business-applications")
     public static class ApplicationsPublicApi {
         private final Applications applications;
+        private final in.vibe.backend.catalogue.Categories categories;
 
-        ApplicationsPublicApi(Applications applications) { this.applications = applications; }
+        ApplicationsPublicApi(Applications applications, in.vibe.backend.catalogue.Categories categories) {
+            this.applications = applications;
+            this.categories = categories;
+        }
+
+        /** The categories a business can join in, each with what it gets (bills, offers, menu, bookings…). The applicant picks the category, then the subcategory. */
+        @GetMapping("/categories")
+        List<in.vibe.backend.catalogue.Categories.MerchantNode> categories() { return categories.merchantTree(); }
 
         @PostMapping
         ResponseEntity<Applications.Submitted> submit(@Valid @RequestBody Applications.Input in) { return ResponseEntity.status(HttpStatus.CREATED).body(applications.submit(in)); }
@@ -114,13 +122,21 @@ public class PlatformControllers {
 
         private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
-        MerchantSettingsApi(BillingRules rules, in.vibe.backend.security.TeamAccess access, org.springframework.jdbc.core.simple.JdbcClient jdbc) {
+        private final in.vibe.backend.catalogue.MerchantFeatures features;
+
+        MerchantSettingsApi(BillingRules rules, in.vibe.backend.security.TeamAccess access, org.springframework.jdbc.core.simple.JdbcClient jdbc, in.vibe.backend.catalogue.MerchantFeatures features) {
             this.jdbc = jdbc;
+            this.features = features;
             this.rules = rules;
             this.access = access;
         }
 
-        public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas, boolean acceptsVibePayments, boolean slotBooking) {}
+        /**
+         * features: what this business gets, from the category it onboarded in (bills, offers, menu, reservations, bookings, memberships, events, promotions).
+         * areas: the parts of the dashboard the owner can give a team member, already cut down to those features.
+         */
+        public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas, boolean acceptsVibePayments, boolean slotBooking,
+                               List<String> features, String businessName, String categoryName, String topCategoryName) {}
 
         /** Whether this kind of business uses Pay & Redeem bills and what its item list is called (set by VIBE on the category), and what this person may do. */
         @GetMapping
@@ -129,10 +145,15 @@ public class PlatformControllers {
             BillingRules.Rules r = rules.forBusiness(who.requireBusiness());
             in.vibe.backend.security.TeamAccess.Access a = access.access(who);
             boolean accepts = jdbc.sql("select accepts_vibe_payments from businesses where id = :b").param("b", who.requireBusiness()).query(Boolean.class).single();
-            // Sports and fitness venues take bookings by the slot (courts, turfs, classes); so does any place that has set up a court or session.
-            boolean slots = jdbc.sql("select exists (select 1 from venue_resources where business_id = :b) or exists (select 1 from venue_plans where business_id = :b) or exists (select 1 from businesses z join categories c on c.id = z.primary_category_id where z.id = :b and (c.slug like 'fitness%' or c.slug like 'kids.sports%'))")
+            in.vibe.backend.catalogue.MerchantFeatures.Profile p = features.forBusiness(who.requireBusiness());
+            // Where the category sets its features, bookings show only if it has them. Where nothing is set (older categories), a place shows
+            // bookings once it has set up a court, session or plan, or sits under fitness, as before.
+            boolean slots = p.explicit() ? p.has("bookings") || p.has("memberships")
+                    : jdbc.sql("select exists (select 1 from venue_resources where business_id = :b) or exists (select 1 from venue_plans where business_id = :b) or exists (select 1 from businesses z join categories c on c.id = z.primary_category_id where z.id = :b and (c.slug like 'fitness%' or c.slug like 'kids.sports%'))")
                     .param("b", who.requireBusiness()).query(Boolean.class).single();
-            return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.AREAS, accepts, slots);
+            String name = jdbc.sql("select name from businesses where id = :b").param("b", who.requireBusiness()).query(String.class).single();
+            return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.areasFor(p.features()), accepts, slots,
+                    p.features(), name, p.categoryName(), p.topCategoryName());
         }
     }
 
@@ -144,7 +165,10 @@ public class PlatformControllers {
         private final Applications applications;
         private final Memberships memberships;
 
-        AdminPlatformApi(AdminOversight oversight, Applications applications, Memberships memberships) {
+        private final in.vibe.backend.security.AdminAccess adminAccess;
+
+        AdminPlatformApi(AdminOversight oversight, Applications applications, Memberships memberships, in.vibe.backend.security.AdminAccess adminAccess) {
+            this.adminAccess = adminAccess;
             this.oversight = oversight;
             this.applications = applications;
             this.memberships = memberships;
@@ -166,8 +190,10 @@ public class PlatformControllers {
         Memberships.View grant(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @Valid @RequestBody Memberships.Grant in) { return memberships.grant(StaffPrincipal.from(jwt), uuid(id), in); }
 
         @GetMapping("/transactions")
-        AdminOversight.TransactionPage transactions(@RequestParam(required = false) String status, @RequestParam(required = false) String kind, @RequestParam(required = false) String q,
-                                                    @RequestParam(defaultValue = "25") int limit, @RequestParam(defaultValue = "0") int offset) { return oversight.transactions(status, kind, q, limit, offset); }
+        AdminOversight.TransactionPage transactions(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status, @RequestParam(required = false) String kind, @RequestParam(required = false) String q,
+                                                    @RequestParam(defaultValue = "25") int limit, @RequestParam(defaultValue = "0") int offset) {
+            return oversight.transactions(status, kind, q, limit, offset, adminAccess.businessScope(StaffPrincipal.from(jwt), "pr.business_id"));
+        }
 
         @GetMapping("/transactions/{reference}")
         AdminOversight.TransactionDetail transaction(@PathVariable String reference) { return oversight.transaction(reference); }
@@ -187,19 +213,35 @@ public class PlatformControllers {
         }
 
         @GetMapping("/applications")
-        List<Applications.Row> applications(@RequestParam(required = false) String status) { return applications.list(status); }
+        List<Applications.Row> applications(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status) { return applications.list(status, adminAccess.categoryScope(StaffPrincipal.from(jwt), "a.category_id")); }
+
+        private void inScope(Jwt jwt, String id) {
+            String cat = applications.get(uuid(id)).categoryId();
+            adminAccess.requireCategory(StaffPrincipal.from(jwt), cat == null ? null : uuid(cat));
+        }
 
         @GetMapping("/applications/{id}")
-        Applications.Detail application(@PathVariable String id) { return applications.get(uuid(id)); }
+        Applications.Detail application(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+            inScope(jwt, id);
+            return applications.get(uuid(id));
+        }
 
         @PostMapping("/applications/{id}/request-changes")
-        Applications.Detail requestChanges(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Note in) { return applications.requestChanges(StaffPrincipal.from(jwt), uuid(id), in.note()); }
+        Applications.Detail requestChanges(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Note in) {
+            inScope(jwt, id);
+            return applications.requestChanges(StaffPrincipal.from(jwt), uuid(id), in.note());
+        }
 
         @PostMapping("/applications/{id}/reject")
-        Applications.Detail reject(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Note in) { return applications.reject(StaffPrincipal.from(jwt), uuid(id), in.note()); }
+        Applications.Detail reject(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Note in) {
+            inScope(jwt, id);
+            return applications.reject(StaffPrincipal.from(jwt), uuid(id), in.note());
+        }
 
         @PostMapping("/applications/{id}/approve")
         Applications.Approved approve(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody(required = false) Approve in) {
+            inScope(jwt, id);
+            if (in != null && in.categoryId() != null && !in.categoryId().isBlank()) adminAccess.requireCategory(StaffPrincipal.from(jwt), uuid(in.categoryId()));
             return applications.approve(StaffPrincipal.from(jwt), uuid(id), in == null ? null : in.categoryId());
         }
     }

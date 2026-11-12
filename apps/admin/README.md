@@ -18,6 +18,10 @@ React + Vite + TypeScript. For VIBE staff. Shares its UI, API client and money h
 - **Businesses:** search, create and edit listings (profile, hours, photos, categories, verified, live), set **commercial terms** (commission, auto-approve offers and events), and create merchant logins.
 - **Offer review:** approve or reject merchant offers (rejecting needs a note the merchant sees). Only approved offers reach customers.
 - **Promotion review:** approve or reject the promotions businesses want shown in Discover (rejecting needs a note). Trusted businesses' promotions go live at once and show as auto-approved; rejecting one takes it off the app.
+- **Roles:** super admin (everything, including every admin account), admin (CEO level: everything, and staff accounts) and staff (only the areas ticked, optionally only some categories: a category manager). The menu shows only what the person can open, and the server refuses the rest. Managed on **VIBE team**; **All logins** lists every login including merchants.
+- **Reports:** by category (partners, applications, payments, failed payments, refunds, VIBE fees; every level, any date range) and members (joined, members now, lapsed, never joined, by plan). Both download for Excel.
+- **Refunds:** raise a refund on a confirmed payment from Transactions (full or part, with a reason); cancelled events add theirs automatically. Mark it refunded with the payment partner's reference once sent; the customer is told. Transactions can be filtered by refund due / refunded.
+- **Categories:** each category sets what its merchants get (bills, offers, menu, reservations, bookings, memberships, events, promotions), or follows its parent.
 - **Events:** review merchant events and publish or reject them, create your own (they publish straight away), edit, cancel. Ticket types and prices are set on the event.
 - **Home content:** the sliding banners (image, headline, what they open, dates) and the pinned popular offers, trending places and featured events, in the order you choose. With nothing pinned the app picks automatically.
 - **Membership plans:** name, price, billing period, benefits, and whether it is on sale.

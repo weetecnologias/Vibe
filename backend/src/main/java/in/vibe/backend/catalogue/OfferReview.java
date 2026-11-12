@@ -36,8 +36,16 @@ public class OfferReview {
     }
 
     /** Offers waiting for review come first, oldest first, so nothing waits forever. */
-    public List<Row> list(String status) {
-        String where = status == null || status.isBlank() ? "" : " where o.review_status = :s";
+    public List<Row> list(String status) { return list(status, ""); }
+
+    /** The business an offer belongs to, for checking a category manager may decide on it. */
+    public UUID businessOf(UUID offer) {
+        return jdbc.sql("select business_id from offers where id = :id").param("id", offer).query(UUID.class).optional().orElseThrow(() -> ApiException.notFound("Offer not found."));
+    }
+
+    /** scope: from AdminAccess.businessScope on b.id. */
+    public List<Row> list(String status, String scope) {
+        String where = " where true" + scope + (status == null || status.isBlank() ? "" : " and o.review_status = :s");
         JdbcClient.StatementSpec s = jdbc.sql("select o.*, b.name bname from offers o join businesses b on b.id = o.business_id" + where
                 + " order by (o.review_status = 'pending') desc, case when o.review_status = 'pending' then o.updated_at end asc, o.updated_at desc limit 200");
         if (!where.isEmpty()) s.param("s", status);

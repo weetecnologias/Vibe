@@ -175,3 +175,9 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .schedule tr:hover td.free .link { visibility: visible; }
 .link { background: none; border: 0; padding: 0; color: var(--pink-deep); cursor: pointer; text-decoration: underline; font: inherit; }
 .schedule td:first-child, .schedule th:first-child { white-space: nowrap; }
+
+/* A grid of big buttons for picking one option (the business category when applying) */
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.choice { padding: 12px 10px; border-radius: 12px; border: 1.5px solid var(--line, #e7e3ea); background: #fff; font: inherit; font-weight: 600; cursor: pointer; text-align: center; }
+.choice:hover { border-color: var(--pink, #E80069); }
+.choice.on { border-color: var(--pink, #E80069); background: #FDE6F0; color: #C8005A; }

@@ -26,7 +26,10 @@ public class SettlementControllers {
         private final Settlements settlements;
         private final Exports exports;
 
-        AdminSettlementApi(Settlements settlements, Exports exports) {
+        private final in.vibe.backend.security.AdminAccess adminAccess;
+
+        AdminSettlementApi(Settlements settlements, Exports exports, in.vibe.backend.security.AdminAccess adminAccess) {
+            this.adminAccess = adminAccess;
             this.settlements = settlements;
             this.exports = exports;
         }
@@ -62,8 +65,8 @@ public class SettlementControllers {
 
         // ---------- spreadsheet downloads ----------
         @GetMapping("/v1/admin/exports/transactions")
-        ResponseEntity<byte[]> transactions(@RequestParam(required = false) String status, @RequestParam(required = false) String kind, @RequestParam(required = false) String q) {
-            return exports.transactions(status, kind, q);
+        ResponseEntity<byte[]> transactions(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status, @RequestParam(required = false) String kind, @RequestParam(required = false) String q) {
+            return exports.transactions(status, kind, q, adminAccess.businessScope(StaffPrincipal.from(jwt), "pr.business_id"));
         }
 
         @GetMapping("/v1/admin/exports/members")

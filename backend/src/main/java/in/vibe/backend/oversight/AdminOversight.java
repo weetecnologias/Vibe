@@ -28,7 +28,8 @@ public class AdminOversight {
     public record DayTotal(String day, long amount, int count) {}
 
     public record Overview(int customers, int newCustomers7d, int activeMembers, int redemptionsToday, int paidToday, long collectedToday, long collected7d, long membershipRevenue30d, long savedByMembers30d,
-                           int liveBusinesses, int pendingOffers, int pendingEvents, int pendingApplications, int pendingDeletions, List<DayTotal> last14Days) {}
+                           int liveBusinesses, int pendingOffers, int pendingEvents, int pendingApplications, int pendingDeletions, List<DayTotal> last14Days,
+                           int pendingPromotions, int failed7d, int refundsDue, long refundsDueAmount, long unsettledGross, int lapsedMembers) {}
 
     // ---------- customers ----------
     public record CustomerRow(String id, String name, String vibeId, String phoneMasked, String area, OffsetDateTime joinedAt, boolean member, int paidRedemptions, long totalPaid) {}
@@ -44,7 +45,7 @@ public class AdminOversight {
 
     // ---------- transactions ----------
     public record TransactionRow(String reference, String kind, String status, String method, long amount, long savings, String customerName, String vibeId, String payee, String provider,
-                                 OffsetDateTime createdAt, OffsetDateTime verifiedAt) {}
+                                 OffsetDateTime createdAt, OffsetDateTime verifiedAt, String refundStatus, Long refundAmount) {}
 
     public record TransactionTotals(int count, long verifiedAmount, long savings) {}
 
@@ -94,7 +95,11 @@ public class AdminOversight {
         }
         return new Overview(customers, newCustomers, members, redemptionsToday, (int) paid[0], paid[1], c7, membership30, saved30,
                 count("select count(*) from businesses where active"), count("select count(*) from offers where review_status = 'pending'"), count("select count(*) from events where status = 'pending'"),
-                count("select count(*) from merchant_applications where status = 'pending'"), count("select count(*) from deletion_requests where status = 'pending'"), days);
+                count("select count(*) from merchant_applications where status = 'pending'"), count("select count(*) from deletion_requests where status = 'pending'"), days,
+                count("select count(*) from promotions where review_status = 'pending'"), count("select count(*) from payments where status = 'failed' and created_at >= :a", "a", t.minusDays(6)),
+                count("select count(*) from payments where refund_status = 'due'"), jdbc.sql("select coalesce(sum(refund_amount), 0) from payments where refund_status = 'due'").query(Long.class).single(),
+                jdbc.sql("select coalesce(sum(p.amount + pr.vibe_funded - pr.vibe_fee), 0)" + in.vibe.backend.settlement.Settlements.UNSETTLED).query(Long.class).single(),
+                count("select count(*) from memberships where valid_until <= :n", "n", now));
     }
 
     private int count(String sql, Object... params) {
@@ -148,10 +153,16 @@ public class AdminOversight {
     }
 
     // ---------- transactions ----------
-    public TransactionPage transactions(String status, String kind, String q, int limit, int offset) {
-        StringBuilder where = new StringBuilder(" where true");
+    public TransactionPage transactions(String status, String kind, String q, int limit, int offset) { return transactions(status, kind, q, limit, offset, ""); }
+
+    /**
+     * status: verified, pending, failed, or refund_due / refunded (refunds on verified payments). scope: from AdminAccess.businessScope on pr.business_id.
+     */
+    public TransactionPage transactions(String status, String kind, String q, int limit, int offset, String scope) {
+        StringBuilder where = new StringBuilder(" where true" + scope);
         Map<String, Object> p = new HashMap<>();
-        if (status != null && !status.isBlank()) { where.append(" and p.status = :st"); p.put("st", status); }
+        if ("refund_due".equals(status) || "refunded".equals(status)) { where.append(" and p.refund_status = :rs"); p.put("rs", "refund_due".equals(status) ? "due" : "refunded"); }
+        else if (status != null && !status.isBlank()) { where.append(" and p.status = :st"); p.put("st", status); }
         if (kind != null && !kind.isBlank()) { where.append(" and pr.kind = :k"); p.put("k", kind); }
         if (q != null && !q.isBlank()) {
             String t = q.trim();
@@ -160,7 +171,7 @@ public class AdminOversight {
         }
         String from = " from payments p join payment_requests pr on pr.id = p.payment_request_id join customers c on c.id = p.customer_id left join businesses b on b.id = pr.business_id";
         JdbcClient.StatementSpec cnt = jdbc.sql("select count(*), coalesce(sum(p.amount) filter (where p.status = 'verified'), 0), coalesce(sum(p.savings) filter (where p.status = 'verified'), 0)" + from + where);
-        JdbcClient.StatementSpec list = jdbc.sql("select p.reference, pr.kind, p.status, p.method, p.amount, p.savings, c.name cname, c.vibe_id, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) payee, p.provider, p.created_at, p.verified_at" + from + where + " order by p.created_at desc limit :lim offset :off");
+        JdbcClient.StatementSpec list = jdbc.sql("select p.reference, pr.kind, p.status, p.method, p.amount, p.savings, c.name cname, c.vibe_id, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) payee, p.provider, p.created_at, p.verified_at, p.refund_status, p.refund_amount" + from + where + " order by p.created_at desc limit :lim offset :off");
         p.forEach((k, v) -> { cnt.param(k, v); list.param(k, v); });
         TransactionTotals totals = cnt.query((rs, i) -> new TransactionTotals(rs.getInt(1), rs.getLong(2), rs.getLong(3))).single();
         List<TransactionRow> items = list.param("lim", Math.min(Math.max(limit, 1), 100)).param("off", Math.max(offset, 0)).query((rs, i) -> row(rs)).list();
@@ -169,11 +180,12 @@ public class AdminOversight {
 
     private static TransactionRow row(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new TransactionRow(rs.getString("reference"), rs.getString("kind"), rs.getString("status"), rs.getString("method"), rs.getLong("amount"), rs.getLong("savings"), Customers.displayName(rs.getString("cname")), rs.getString("vibe_id"),
-                rs.getString("payee"), rs.getString("provider"), rs.getObject("created_at", OffsetDateTime.class), rs.getObject("verified_at", OffsetDateTime.class));
+                rs.getString("payee"), rs.getString("provider"), rs.getObject("created_at", OffsetDateTime.class), rs.getObject("verified_at", OffsetDateTime.class),
+                rs.getString("refund_status"), (Long) rs.getObject("refund_amount"));
     }
 
     public TransactionDetail transaction(String reference) {
-        var d = jdbc.sql("select p.reference, pr.kind, p.status, p.method, p.amount, p.savings, c.name cname, c.vibe_id, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) payee, p.provider, p.created_at, p.verified_at, p.failure_reason, p.provider_payment_id, "
+        var d = jdbc.sql("select p.reference, pr.kind, p.status, p.method, p.amount, p.savings, c.name cname, c.vibe_id, coalesce(b.name, case pr.kind when 'tickets' then 'VIBE Events' else 'VIBE Membership' end) payee, p.provider, p.created_at, p.verified_at, p.refund_status, p.refund_amount, p.failure_reason, p.provider_payment_id, "
                         + "p.provider_order_id, pr.id prid, pr.bill_ref, pr.raised_by, pr.eligible_amount, pr.discount, pr.discount_label from payments p join payment_requests pr on pr.id = p.payment_request_id join customers c on c.id = p.customer_id "
                         + "left join businesses b on b.id = pr.business_id where p.reference = :r").param("r", reference).query((rs, i) -> new Object[]{row(rs), rs.getString("failure_reason"), rs.getString("provider_payment_id"), rs.getString("bill_ref"),
                         rs.getString("raised_by"), (UUID) rs.getObject("prid"), rs.getLong("eligible_amount"), rs.getLong("discount"), rs.getString("discount_label"), rs.getString("provider_order_id")}).optional()

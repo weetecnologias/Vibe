@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 
 import {
   Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, paiseToRupees, rupeesToPaise, useAsync, useAuth,
-  type VenueCheckIn, type VenueDay, type VenueMember, type VenuePlan, type VenuePlanInput, type VenueResource, type VenueResourceInput,
+  type MerchantFeature, type VenueCheckIn, type VenueDay, type VenueMember, type VenuePlan, type VenuePlanInput, type VenueResource, type VenueResourceInput,
 } from '@kit';
+
+import { useSettings } from '../settings';
 
 const IST = 'Asia/Kolkata';
 const todayIST = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
@@ -19,14 +21,17 @@ const REFRESH_MS = 15_000;
  * Memberships: monthly plans (gyms, yoga and meditation studios, trainers) that customers buy from a start month, and who the members are.
  */
 export function VenuePage() {
-  const [tab, setTab] = useState<'day' | 'courts' | 'plans'>('day');
+  const settings = useSettings();
+  const has = (f: MerchantFeature) => !settings.features || settings.features.includes(f);
+  const bookings = has('bookings'), plans = has('memberships');
+  const [tab, setTab] = useState<'day' | 'courts' | 'plans'>(bookings ? 'day' : 'plans');
   return (
     <>
-      <PageHead title="Bookings & members" sub="Customers book your courts, turfs and classes by the slot, or join monthly, in the VIBE app and pay through VIBE. You get an alert with each booking or membership, and the money in your settlements." />
+      <PageHead title={bookings && plans ? 'Bookings & members' : bookings ? 'Bookings' : 'Members'} sub="Customers book your courts, turfs and classes by the slot, or join monthly, in the VIBE app and pay through VIBE. You get an alert with each booking or membership, and the money in your settlements." />
       <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'day'} className={`tab${tab === 'day' ? ' on' : ''}`} onClick={() => setTab('day')}>Schedule</button>
-        <button role="tab" aria-selected={tab === 'courts'} className={`tab${tab === 'courts' ? ' on' : ''}`} onClick={() => setTab('courts')}>Courts and prices</button>
-        <button role="tab" aria-selected={tab === 'plans'} className={`tab${tab === 'plans' ? ' on' : ''}`} onClick={() => setTab('plans')}>Memberships</button>
+        {bookings ? <button role="tab" aria-selected={tab === 'day'} className={`tab${tab === 'day' ? ' on' : ''}`} onClick={() => setTab('day')}>Schedule</button> : null}
+        {bookings ? <button role="tab" aria-selected={tab === 'courts'} className={`tab${tab === 'courts' ? ' on' : ''}`} onClick={() => setTab('courts')}>Courts and prices</button> : null}
+        {plans ? <button role="tab" aria-selected={tab === 'plans'} className={`tab${tab === 'plans' ? ' on' : ''}`} onClick={() => setTab('plans')}>Memberships</button> : null}
       </div>
       {tab === 'day' ? <Schedule /> : tab === 'courts' ? <Courts /> : <Memberships />}
     </>

@@ -55,8 +55,9 @@ public class Settlements {
     public record TermsInput(@NotNull @Min(0) @Max(5000) Integer commissionBps, @NotNull Boolean autoApprove, @NotBlank @Size(max = 200) String reason) {}
 
     /** Confirmed payments at a business that no settlement includes yet. */
-    static final String UNSETTLED = " from payments p join payment_requests pr on pr.id = p.payment_request_id join businesses b on b.id = pr.business_id "
-            + "where p.status = 'verified' and pr.business_id is not null and not exists (select 1 from settlement_items si where si.payment_id = p.id)";
+    /** Verified payments to businesses not yet in a settlement and without a refund. */
+    public static final String UNSETTLED = " from payments p join payment_requests pr on pr.id = p.payment_request_id join businesses b on b.id = pr.business_id "
+            + "where p.status = 'verified' and p.refund_status is null and pr.business_id is not null and not exists (select 1 from settlement_items si where si.payment_id = p.id)";
 
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM").withZone(ZoneId.of("Asia/Kolkata"));
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

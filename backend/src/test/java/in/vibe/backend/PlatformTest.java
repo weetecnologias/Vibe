@@ -117,7 +117,7 @@ class PlatformTest extends ApiTestSupport {
         String cinema = merchant(business(cinemas, "Cinema place " + uniq()));
         mvc.perform(as(cinema, get("/v1/merchant/settings"))).andExpect(jsonPath("$.payRedeem", is(false))).andExpect(jsonPath("$.menuLabel", is("Menu")));
         mvc.perform(as(cinema, post("/v1/merchant/offers")).content("{\"title\":\"Nope\",\"kind\":\"flat\",\"flatAmount\":5000,\"startsAt\":\"2026-01-01T00:00:00Z\",\"endsAt\":\"2031-01-01T00:00:00Z\"}"))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code", is("not_applicable")));
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code", is("feature_off"))); // a category without bills has no offers at all
     }
 
     @Test
@@ -303,8 +303,12 @@ class PlatformTest extends ApiTestSupport {
     }
 
     // ---------- merchant applications ----------
-    String application(String email) {
-        return "{\"businessName\":\"New Cafe " + uniq() + "\",\"area\":\"Madhapur\",\"address\":\"Plot 4\",\"contactName\":\"Rohan Das\",\"email\":\"" + email + "\",\"phone\":\"+91 98765 43210\",\"about\":\"A small cafe\",\"documents\":[\"https://example.com/fssai.pdf\"]}";
+    /** A category a business can apply in: the category is required. It comes first, so a test can override it later in the JSON. */
+    String appCategory;
+
+    String application(String email) throws Exception {
+        if (appCategory == null) appCategory = category(null, "Cafes " + uniq());
+        return "{\"categoryId\":\"" + appCategory + "\",\"businessName\":\"New Cafe " + uniq() + "\",\"area\":\"Madhapur\",\"address\":\"Plot 4\",\"contactName\":\"Rohan Das\",\"email\":\"" + email + "\",\"phone\":\"+91 98765 43210\",\"about\":\"A small cafe\",\"documents\":[\"https://example.com/fssai.pdf\"]}";
     }
 
     @Test
@@ -347,8 +351,7 @@ class PlatformTest extends ApiTestSupport {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status", is("pending")));
         mvc.perform(put("/v1/business-applications/" + id).param("token", token).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(application(email))).andExpect(status().isConflict()).andExpect(jsonPath("$.code", is("not_editable")));
 
-        // Approval needs a category, creates the listing switched off, and an owner login with a one-time password.
-        mvc.perform(as(adminToken(), post("/v1/admin/applications/" + id + "/approve")).content("{}")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code", is("category")));
+        // Approval uses the category the business chose (VIBE can change it here), creates the listing switched off, and an owner login with a one-time password.
         MvcResult ok = mvc.perform(as(adminToken(), post("/v1/admin/applications/" + id + "/approve")).content("{\"categoryId\":\"" + cat + "\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.loginEmail", is(email)))
                 .andExpect(jsonPath("$.temporaryPassword", matchesPattern("[A-Za-z0-9]{14}"))).andReturn();
         String bizId = JsonPath.read(ok.getResponse().getContentAsString(), "$.businessId"), temp = JsonPath.read(ok.getResponse().getContentAsString(), "$.temporaryPassword");

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 
-import { ChangePasswordPage, Loading, LoginPage, Notice, Shell, useAsync, useAuth, type MerchantSettings, type NavItem } from '@kit';
+import { ChangePasswordPage, Loading, LoginPage, Notice, Shell, useAsync, useAuth, type MerchantFeature, type MerchantSettings, type NavItem } from '@kit';
 
 import { ApplyPage } from './pages/ApplyPage';
 import { BillsPage } from './pages/BillsPage';
@@ -52,21 +52,23 @@ function SignedIn() {
   }
   const settings = s.data;
   const can = (area: string) => (area === 'team' ? !!settings.owner : !!settings.owner || (settings.permissions ?? []).includes(area));
+  // What this kind of business gets on VIBE (from the category it onboarded in): a café never sees court bookings, a venue never sees bills it doesn't use.
+  const has = (f: MerchantFeature) => !settings.features || settings.features.includes(f);
 
   // Grouped by what the owner is doing: serving customers today, selling on VIBE, money, and the business itself. Each page shows only to people whose role includes it.
   const pages: Page[] = [
     // A sports or fitness venue opens on its court bookings; everyone else on bills.
-    { group: 'Today', path: 'bookings', label: 'Bookings & members', area: 'bookings', element: <VenuePage />, when: !!settings.slotBooking },
-    { group: 'Today', path: 'bills', label: 'Bills', area: 'bills', element: <BillsPage />, when: settings.payRedeem },
-    { group: 'Sell on VIBE', path: 'offers', label: 'Offers', area: 'offers', element: <OffersPage />, when: settings.payRedeem },
-    { group: 'Sell on VIBE', path: 'promotions', label: 'Promotions', area: 'offers', element: <PromotionsPage /> },
-    { group: 'Sell on VIBE', path: 'events', label: 'Events', area: 'events', element: <EventsPage /> },
+    { group: 'Today', path: 'bookings', label: has('bookings') ? (has('memberships') ? 'Bookings & members' : 'Bookings') : 'Members', area: 'bookings', element: <VenuePage />, when: !!settings.slotBooking && (has('bookings') || has('memberships')) },
+    { group: 'Today', path: 'bills', label: 'Bills', area: 'bills', element: <BillsPage />, when: settings.payRedeem && has('bills') },
+    { group: 'Sell on VIBE', path: 'offers', label: 'Offers', area: 'offers', element: <OffersPage />, when: settings.payRedeem && has('offers') },
+    { group: 'Sell on VIBE', path: 'promotions', label: 'Promotions', area: 'offers', element: <PromotionsPage />, when: has('promotions') },
+    { group: 'Sell on VIBE', path: 'events', label: 'Events', area: 'events', element: <EventsPage />, when: has('events') },
     { group: 'Money', path: 'results', label: 'Your results', area: 'money', element: <ResultsPage /> },
     { group: 'Money', path: 'settlements', label: 'Settlements', area: 'money', element: <SettlementsPage /> },
     { group: 'My business', path: 'profile', label: 'Profile and photos', area: 'profile', element: <ProfilePage /> },
-    { group: 'My business', path: 'menu', label: settings.menuLabel, area: 'menu', element: <MenuPage /> },
+    { group: 'My business', path: 'menu', label: settings.menuLabel, area: 'menu', element: <MenuPage />, when: has('menu') },
     { group: 'My business', path: 'reviews', label: 'Reviews', area: 'profile', element: <ReviewsPage /> },
-    { group: 'My business', path: 'reservations', label: 'Reservations', area: 'reservations', element: <ReservationsPage /> },
+    { group: 'My business', path: 'reservations', label: 'Reservations', area: 'reservations', element: <ReservationsPage />, when: has('reservations') },
     { group: 'My business', path: 'team', label: 'Team', area: 'team', element: <TeamPage /> },
   ].filter((p) => p.when !== false && can(p.area));
 
@@ -80,11 +82,11 @@ function SignedIn() {
   return (
     <SettingsContext.Provider value={settings}>
       <Routes>
-        <Route element={<Shell title="Merchant" nav={nav} />}>
+        <Route element={<Shell title={settings.topCategoryName ? `for ${settings.topCategoryName}` : 'Merchant'} nav={nav} />}>
           <Route index element={<Navigate to={home} replace />} />
           {pages.map((p) => <Route key={p.path} path={p.path} element={p.element} />)}
-          {can('events') ? <Route path="events/:id" element={<EventEditPage />} /> : null}
-          {can('events') ? <Route path="events/:id/sales" element={<EventSalesPage />} /> : null}
+          {can('events') && has('events') ? <Route path="events/:id" element={<EventEditPage />} /> : null}
+          {can('events') && has('events') ? <Route path="events/:id/sales" element={<EventSalesPage />} /> : null}
           <Route path="nothing" element={<Notice tone="info">Your role doesn’t include any part of this dashboard yet. Ask the owner to give you access.</Notice>} />
           <Route path="*" element={<Navigate to={home} replace />} />
         </Route>

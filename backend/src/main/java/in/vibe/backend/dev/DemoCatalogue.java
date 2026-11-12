@@ -56,6 +56,22 @@ final class DemoCatalogue {
         }
     }
 
+    /**
+     * What a merchant in each category gets. Set on the top-level category (subcategories follow it) and on the few that differ.
+     * VIBE Social and Offers & Benefits aren't places a merchant onboards in.
+     */
+    private static final Map<String, List<String>> FEATURES = Map.ofEntries(
+            Map.entry("food", List.of("bills", "offers", "menu", "reservations", "promotions")),
+            Map.entry("shopping", List.of("bills", "offers", "menu", "promotions")),
+            Map.entry("fitness", List.of("bills", "offers", "menu", "bookings", "memberships", "promotions")),
+            Map.entry("beauty", List.of("bills", "offers", "menu", "reservations", "promotions")),
+            Map.entry("kids", List.of("bills", "offers", "menu", "bookings", "promotions")),
+            Map.entry("events", List.of("events", "promotions")),
+            Map.entry("movies", List.of("events", "promotions")),
+            Map.entry("movies.private-theatres", List.of("menu", "bookings", "promotions")),
+            Map.entry("social", List.of()),
+            Map.entry("offers", List.of()));
+
     // ---------- categories ----------
     void categories(StaffPrincipal admin) {
         int sort = 1;
@@ -67,7 +83,7 @@ final class DemoCatalogue {
         String top = slug.contains(".") ? slug.substring(0, slug.indexOf('.')) : slug;
         String label = switch (top) { case "food" -> "Menu"; case "shopping" -> "Price list"; case "fitness", "beauty", "kids" -> "Services"; default -> null; };
         String id = categories.create(admin, new Categories.Input(parent, slug, text(n, "name"), text(n, "icon"), null, url(text(n, "imageUrl")), sort, true,
-                !NO_BILLS.contains(top), slug.equals(top) ? label : null)).id();
+                !NO_BILLS.contains(top), slug.equals(top) ? label : null, FEATURES.get(slug))).id();
         categoryIds.put(slug, id);
         int i = 1;
         for (JsonNode c : n.withArray("children")) category(admin, id, c, i++);

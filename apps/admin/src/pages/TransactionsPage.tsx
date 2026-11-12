@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Badge, DownloadButton, Loading, Modal, Notice, PageHead, formatINR, showDateTime, useAsync, useAuth, type TransactionDetail, type TransactionPage } from '@kit';
+import { Badge, DownloadButton, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, rupeesToPaise, showDateTime, useAsync, useAuth, type TransactionDetail, type TransactionPage } from '@kit';
 
 const PAGE = 25;
 const TONE: Record<string, 'success' | 'warning' | 'muted'> = { verified: 'success', failed: 'warning', pending: 'muted' };
@@ -27,7 +27,7 @@ export function TransactionsPage() {
         <div className="card"><span className="muted small">Customers saved</span><strong>{t ? formatINR(t.savings) : '–'}</strong></div>
       </div>
       <form className="row" style={{ marginBottom: 14 }} onSubmit={(e) => { e.preventDefault(); setOffset(0); setTerm(q.trim()); }}>
-        <select aria-label="Status" style={{ maxWidth: 160 }} value={status} onChange={(e) => { setOffset(0); setStatus(e.target.value); }}><option value="">Any status</option><option value="verified">Confirmed</option><option value="pending">Pending</option><option value="failed">Failed</option></select>
+        <select aria-label="Status" style={{ maxWidth: 160 }} value={status} onChange={(e) => { setOffset(0); setStatus(e.target.value); }}><option value="">Any status</option><option value="verified">Confirmed</option><option value="pending">Pending</option><option value="failed">Failed</option><option value="refund_due">Refund due</option><option value="refunded">Refunded</option></select>
         <select aria-label="Type" style={{ maxWidth: 180 }} value={kind} onChange={(e) => { setOffset(0); setKind(e.target.value); }}><option value="">Any type</option><option value="redemption">Bills</option><option value="tickets">Tickets</option><option value="slots">Court bookings</option><option value="pass">Venue memberships</option><option value="membership">VIBE Membership</option></select>
         <input style={{ maxWidth: 280 }} placeholder="Reference, place or VIBE ID" aria-label="Search transactions" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn">Search</button>
@@ -47,7 +47,7 @@ export function TransactionsPage() {
                     <td className="small">{x.customerName}<div className="muted">ID {x.vibeId}</div></td>
                     <td>{formatINR(x.amount)}{x.savings > 0 ? <div className="muted small">saved {formatINR(x.savings)}</div> : null}</td>
                     <td className="small">{showDateTime(x.createdAt)}</td>
-                    <td><Badge tone={TONE[x.status] ?? 'muted'}>{x.status === 'verified' ? 'Confirmed' : x.status}</Badge></td>
+                    <td><Badge tone={TONE[x.status] ?? 'muted'}>{x.status === 'verified' ? 'Confirmed' : x.status}</Badge>{x.refundStatus ? <div><Badge tone={x.refundStatus === 'due' ? 'warning' : 'muted'}>{x.refundStatus === 'due' ? 'Refund due' : 'Refunded'} {formatINR(x.refundAmount ?? 0)}</Badge></div> : null}</td>
                     <td className="actions"><button className="btn ghost sm" onClick={() => setOpen(x.reference)}>Open</button></td>
                   </tr>
                 ))}
@@ -64,7 +64,7 @@ export function TransactionsPage() {
           </div>
         </>
       )}
-      {open ? <TransactionModal reference={open} onClose={() => setOpen(null)} /> : null}
+      {open ? <TransactionModal reference={open} onClose={() => { setOpen(null); list.reload(); }} /> : null}
     </>
   );
 }
@@ -73,6 +73,20 @@ function TransactionModal({ reference, onClose }: { reference: string; onClose: 
   const { client } = useAuth();
   const d = useAsync(() => client.get<TransactionDetail>(`/v1/admin/transactions/${reference}`), [client, reference]);
   const x = d.data;
+  const [refunding, setRefunding] = useState(false);
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const raise = async () => {
+    setError(null);
+    const paise = amount.trim() ? rupeesToPaise(amount) : null;
+    if (amount.trim() && paise === null) return setError('Enter the amount in rupees, or leave it empty to refund everything.');
+    try {
+      await client.post(`/v1/admin/transactions/${reference}/refund`, { amount: paise, reason: reason.trim() });
+      setRefunding(false);
+      d.reload();
+    } catch (e) { setError(errorText(e)); }
+  };
   return (
     <Modal title={reference} onClose={onClose}>
       {d.loading && !x ? <Loading /> : d.error && !x ? <Notice tone="error">{d.error}</Notice> : x ? (
@@ -89,6 +103,19 @@ function TransactionModal({ reference, onClose }: { reference: string; onClose: 
           </table>
           <div className="muted small">Bill {x.billRef ?? '—'} · raised by {x.raisedBy ?? '—'} · partner payment {x.providerPaymentId ?? 'not confirmed yet'}</div>
           {x.providerEvents.length ? <div className="muted small">Partner messages: {x.providerEvents.join(' · ')}</div> : null}
+          {x.row.refundStatus ? <Notice tone="info">{x.row.refundStatus === 'due' ? 'A refund' : 'Refunded'} of {formatINR(x.row.refundAmount ?? 0)}{x.row.refundStatus === 'due' ? ' is waiting on the Refunds page.' : '.'}</Notice> : null}
+          {x.row.status === 'verified' && !x.row.refundStatus && !refunding ? <button className="btn" onClick={() => setRefunding(true)}>Refund this payment</button> : null}
+          {refunding ? (
+            <div className="card stack">
+              <strong>Refund this payment</strong>
+              <div className="grid2">
+                <Field label="Amount (₹)" hint={`Empty refunds all ${formatINR(x.row.amount)}.`}><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+                <Field label="Why" hint="Kept in the audit log and shown on the Refunds page."><input value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} placeholder="Charged twice" /></Field>
+              </div>
+              {error ? <Notice tone="error">{error}</Notice> : null}
+              <div className="row"><button className="btn" onClick={() => setRefunding(false)}>Cancel</button><button className="btn primary" disabled={!reason.trim()} onClick={raise}>Add to refunds</button></div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </Modal>

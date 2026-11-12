@@ -15,16 +15,21 @@ public class BillingRules {
     public record Rules(boolean payRedeem, String menuLabel) {}
 
     private final JdbcClient jdbc;
+    private final MerchantFeatures features;
 
-    BillingRules(JdbcClient jdbc) { this.jdbc = jdbc; }
+    BillingRules(JdbcClient jdbc, MerchantFeatures features) {
+        this.jdbc = jdbc;
+        this.features = features;
+    }
 
     public Rules forBusiness(UUID business) {
+        boolean bills = features.forBusiness(business).has("bills");
         return jdbc.sql("""
                 with recursive chain as (
                     select c.id, c.parent_id, c.pay_redeem, c.menu_label, 0 depth from categories c join businesses b on b.primary_category_id = c.id where b.id = :b
                     union all
                     select p.id, p.parent_id, p.pay_redeem, p.menu_label, ch.depth + 1 from categories p join chain ch on p.id = ch.parent_id)
                 select coalesce(bool_and(pay_redeem), true), (select menu_label from chain where menu_label is not null order by depth limit 1) from chain
-                """).param("b", business).query((rs, i) -> new Rules(rs.getBoolean(1), rs.getString(2) == null ? "Menu" : rs.getString(2))).optional().orElse(new Rules(true, "Menu"));
+                """).param("b", business).query((rs, i) -> new Rules(bills, rs.getString(2) == null ? "Menu" : rs.getString(2))).optional().orElse(new Rules(bills, "Menu"));
     }
 }

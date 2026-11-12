@@ -88,16 +88,26 @@ public class PromotionControllers {
     @RestController
     public static class AdminPromotionsApi {
         private final Promotions promotions;
+        private final in.vibe.backend.security.AdminAccess adminAccess;
 
-        AdminPromotionsApi(Promotions promotions) { this.promotions = promotions; }
+        AdminPromotionsApi(Promotions promotions, in.vibe.backend.security.AdminAccess adminAccess) {
+            this.promotions = promotions;
+            this.adminAccess = adminAccess;
+        }
 
         @GetMapping("/v1/admin/promotions")
-        List<Promotions.Row> list(@RequestParam(required = false) String status) { return promotions.list(status); }
+        List<Promotions.Row> list(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status) { return promotions.list(status, adminAccess.businessScope(StaffPrincipal.from(jwt), "b.id")); }
 
         @PostMapping("/v1/admin/promotions/{id}/approve")
-        Promotions.Row approve(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) { return promotions.decide(StaffPrincipal.from(jwt), id(id), true, null); }
+        Promotions.Row approve(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+            adminAccess.requireBusiness(StaffPrincipal.from(jwt), promotions.businessOf(id(id)));
+            return promotions.decide(StaffPrincipal.from(jwt), id(id), true, null);
+        }
 
         @PostMapping("/v1/admin/promotions/{id}/reject")
-        Promotions.Row reject(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Note in) { return promotions.decide(StaffPrincipal.from(jwt), id(id), false, in.note()); }
+        Promotions.Row reject(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestBody Note in) {
+            adminAccess.requireBusiness(StaffPrincipal.from(jwt), promotions.businessOf(id(id)));
+            return promotions.decide(StaffPrincipal.from(jwt), id(id), false, in.note());
+        }
     }
 }

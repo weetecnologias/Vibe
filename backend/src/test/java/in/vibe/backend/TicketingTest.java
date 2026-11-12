@@ -210,6 +210,8 @@ class TicketingTest extends ApiTestSupport {
         mvc.perform(as(adminToken(), post("/v1/admin/events/" + s.event + "/cancel"))).andExpect(status().isOk());
         mvc.perform(as(c, get("/v1/me/tickets"))).andExpect(jsonPath("$[0].status", is("cancelled")));
         mvc.perform(as(c, get("/v1/me/notifications"))).andExpect(jsonPath("$[?(@.kind=='event_cancelled')]", hasSize(1)));
+        // Every paid order for the cancelled event is on the refunds list, so nobody is missed.
+        mvc.perform(as(adminToken(), get("/v1/admin/refunds").param("status", "due"))).andExpect(jsonPath("$.items[?(@.reason =~ /Event cancelled.*/)]").isNotEmpty());
     }
 
     @Test

@@ -241,7 +241,7 @@ public class StaffService {
     @Transactional
     public UUID createAdmin(String email, String name, String password) {
         UUID id = UUID.randomUUID();
-        jdbc.sql("insert into staff_users (id, email, name, password_hash, role) values (:id, :e, :n, :h, 'ADMIN')")
+        jdbc.sql("insert into staff_users (id, email, name, password_hash, role, admin_role) values (:id, :e, :n, :h, 'ADMIN', case when exists (select 1 from staff_users where role = 'ADMIN') then 'admin' else 'super_admin' end)")
                 .param("id", id).param("e", email.toLowerCase(Locale.ROOT)).param("n", name).param("h", encoder.encode(password)).update();
         return id;
     }

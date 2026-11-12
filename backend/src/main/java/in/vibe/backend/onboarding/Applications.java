@@ -61,9 +61,11 @@ public class Applications {
     private final StaffService staff;
     private final BusinessStore businesses;
     private final Clock clock;
+    private final in.vibe.backend.catalogue.MerchantFeatures merchantFeatures;
     private final SecureRandom random = new SecureRandom();
 
-    Applications(JdbcClient jdbc, AuditService audit, StaffNotifications staffNotifications, StaffService staff, BusinessStore businesses, Clock clock) {
+    Applications(JdbcClient jdbc, AuditService audit, StaffNotifications staffNotifications, StaffService staff, BusinessStore businesses, Clock clock, in.vibe.backend.catalogue.MerchantFeatures merchantFeatures) {
+        this.merchantFeatures = merchantFeatures;
         this.jdbc = jdbc;
         this.audit = audit;
         this.staffNotifications = staffNotifications;
@@ -87,11 +89,15 @@ public class Applications {
         return d;
     }
 
+    /** Required: the category decides what the business gets on VIBE. It must be one a merchant can be in (has at least one feature). */
     private UUID category(String raw) {
-        if (raw == null || raw.isBlank()) return null;
+        if (raw == null || raw.isBlank()) throw ApiException.badRequest("category", "Choose what kind of business this is, like Food & Dining → Cafés.");
         UUID id;
         try { id = UUID.fromString(raw); } catch (RuntimeException e) { throw ApiException.badRequest("category", "Choose a valid category."); }
         if (jdbc.sql("select count(*) from categories where id = :id and active").param("id", id).query(Integer.class).single() == 0) throw ApiException.badRequest("category", "That category isn’t available.");
+        if (jdbc.sql("select count(*) from categories where id = :id").param("id", id).query(Integer.class).single() > 0 && merchantFeatures.forCategory(id).features().isEmpty()) {
+            throw ApiException.badRequest("category", "Businesses can’t join VIBE in that category. Choose the one closest to what you do.");
+        }
         return id;
     }
 
@@ -149,8 +155,11 @@ public class Applications {
     }
 
     /** Waiting ones first, oldest first. */
-    public List<Row> list(String status) {
-        return jdbc.sql("select a.*, c.name cname from merchant_applications a left join categories c on c.id = a.category_id" + (status == null || status.isBlank() ? "" : " where a.status = :s")
+    public List<Row> list(String status) { return list(status, ""); }
+
+    /** scope: from AdminAccess.categoryScope on a.category_id. */
+    public List<Row> list(String status, String scope) {
+        return jdbc.sql("select a.*, c.name cname from merchant_applications a left join categories c on c.id = a.category_id where true" + scope + (status == null || status.isBlank() ? "" : " and a.status = :s")
                 + " order by (a.status = 'pending') desc, case when a.status = 'pending' then a.created_at end asc, a.created_at desc limit 200").param("s", status == null ? "" : status).query(Applications::row).list();
     }
 
