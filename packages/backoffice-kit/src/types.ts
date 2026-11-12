@@ -181,7 +181,7 @@ export type ApplicationRow = { id: string; businessName: string; categoryName: s
 export type ApplicationDetail = { row: ApplicationRow; categoryId: string | null; address: string; about: string; documents: string[]; reviewNote: string | null; decidedAt: string | null; businessId: string | null };
 export type ApplicationApproved = { businessId: string; loginEmail: string; temporaryPassword: string };
 export type StaffRole = 'manager' | 'cashier' | 'custom';
-export type MerchantSettings = { payRedeem: boolean; menuLabel: string; owner?: boolean; staffRole?: StaffRole | null; permissions?: string[]; areas?: Record<string, string>; acceptsVibePayments?: boolean };
+export type MerchantSettings = { payRedeem: boolean; menuLabel: string; owner?: boolean; staffRole?: StaffRole | null; permissions?: string[]; areas?: Record<string, string>; acceptsVibePayments?: boolean; slotBooking?: boolean };
 export type TeamMember = { id: string; email: string; name: string; active: boolean; owner: boolean; mustChangePassword: boolean; staffRole: StaffRole | null; permissions: string[] };
 
 // ---------- settlements and results ----------
@@ -215,3 +215,14 @@ export type CheckInResult = { result: 'admitted' | 'already' | 'wrong_event' | '
 export type ReviewItem = { id: string; businessId: string; businessName: string; customerName: string; vibeId: string; rating: number; comment: string; offerTitle: string; mode: 'bill' | 'code'; hidden: boolean; hiddenReason: string | null; createdAt: string };
 export type ReviewStats = { average: number; count: number; byStars: number[] };
 export type MerchantReviews = { stats: ReviewStats; items: ReviewItem[] };
+
+// ---------- slot booking (courts, turfs, classes) ----------
+export type VenueResource = {
+  id: string; sport: string; name: string; kind: 'court' | 'spots'; capacity: number; slotMinutes: number; price: number; peakPrice: number | null; peakFrom: string | null; peakTo: string | null;
+  weekendPeak: boolean; active: boolean; sortOrder: number;
+};
+export type VenueResourceInput = Omit<VenueResource, 'id'>;
+export type VenueDayBooking = { bookingId: string; bookingRef: string; customerName: string; vibeId: string; resourceId: string; startsAt: string; endsAt: string; spots: number; status: string; checkedIn: boolean; price: number };
+export type VenueBlock = { id: string; resourceId: string; startsAt: string; endsAt: string; reason: string };
+export type VenueDay = { date: string; resources: VenueResource[]; bookings: VenueDayBooking[]; blocks: VenueBlock[]; bookedToday: number; salesToday: number };
+export type VenueCheckIn = { result: 'admitted' | 'already'; message: string; bookingRef: string; customerName: string; items: { resourceName: string; sport: string; startsAt: string; endsAt: string; spots: number }[] };

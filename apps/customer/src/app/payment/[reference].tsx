@@ -52,6 +52,7 @@ export default function PaymentStatus() {
   const done = () => {
     if ((p?.kind === 'tickets' || p?.kind === 'movie') && p.ticketIds.length) router.replace(`/ticket/${p.ticketIds[0]}`);
     else if (p?.kind === 'membership') router.replace('/membership');
+    else if (p?.kind === 'slots' && p.slotBookingId) router.replace(`/booking/${p.slotBookingId}`);
     else if (p?.kind === 'meetup') router.dismissTo('/social'); // back to the plan, still on One-on-one
     else router.replace('/home');
   };
@@ -132,7 +133,7 @@ export default function PaymentStatus() {
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 24 }}>
         {verified ? <Button label="Share receipt" variant="outline" style={{ flex: 1 }} onPress={() => Share.share({ message: `VIBE receipt ${p!.reference}: ${formatINR(p!.amount, { decimals: 'always' })} to ${p!.payeeName}` })} /> : null}
         <Button
-          label={verified ? (p?.kind === 'tickets' || p?.kind === 'movie' ? 'View tickets' : p?.kind === 'membership' ? 'Go to membership' : p?.kind === 'meetup' ? 'Back to your plan' : 'Done') : failed ? 'Back' : 'Keep waiting'}
+          label={verified ? (p?.kind === 'tickets' || p?.kind === 'movie' ? 'View tickets' : p?.kind === 'membership' ? 'Go to membership' : p?.kind === 'slots' ? 'View booking' : p?.kind === 'meetup' ? 'Back to your plan' : 'Done') : failed ? 'Back' : 'Keep waiting'}
           disabled={pending && !slow}
           style={{ flex: 1 }}
           onPress={failed ? () => router.back() : done}

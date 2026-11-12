@@ -51,6 +51,7 @@ export function BusinessCard({ b }: { b: BusinessSummary }) {
           <Rating value={b.rating} />
         </View>
         <T variant="caption" color={colors.mutedGrey}>{b.categoryLabel} · {b.area}</T>
+        {b.slotFromPrice != null ? <View style={{ flexDirection: 'row' }}><Badge label={`Book a slot · from ${formatINR(b.slotFromPrice)}`} tone="muted" /></View> : null}
         <View style={styles.row}>
           {b.costForTwo ? <T variant="captionStrong">{formatINR(b.costForTwo)} for two</T> : null}
           <T variant="caption" color={colors.mutedGrey}>{b.distanceKm} km</T>
@@ -78,6 +79,7 @@ export function BusinessRow({ b }: { b: BusinessSummary }) {
           <T variant="small" color={statusColor[b.status.tone]} style={{ fontFamily: fonts.semibold }}>{b.status.label}</T>
         </View>
         {b.offerBadge ? <Badge label={b.offerBadge} /> : null}
+        {b.slotFromPrice != null ? <Badge label={`Book a slot · from ${formatINR(b.slotFromPrice)}`} tone="muted" /> : null}
       </View>
     </Pressable>
   );

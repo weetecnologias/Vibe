@@ -19,14 +19,14 @@ import java.util.Set;
 public class TeamAccess {
     /** The areas of the merchant dashboard, in the order they are shown. The team itself is the owner's alone. */
     public static final Map<String, String> AREAS = areas();
-    public static final List<String> MANAGER = List.of("bills", "offers", "events", "menu", "profile", "reservations", "money");
+    public static final List<String> MANAGER = List.of("bills", "offers", "events", "bookings", "menu", "profile", "reservations", "money");
     public static final List<String> CASHIER = List.of("bills");
 
     /** Which area each staff alert belongs to, so a cashier sees bill alerts and not settlements. Kinds not listed are shown to everyone. */
-    static final Map<String, String> ALERT_AREA = Map.of(
-            "redeem_started", "bills", "redeem_cancelled", "bills", "payment_received", "bills",
-            "offer_decision", "offers", "auto_approve", "offers", "event_decision", "events",
-            "settlement_created", "money", "settlement_paid", "money", "tickets_sold", "events", "review_received", "profile");
+    static final Map<String, String> ALERT_AREA = Map.ofEntries(
+            Map.entry("redeem_started", "bills"), Map.entry("redeem_cancelled", "bills"), Map.entry("payment_received", "bills"),
+            Map.entry("offer_decision", "offers"), Map.entry("auto_approve", "offers"), Map.entry("event_decision", "events"), Map.entry("tickets_sold", "events"),
+            Map.entry("slot_booked", "bookings"), Map.entry("settlement_created", "money"), Map.entry("settlement_paid", "money"), Map.entry("review_received", "profile"));
 
     /** signedIn is false when the login no longer exists or the owner switched it off: the person must be signed out. */
     public record Access(boolean signedIn, boolean owner, String staffRole, List<String> permissions) {
@@ -41,6 +41,7 @@ public class TeamAccess {
         m.put("menu", "Menu or price list: change items");
         m.put("profile", "Profile and photos");
         m.put("reservations", "Reservation fees and policy");
+        m.put("bookings", "Court and class bookings: courts, prices, the day's bookings, check-in");
         m.put("money", "Results and settlements");
         return java.util.Collections.unmodifiableMap(m);
     }
@@ -98,6 +99,7 @@ public class TeamAccess {
         if (p.startsWith("/business") || p.startsWith("/reviews")) return "profile";
         if (p.startsWith("/reservation-settings")) return "reservations";
         if (p.startsWith("/settlements") || p.startsWith("/results")) return "money";
+        if (p.startsWith("/venue")) return "bookings";
         if (p.startsWith("/team")) return "team";
         return null;
     }

@@ -43,7 +43,7 @@ export default function Movies() {
           <View style={styles.grid}>
             {films.error ? <ErrorState message={films.error} onRetry={films.reload} /> : null}
             {films.loading && !films.data ? <LoadingState rows={2} /> : null}
-            {films.data && list.length === 0 ? <EmptyState icon="ticket" title="No films here" message="Try another language." /> : null}
+            {films.data && list.length === 0 ? <EmptyState icon="ticket" title="No films here yet" message="Try another language, or see the Cinemas tab for places near you." /> : null}
             {list.map((m) => (
               <Pressable key={m.id} accessibilityRole="button" accessibilityLabel={`${m.title}, ${m.genres.join(', ')}, ${m.certificate}`} onPress={() => router.push(`/movie/${m.id}`)} style={{ width: cardW, gap: 8 }}>
                 <MoviePoster movie={m} width={cardW} />

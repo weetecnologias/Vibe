@@ -120,7 +120,7 @@ public class PlatformControllers {
             this.access = access;
         }
 
-        public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas, boolean acceptsVibePayments) {}
+        public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas, boolean acceptsVibePayments, boolean slotBooking) {}
 
         /** Whether this kind of business uses Pay & Redeem bills and what its item list is called (set by VIBE on the category), and what this person may do. */
         @GetMapping
@@ -129,7 +129,10 @@ public class PlatformControllers {
             BillingRules.Rules r = rules.forBusiness(who.requireBusiness());
             in.vibe.backend.security.TeamAccess.Access a = access.access(who);
             boolean accepts = jdbc.sql("select accepts_vibe_payments from businesses where id = :b").param("b", who.requireBusiness()).query(Boolean.class).single();
-            return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.AREAS, accepts);
+            // Sports and fitness venues take bookings by the slot (courts, turfs, classes); so does any place that has set up a court or session.
+            boolean slots = jdbc.sql("select exists (select 1 from venue_resources where business_id = :b) or exists (select 1 from businesses z join categories c on c.id = z.primary_category_id where z.id = :b and (c.slug like 'fitness%' or c.slug like 'kids.sports%'))")
+                    .param("b", who.requireBusiness()).query(Boolean.class).single();
+            return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.AREAS, accepts, slots);
         }
     }
 

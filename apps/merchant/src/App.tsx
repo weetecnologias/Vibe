@@ -15,6 +15,7 @@ import { ResultsPage } from './pages/ResultsPage';
 import { ReviewsPage } from './pages/ReviewsPage';
 import { SettlementsPage } from './pages/SettlementsPage';
 import { TeamPage } from './pages/TeamPage';
+import { VenuePage } from './pages/VenuePage';
 import { SettingsContext } from './settings';
 
 export function App() {
@@ -53,6 +54,8 @@ function SignedIn() {
 
   // Grouped by what the owner is doing: serving customers today, selling on VIBE, money, and the business itself. Each page shows only to people whose role includes it.
   const pages: Page[] = [
+    // A sports or fitness venue opens on its court bookings; everyone else on bills.
+    { group: 'Today', path: 'bookings', label: 'Court bookings', area: 'bookings', element: <VenuePage />, when: !!settings.slotBooking },
     { group: 'Today', path: 'bills', label: 'Bills', area: 'bills', element: <BillsPage />, when: settings.payRedeem },
     { group: 'Sell on VIBE', path: 'offers', label: 'Offers', area: 'offers', element: <OffersPage />, when: settings.payRedeem },
     { group: 'Sell on VIBE', path: 'events', label: 'Events', area: 'events', element: <EventsPage /> },

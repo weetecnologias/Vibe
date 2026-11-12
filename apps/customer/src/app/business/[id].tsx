@@ -20,6 +20,7 @@ export default function BusinessScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { data: b, error, reload } = useAsync(() => api.getBusiness(id), [id]);
+  const sports = useAsync(() => api.getVenueSports(id), [id]);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>('Overview');
   const [menuQuery, setMenuQuery] = useState('');
@@ -28,7 +29,8 @@ export default function BusinessScreen() {
   if (!b) return <View style={{ flex: 1, paddingTop: insets.top + 48, backgroundColor: colors.softWhite }}><LoadingState rows={3} /></View>;
 
   const memberOffer = b.offers.find((o) => o.memberOnly) ?? b.offers[0];
-  const isCinema = b.primaryCategoryId.startsWith('movies.cinemas');
+  const kind = b.primaryCategorySlug ?? b.primaryCategoryId;
+  const isCinema = kind.startsWith('movies.cinemas');
   // Overview shows a few highlights; the Menu tab shows everything, in sections, with search.
   const menuGroups = tab === 'Menu' ? groupMenu(b.menu, menuQuery) : [{ title: null as string | null, items: b.menu.slice(0, 4) }];
   const directions = () => {
@@ -55,7 +57,8 @@ export default function BusinessScreen() {
       footer={
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {isCinema ? <Button label="Book tickets" style={{ flex: 1.3 }} onPress={() => router.push(`/cinema/${b.id}`)} /> : null}
-          {memberOffer ? <Button label="Redeem offer" variant={isCinema ? 'outline' : 'primary'} style={{ flex: isCinema ? 1 : 1.3 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : (
+          {sports.data?.length ? <Button label="Book a slot" style={{ flex: 1.3 }} onPress={() => router.push(`/book/${b.id}`)} /> : null}
+          {sports.data?.length && memberOffer ? <Button label="Offer" variant="outline" style={{ flex: 0.8 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : sports.data?.length ? null : memberOffer ? <Button label="Redeem offer" variant={isCinema ? 'outline' : 'primary'} style={{ flex: isCinema ? 1 : 1.3 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : (
             <Button label="Get directions" variant="dark" style={{ flex: 1 }} onPress={directions} />
           )}
         </View>
@@ -156,9 +159,24 @@ export default function BusinessScreen() {
           </Card>
         ) : null}
 
+        {show('Overview') && sports.data?.length ? (
+          <View style={{ gap: 12 }}>
+            <T variant="headline">Sports available</T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {sports.data.map((s) => (
+                <Pressable key={s.sport} accessibilityRole="button" accessibilityLabel={`Book ${s.sport}, from ${formatINR(s.fromPrice)}`} onPress={() => router.push(`/book/${b.id}`)}
+                  style={{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.hairline, backgroundColor: colors.white, gap: 2 }}>
+                  <T variant="captionStrong">{s.sport}</T>
+                  <T variant="small" color={colors.mutedGrey}>{s.kind === 'court' ? `${s.resources} ${s.resources === 1 ? 'court' : 'courts'}` : 'Sessions'} · from {formatINR(s.fromPrice)}/{s.slotMinutes === 60 ? 'hr' : `${s.slotMinutes} min`}</T>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {show('Menu') && b.menu.length ? (
           <View style={{ gap: 10 }}>
-            <T variant="headline">{b.primaryCategoryId.startsWith('food') ? 'Menu highlights' : 'Services & prices'}</T>
+            <T variant="headline">{kind.startsWith('food') ? 'Menu highlights' : 'Services & prices'}</T>
             {tab === 'Menu' && b.menu.length > 8 ? (
               <TextInput
                 value={menuQuery}

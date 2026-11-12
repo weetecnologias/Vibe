@@ -11,10 +11,13 @@ import { EMPTY_PAGE, usePaged } from '@/lib/usePaged';
 import { useSession } from '@/state/session';
 import { colors } from '@/theme/tokens';
 
-/** Finds a node and its ancestors in the admin-managed category tree. */
+/**
+ * Finds a node and its ancestors in the admin-managed category tree, by id or by slug. Links inside the app use slugs (`/category/offers`,
+ * `/category/movies`); the demo's ids are those slugs, while the live API's ids are opaque, so both have to match.
+ */
 function locate(tree: CategoryNode[], id: string): CategoryNode[] | null {
   for (const n of tree) {
-    if (n.id === id) return [n];
+    if (n.id === id || n.slug === id) return [n];
     const sub = locate(n.children, id);
     if (sub) return [n, ...sub];
   }
@@ -46,7 +49,10 @@ export default function CategoryScreen() {
   const setLeaf = (leaf: string | null) => setSel({ sub: effectiveSub, leaf });
   const subNode = root?.children.find((c) => c.id === effectiveSub) ?? null;
   const target = effectiveLeaf ?? effectiveSub ?? root?.id ?? id;
-  const isOffers = root?.id === 'offers';
+  const isOffers = root?.id === 'offers' || root?.slug === 'offers';
+  // Which offers list a subcategory shows: the demo keys by id (offers.all), the live API by slug (offers.all).
+  const targetNode = tree.data ? locate(tree.data, target)?.at(-1) : undefined;
+  const offerView = OFFER_VIEWS[target] ?? (targetNode ? OFFER_VIEWS[targetNode.slug] : undefined) ?? 'all';
 
   const places = usePaged<BusinessSummary>(
     (offset) => (!root || isOffers
@@ -55,8 +61,8 @@ export default function CategoryScreen() {
     [root?.id, target, openNow, memberOffers, isOffers],
   );
   const results = useAsync<Results>(
-    () => (!root || !isOffers ? Promise.resolve(null) : api.getOffers(OFFER_VIEWS[target] ?? 'all').then((o) => ({ kind: 'offers' as const, items: o }))),
-    [root?.id, target, isOffers],
+    () => (!root || !isOffers ? Promise.resolve(null) : api.getOffers(offerView).then((o) => ({ kind: 'offers' as const, items: o }))),
+    [root?.id, target, isOffers, offerView],
   );
   const loading = isOffers ? results.loading : places.loading;
   const error = isOffers ? results.error : places.error;

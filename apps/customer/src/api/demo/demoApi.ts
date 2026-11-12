@@ -17,6 +17,7 @@ import * as D from './data';
 import { img } from './images';
 import { CHAT_AFTER_MEETUP_MIN, CHAT_FREE_TEXT_MAX, CHAT_LIMIT, renderQuick } from '../chat';
 import { createCinema } from './cinema';
+import { createSlots } from './slots';
 import { checkContact } from './contactGuard';
 import { matchesFilter } from './socialFilter';
 import { AGE_BANDS, canMeet } from './matching';
@@ -199,10 +200,11 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
   };
   const isMember = () => membership.status === 'active' || (membership.status === 'cancelled' && !!membership.validUntil && Date.parse(membership.validUntil) > now());
 
+  const slotEngine = createSlots({ now, businesses, newId: id, code });
   const summaryOf = (b: (typeof businesses)[number]): BusinessSummary => {
     const { description, verified, categoryNames, address, location, hours, menu, branches, reviews, terms, bookingEnabled, photos, ...s } = b;
     void photos; void description; void verified; void categoryNames; void address; void location; void hours; void menu; void branches; void reviews; void terms; void bookingEnabled;
-    return s;
+    return { ...s, slotFromPrice: slotEngine.fromPrice(b.id) };
   };
   const offerSummary = (o: (typeof offers)[number]): OfferSummary => {
     const { rule, appliesTo, excludes, channels, terms, example, ...s } = o;
@@ -275,6 +277,9 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         tickets.push(t);
         p.ticketIds.push(t.id);
       });
+    } else if (pr.kind === 'slots') {
+      slotEngine.markPaid(pr.context);
+      p.slotBookingId = pr.context;
     } else if (pr.kind === 'movie') {
       const paid = cinema.markPaid(pr.context);
       const bookingId = `VBM-${code(4)}-${code(4)}`;
@@ -467,8 +472,38 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
 
     async getBusiness(bid) {
       const b = businesses.find((x) => x.id === bid) ?? fail(404, 'not_found', 'This business is no longer listed.');
-      const detail: BusinessDetail = { ...b!, offers: offers.filter((o) => o.businessId === bid).map(offerSummary) };
+      const detail: BusinessDetail = { ...b!, offers: offers.filter((o) => o.businessId === bid).map(offerSummary), slotFromPrice: slotEngine.fromPrice(b!.id) };
       return wait(detail);
+    },
+
+    async getVenueSports(bid) {
+      return wait(slotEngine.sports(bid));
+    },
+    async getSlots(bid, sport, date, minutes) {
+      try { return wait(slotEngine.grid(bid, sport, date, minutes)); } catch (e) { const x = e as { status: number; code: string; message: string }; return fail(x.status, x.code, x.message); }
+    },
+    async bookSlots(bid, items) {
+      const u = requireUser();
+      try {
+        const { booking, lines, total } = slotEngine.hold(u.id, bid, items);
+        const pr = newPaymentRequest('slots', booking.businessName, booking.id, {
+          billRef: booking.bookingRef, raisedBy: 'VIBE Bookings', raisedAt: new Date(now()).toISOString(), lines, eligibleAmount: total, discount: 0, discountLabel: '', taxes: null, vibeFee: 0,
+          payable: total, expiresAt: booking.expiresAt,
+        });
+        slotEngine.attachPaymentRequest(booking.id, pr.id);
+        return wait({ ...booking, paymentRequestId: pr.id });
+      } catch (e) { const x = e as { status: number; code: string; message: string }; return fail(x.status, x.code, x.message); }
+    },
+    async getSlotBooking(sid) {
+      const u = requireUser();
+      try { return wait(slotEngine.get(u.id, sid)); } catch (e) { const x = e as { status: number; code: string; message: string }; return fail(x.status, x.code, x.message); }
+    },
+    async getMySlotBookings() {
+      return wait(slotEngine.mine(requireUser().id));
+    },
+    async releaseSlotBooking(sid) {
+      slotEngine.release(requireUser().id, sid);
+      return wait(undefined);
     },
 
     async getMovies(filter) {

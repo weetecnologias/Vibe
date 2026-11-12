@@ -55,7 +55,7 @@ public class Controllers {
         Businesses.Page<Businesses.Summary> businesses(@RequestParam(required = false) String q, @RequestParam(required = false) String categoryId,
                                                        @RequestParam(required = false) String sort, @RequestParam(defaultValue = "12") int limit,
                                                        @RequestParam(defaultValue = "0") int offset) {
-            return businesses.search(q, categoryId == null || categoryId.isBlank() ? null : uuid(categoryId), sort, limit, offset);
+            return businesses.search(q, categoryId == null || categoryId.isBlank() ? null : categories.resolve(categoryId), sort, limit, offset);
         }
 
         @GetMapping("/businesses/{id}")

@@ -27,7 +27,7 @@ export default function Profile() {
   const groups: { title: string; items: Item[] }[] = [
     { title: 'Activity', items: [
       { label: 'My tickets', icon: 'ticket', meta: tickets.data?.length ? String(tickets.data.length) : undefined, onPress: () => router.push('/tickets') },
-      { label: 'My bookings', icon: 'calendar', onPress: soon('Bookings') },
+      { label: 'My bookings', icon: 'calendar', onPress: () => router.push('/bookings') },
       { label: 'Saved places', icon: 'heart', onPress: soon('Saved places') },
       { label: 'Payments & receipts', icon: 'receipt', onPress: soon('Receipts history') },
     ] },

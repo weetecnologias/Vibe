@@ -166,3 +166,12 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .code-chip { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-size: 18px; letter-spacing: 3px; padding: 4px 10px; border-radius: 8px; background: var(--near-black); color: var(--white); }
 .code-chip.big { font-size: 28px; padding: 8px 14px; align-self: flex-start; }
 .stars { color: var(--pink); letter-spacing: 1px; }
+
+/* court schedule */
+.schedule td.cell { min-width: 120px; vertical-align: top; }
+.schedule td.booked { background: var(--pink-tint, #fde7f1); }
+.schedule td.blocked { background: var(--soft-white); color: var(--muted); }
+.schedule td.free .link { visibility: hidden; }
+.schedule tr:hover td.free .link { visibility: visible; }
+.link { background: none; border: 0; padding: 0; color: var(--pink-deep); cursor: pointer; text-decoration: underline; font: inherit; }
+.schedule td:first-child, .schedule th:first-child { white-space: nowrap; }

@@ -65,6 +65,16 @@ public class Categories {
     }
 
     /** Public tree of active categories. A category under an inactive parent is hidden with it. */
+    /** A category by its id or its slug (e.g. movies.cinemas). Unknown ones are not found. */
+    public UUID resolve(String idOrSlug) {
+        try {
+            return UUID.fromString(idOrSlug);
+        } catch (IllegalArgumentException notAnId) {
+            return jdbc.sql("select id from categories where slug = :s").param("s", idOrSlug.trim().toLowerCase(java.util.Locale.ROOT)).query(UUID.class).optional()
+                    .orElseThrow(() -> in.vibe.backend.common.ApiException.notFound("Category not found."));
+        }
+    }
+
     public List<Node> tree() {
         List<Flat> all = flat(true);
         Map<UUID, List<Flat>> byParent = new HashMap<>();

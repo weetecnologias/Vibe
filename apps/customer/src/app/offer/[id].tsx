@@ -42,6 +42,9 @@ export default function OfferScreen() {
         <Button label="Sign in to redeem" style={{ flex: 1 }} onPress={() => router.push('/login')} />
       ) : e && !e.eligible && o.memberOnly && e.reason.includes('members') ? (
         <Button label="Become a member" style={{ flex: 1 }} onPress={() => router.push('/membership')} />
+      ) : e && !e.eligible && e.redemptionsLeftToday === 0 ? (
+        // One redemption per offer per day: say so on the button, and point to the other offers.
+        <Button label="Used today · see other offers" variant="outline" style={{ flex: 1 }} onPress={() => router.push('/category/offers')} />
       ) : (
         <Button label="Redeem offer" style={{ flex: 1 }} disabled={!e?.eligible} loading={elig.loading && !e} onPress={() => router.push(`/redeem/${o.id}`)} />
       )}

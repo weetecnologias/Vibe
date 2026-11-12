@@ -32,7 +32,7 @@ public class Businesses {
 
     public record Summary(String id, String name, String primaryCategoryId, List<String> categoryIds, String categoryLabel, String area, double distanceKm,
                           double rating, int reviewCount, int priceLevel, Long costForTwo, OpenStatus status, String coverUrl, String logoUrl,
-                          String offerBadge, boolean hasMemberOffer, boolean isNew) {}
+                          String offerBadge, boolean hasMemberOffer, boolean isNew, String primaryCategorySlug, Long slotFromPrice) {}
 
     public record OfferView(String id, String businessId, String businessName, String businessLogoUrl, String area, String title, String type, String headline,
                             String headlineSub, boolean memberOnly, String coverUrl, String scheduleLabel, OffsetDateTime endsAt, Long maxDiscount, Long minBill) {}
@@ -48,7 +48,7 @@ public class Businesses {
                          String offerBadge, boolean hasMemberOffer, boolean isNew,
                          String description, boolean verified, List<CategoryName> categoryNames, String address, Map<String, Double> location,
                          List<HourView> hours, List<String> photos, List<MenuView> menu, List<OfferView> offers, List<Object> branches, List<Object> reviews,
-                         List<String> terms, boolean bookingEnabled) {}
+                         List<String> terms, boolean bookingEnabled, String primaryCategorySlug, Long slotFromPrice) {}
 
     public record Page<T>(List<T> items, int total, Integer nextOffset) {}
 
@@ -95,7 +95,7 @@ public class Businesses {
         p.forEach(count::param);
         int total = count.query(Integer.class).single();
 
-        JdbcClient.StatementSpec page = jdbc.sql(cte + "select b.*, c.name as category_label" + from + where + " order by " + order + " limit " + lim + " offset " + off);
+        JdbcClient.StatementSpec page = jdbc.sql(cte + "select b.*, c.name as category_label, c.slug as category_slug" + from + where + " order by " + order + " limit " + lim + " offset " + off);
         p.forEach(page::param);
         List<Row> rows = page.query(Businesses::row).list();
         List<Summary> items = summaries(rows);
@@ -103,7 +103,7 @@ public class Businesses {
     }
 
     public Detail detail(UUID id) {
-        Row r = jdbc.sql("select b.*, c.name as category_label from businesses b join categories c on c.id = b.primary_category_id where b.id = :id and b.active")
+        Row r = jdbc.sql("select b.*, c.name as category_label, c.slug as category_slug from businesses b join categories c on c.id = b.primary_category_id where b.id = :id and b.active")
                 .param("id", id).query(Businesses::row).optional().orElseThrow(() -> ApiException.notFound("This place is no longer available."));
         Summary s = summaries(List.of(r)).get(0);
         List<CategoryName> names = jdbc.sql("select c.id, c.name from business_categories bc join categories c on c.id = bc.category_id where bc.business_id = :id order by c.name")
@@ -115,18 +115,18 @@ public class Businesses {
         Map<String, Double> loc = r.lat == null || r.lng == null ? null : Map.of("lat", r.lat, "lng", r.lng);
         return new Detail(s.id(), s.name(), s.primaryCategoryId(), s.categoryIds(), s.categoryLabel(), s.area(), s.distanceKm(), s.rating(), s.reviewCount(), s.priceLevel(),
                 s.costForTwo(), s.status(), s.coverUrl(), s.logoUrl(), s.offerBadge(), s.hasMemberOffer(), s.isNew(),
-                r.description, r.verified, names, r.address, loc, hoursView(hoursOf(List.of(id)).getOrDefault(id, Map.of())), photos, menu, offers, List.of(), new ArrayList<>(reviews.latest(id, 10)), r.terms, r.bookingEnabled);
+                r.description, r.verified, names, r.address, loc, hoursView(hoursOf(List.of(id)).getOrDefault(id, Map.of())), photos, menu, offers, List.of(), new ArrayList<>(reviews.latest(id, 10)), r.terms, r.bookingEnabled, r.categorySlug, s.slotFromPrice());
     }
 
     // ---------- helpers ----------
-    private record Row(UUID id, String name, String primaryCategoryId, String categoryLabel, String area, String address, Double lat, Double lng, String description,
+    private record Row(UUID id, String name, String primaryCategoryId, String categorySlug, String categoryLabel, String area, String address, Double lat, Double lng, String description,
                        String logoUrl, String coverUrl, int priceLevel, Long costForTwo, boolean verified, boolean isNew, boolean bookingEnabled, List<String> terms) {}
 
     private static Row row(ResultSet rs, int i) throws SQLException {
         Object cost = rs.getObject("cost_for_two");
         Object lat = rs.getObject("lat"), lng = rs.getObject("lng");
         java.sql.Array terms = rs.getArray("terms");
-        return new Row((UUID) rs.getObject("id"), rs.getString("name"), rs.getString("primary_category_id"), rs.getString("category_label"), rs.getString("area"), rs.getString("address"),
+        return new Row((UUID) rs.getObject("id"), rs.getString("name"), rs.getString("primary_category_id"), rs.getString("category_slug"), rs.getString("category_label"), rs.getString("area"), rs.getString("address"),
                 lat == null ? null : ((Number) lat).doubleValue(), lng == null ? null : ((Number) lng).doubleValue(), rs.getString("description"), rs.getString("logo_url"),
                 rs.getString("cover_url"), rs.getInt("price_level"), cost == null ? null : ((Number) cost).longValue(), rs.getBoolean("verified"), rs.getBoolean("is_new"),
                 rs.getBoolean("booking_enabled"), terms == null ? List.of() : List.of((String[]) terms.getArray()));
@@ -141,6 +141,9 @@ public class Businesses {
         Map<UUID, List<OfferView>> offers = activeOffers(ids);
         Map<UUID, Map<Integer, LocalTime[]>> hours = hoursOf(ids);
         Map<UUID, double[]> ratings = reviews.ratings(ids);
+        Map<UUID, Long> slotPrices = new HashMap<>();
+        jdbc.sql("select business_id, min(price) from venue_resources where active and business_id in (:ids) group by business_id").param("ids", ids)
+                .query((rs, i) -> slotPrices.put((UUID) rs.getObject(1), rs.getLong(2))).list();
         List<Summary> out = new ArrayList<>();
         for (Row r : rows) {
             List<OfferView> os = offers.getOrDefault(r.id, List.of());
@@ -149,7 +152,7 @@ public class Businesses {
             if (!categoryIds.contains(r.primaryCategoryId)) categoryIds.add(0, r.primaryCategoryId);
             out.add(new Summary(r.id.toString(), r.name, r.primaryCategoryId, categoryIds, r.categoryLabel, r.area, distance(r.lat, r.lng), ratings.getOrDefault(r.id, new double[2])[0], (int) ratings.getOrDefault(r.id, new double[2])[1], r.priceLevel, r.costForTwo,
                     status(hours.getOrDefault(r.id, Map.of())), r.coverUrl, r.logoUrl, best == null ? null : best.headline() + " " + best.headlineSub().toLowerCase(Locale.ROOT),
-                    os.stream().anyMatch(OfferView::memberOnly), r.isNew));
+                    os.stream().anyMatch(OfferView::memberOnly), r.isNew, r.categorySlug, slotPrices.get(r.id)));
         }
         return out;
     }
@@ -223,7 +226,7 @@ public class Businesses {
     /** Active businesses in the given order (for pinned trending places). */
     public List<Summary> byIds(List<UUID> ids) {
         if (ids.isEmpty()) return List.of();
-        List<Row> rows = jdbc.sql("select b.*, c.name as category_label from businesses b join categories c on c.id = b.primary_category_id where b.active and b.id in (:ids)").param("ids", ids).query(Businesses::row).list();
+        List<Row> rows = jdbc.sql("select b.*, c.name as category_label, c.slug as category_slug from businesses b join categories c on c.id = b.primary_category_id where b.active and b.id in (:ids)").param("ids", ids).query(Businesses::row).list();
         Map<String, Summary> byId = new HashMap<>();
         for (Summary s : summaries(rows)) byId.put(s.id(), s);
         return ids.stream().map(u -> byId.get(u.toString())).filter(java.util.Objects::nonNull).toList();

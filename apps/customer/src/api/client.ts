@@ -1,6 +1,6 @@
 import type {
   AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
-  HomeFeed, ID, RedeemMode, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
+  HomeFeed, ID, RedeemMode, SlotBooking, SlotGrid, SlotPick, VenueSport, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
   ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
 
@@ -62,6 +62,17 @@ export interface VibeApi {
   /** Holds seats for a few minutes and returns a payment request to pay through startPayment. */
   /** `meetId` books the seats as the reservation of a one-on-one movie plan: exactly 2 seats, at that cinema, on the plan's day. */
   holdSeats(showId: ID, seatIds: string[], opts?: { meetId?: ID }): Promise<SeatHold>;
+
+  // Sports & fitness: slot booking (courts, turfs, nets, classes)
+  /** The sports a venue offers, each with how many courts or sessions and the lowest price per slot. */
+  getVenueSports(businessId: ID): Promise<VenueSport[]>;
+  /** The slot grid for one sport on a date (YYYY-MM-DD, India time) and duration in minutes. */
+  getSlots(businessId: ID, sport: string, date: string, minutes?: number): Promise<SlotGrid>;
+  /** Holds the picked slots for a few minutes and returns the booking; pay its paymentRequestId through startPayment. */
+  bookSlots(businessId: ID, items: SlotPick[]): Promise<SlotBooking>;
+  getSlotBooking(id: ID): Promise<SlotBooking>;
+  getMySlotBookings(): Promise<SlotBooking[]>;
+  releaseSlotBooking(id: ID): Promise<void>;
 
   // Events & tickets
   getEvents(filter: { kind?: EventKind; day?: string }): Promise<EventSummary[]>;
@@ -195,6 +206,12 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     holdSeats: (showId, seatIds, opts) => call('POST', `/shows/${showId}/holds`, { seatIds, meetId: opts?.meetId }),
     getEvents: (f) => call('GET', `/events${qs(f)}`),
     getEvent: (id) => call('GET', `/events/${id}`),
+    getVenueSports: (bid) => call('GET', `/businesses/${bid}/sports`),
+    getSlots: (bid, sport, date, minutes) => call('GET', `/businesses/${bid}/slots${qs({ sport, date, minutes })}`),
+    bookSlots: (businessId, items) => call('POST', '/slot-bookings', { businessId, items }),
+    getSlotBooking: (sid) => call('GET', `/slot-bookings/${sid}`),
+    getMySlotBookings: () => call('GET', '/me/slot-bookings'),
+    releaseSlotBooking: (sid) => call('POST', `/slot-bookings/${sid}/release`),
     reserveTickets: (eventId, items, attendees) => call('POST', `/events/${eventId}/reservations`, { items, attendees }),
     getMyTickets: () => call('GET', '/me/tickets'),
     getTicket: (id) => call('GET', `/tickets/${id}`),

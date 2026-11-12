@@ -94,9 +94,9 @@ export default function Home() {
                   key={c.id}
                   accessibilityRole="button"
                   accessibilityLabel={c.name}
-                  onPress={() => (c.id === 'social' ? router.push('/social') : c.id === 'events' ? router.push('/events') : c.id === 'movies' ? router.push('/movies') : router.push(`/category/${c.id}`))}
+                  onPress={() => (c.slug === 'social' ? router.push('/social') : c.slug === 'events' ? router.push('/events') : c.slug === 'movies' ? router.push('/movies') : router.push(`/category/${c.id}`))}
                   style={styles.catTile}>
-                  <CategoryIcon icon={c.icon} iconUrl={c.iconUrl} size={26} color={c.id === 'offers' ? colors.pink : colors.nearBlack} />
+                  <CategoryIcon icon={c.icon} iconUrl={c.iconUrl} size={26} color={c.slug === 'offers' ? colors.pink : colors.nearBlack} />
                   <T variant="small" style={{ fontFamily: fonts.semibold }} numberOfLines={1}>{shortName(c.name)}</T>
                 </Pressable>
               ))}
