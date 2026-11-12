@@ -204,6 +204,38 @@ final class DemoCatalogue {
         }
     }
 
+    // ---------- monthly memberships ----------
+    private record PlanSetup(String name, int months, long price, String description, List<String> benefits) {}
+
+    private static final Map<String, List<PlanSetup>> PLANS = Map.of(
+            "fitness.gyms", List.of(
+                    new PlanSetup("Monthly unlimited", 1, 299900, "Unlimited gym access, every day.", List.of("All floors and equipment", "Locker and shower", "Free fitness assessment")),
+                    new PlanSetup("3 months", 3, 799900, "Save ₹1,000 against monthly.", List.of("Everything in Monthly", "2 personal training sessions")),
+                    new PlanSetup("12 months", 12, 2499900, "Best value: about ₹2,083 a month.", List.of("Everything in 3 months", "Freeze for up to 30 days"))),
+            "fitness.yoga", List.of(
+                    new PlanSetup("Monthly yoga and meditation", 1, 249900, "Unlimited classes, morning and evening batches.", List.of("Hatha, vinyasa and yin classes", "Guided meditation", "Mat provided")),
+                    new PlanSetup("3 months", 3, 649900, "Save ₹1,000 against monthly.", List.of("Everything in Monthly", "One private session"))),
+            "fitness.training", List.of(
+                    new PlanSetup("12 sessions a month", 1, 999900, "Three sessions a week with your coach.", List.of("Personal plan and diet guidance", "Progress check every 2 weeks")),
+                    new PlanSetup("3 months, 12 sessions a month", 3, 2699900, "Save ₹3,000 against monthly.", List.of("Everything in Monthly", "Body composition scans"))),
+            "fitness.sports.martial-arts", List.of(
+                    new PlanSetup("Monthly classes", 1, 199900, "All open classes for a month.", List.of("Beginner and advanced batches", "Grading included"))));
+
+    /** Gives gyms, yoga and meditation studios and trainers their monthly plans. */
+    void plans() {
+        for (JsonNode b : root.get("businesses")) {
+            List<PlanSetup> setups = PLANS.get(text(b, "primaryCategoryId"));
+            UUID biz = businessIds.get(text(b, "id"));
+            if (setups == null || biz == null) continue;
+            int sort = 0;
+            for (PlanSetup p : setups) {
+                jdbc.sql("insert into venue_plans (id, business_id, name, description, months, price, benefits, sort_order) values (:id, :b, :n, :d, :m, :p, :ben, :s)")
+                        .param("id", UUID.randomUUID()).param("b", biz).param("n", p.name()).param("d", p.description()).param("m", p.months()).param("p", p.price())
+                        .param("ben", p.benefits().toArray(new String[0])).param("s", sort++).update();
+            }
+        }
+    }
+
     private static String text(JsonNode n, String field) {
         JsonNode v = n == null ? null : n.get(field);
         return v == null || v.isNull() ? null : v.asString();

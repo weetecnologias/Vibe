@@ -26,7 +26,7 @@ public class TeamAccess {
     static final Map<String, String> ALERT_AREA = Map.ofEntries(
             Map.entry("redeem_started", "bills"), Map.entry("redeem_cancelled", "bills"), Map.entry("payment_received", "bills"),
             Map.entry("offer_decision", "offers"), Map.entry("auto_approve", "offers"), Map.entry("event_decision", "events"), Map.entry("tickets_sold", "events"),
-            Map.entry("slot_booked", "bookings"), Map.entry("settlement_created", "money"), Map.entry("settlement_paid", "money"), Map.entry("review_received", "profile"));
+            Map.entry("slot_booked", "bookings"), Map.entry("pass_bought", "bookings"), Map.entry("settlement_created", "money"), Map.entry("settlement_paid", "money"), Map.entry("review_received", "profile"));
 
     /** signedIn is false when the login no longer exists or the owner switched it off: the person must be signed out. */
     public record Access(boolean signedIn, boolean owner, String staffRole, List<String> permissions) {

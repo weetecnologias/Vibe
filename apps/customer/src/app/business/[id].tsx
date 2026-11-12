@@ -21,6 +21,7 @@ export default function BusinessScreen() {
   const insets = useSafeAreaInsets();
   const { data: b, error, reload } = useAsync(() => api.getBusiness(id), [id]);
   const sports = useAsync(() => api.getVenueSports(id), [id]);
+  const plans = useAsync(() => api.getVenuePlans(id), [id]);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>('Overview');
   const [menuQuery, setMenuQuery] = useState('');
@@ -57,8 +58,9 @@ export default function BusinessScreen() {
       footer={
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {isCinema ? <Button label="Book tickets" style={{ flex: 1.3 }} onPress={() => router.push(`/cinema/${b.id}`)} /> : null}
-          {sports.data?.length ? <Button label="Book a slot" style={{ flex: 1.3 }} onPress={() => router.push(`/book/${b.id}`)} /> : null}
-          {sports.data?.length && memberOffer ? <Button label="Offer" variant="outline" style={{ flex: 0.8 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : sports.data?.length ? null : memberOffer ? <Button label="Redeem offer" variant={isCinema ? 'outline' : 'primary'} style={{ flex: isCinema ? 1 : 1.3 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : (
+          {plans.data?.length ? <Button label="Join monthly" style={{ flex: 1.3 }} onPress={() => router.push(`/plans/${b.id}`)} /> : null}
+          {sports.data?.length ? <Button label={plans.data?.length ? 'Trial / 1 day' : 'Book a slot'} variant={plans.data?.length ? 'outline' : 'primary'} style={{ flex: plans.data?.length ? 1 : 1.3 }} onPress={() => router.push(`/book/${b.id}`)} /> : null}
+          {plans.data?.length ? null : sports.data?.length && memberOffer ? <Button label="Offer" variant="outline" style={{ flex: 0.8 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : sports.data?.length ? null : memberOffer ? <Button label="Redeem offer" variant={isCinema ? 'outline' : 'primary'} style={{ flex: isCinema ? 1 : 1.3 }} onPress={() => router.push(`/offer/${memberOffer.id}`)} /> : (
             <Button label="Get directions" variant="dark" style={{ flex: 1 }} onPress={directions} />
           )}
         </View>
@@ -159,9 +161,30 @@ export default function BusinessScreen() {
           </Card>
         ) : null}
 
+        {show('Overview') && plans.data?.length ? (
+          <View style={{ gap: 12 }}>
+            <View style={styles.between}>
+              <T variant="headline">Memberships</T>
+              <T variant="small" color={colors.mutedGrey}>Choose a plan and the month you start</T>
+            </View>
+            {plans.data.map((p) => (
+              <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`${p.name}, ${formatINR(p.price)}`} onPress={() => router.push({ pathname: '/plans/[businessId]', params: { businessId: b.id, plan: p.id } })}>
+                <Card style={{ padding: 14, gap: 4 }}>
+                  <View style={[styles.between, { alignItems: 'center' }]}>
+                    <T variant="bodyStrong" style={{ flex: 1 }}>{p.name}</T>
+                    <T variant="bodyStrong">{formatINR(p.price)}</T>
+                    <Icon name="chevronRight" size={16} />
+                  </View>
+                  <T variant="small" color={colors.mutedGrey}>{p.months === 1 ? 'Monthly' : `${p.months} months · ${formatINR(Math.round(p.perMonth / 100) * 100)}/month`}{p.description ? ` · ${p.description}` : ''}</T>
+                </Card>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         {show('Overview') && sports.data?.length ? (
           <View style={{ gap: 12 }}>
-            <T variant="headline">Sports available</T>
+            <T variant="headline">{plans.data?.length ? 'Trial or one day, by the hour' : 'Sports available'}</T>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {sports.data.map((s) => (
                 <Pressable key={s.sport} accessibilityRole="button" accessibilityLabel={`Book ${s.sport}, from ${formatINR(s.fromPrice)}`} onPress={() => router.push(`/book/${b.id}`)}

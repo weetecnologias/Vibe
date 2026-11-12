@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import {
   Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, paiseToRupees, rupeesToPaise, useAsync, useAuth,
-  type VenueCheckIn, type VenueDay, type VenueResource, type VenueResourceInput,
+  type VenueCheckIn, type VenueDay, type VenueMember, type VenuePlan, type VenuePlanInput, type VenueResource, type VenueResourceInput,
 } from '@kit';
 
 const IST = 'Asia/Kolkata';
@@ -16,17 +16,19 @@ const REFRESH_MS = 15_000;
 /**
  * Courts, turfs and classes, booked by the slot from the VIBE app (like Playo). Today: who has booked what, by the hour, with check-in at the front
  * desk and blocking a slot (maintenance, a walk-in). Courts and prices: what customers can book and what it costs, with evening and weekend peak prices.
+ * Memberships: monthly plans (gyms, yoga and meditation studios, trainers) that customers buy from a start month, and who the members are.
  */
 export function VenuePage() {
-  const [tab, setTab] = useState<'day' | 'courts'>('day');
+  const [tab, setTab] = useState<'day' | 'courts' | 'plans'>('day');
   return (
     <>
-      <PageHead title="Court bookings" sub="Customers book your courts, turfs and classes by the slot in the VIBE app and pay through VIBE. You get an alert with each booking, and the money in your settlements." />
+      <PageHead title="Bookings & members" sub="Customers book your courts, turfs and classes by the slot, or join monthly, in the VIBE app and pay through VIBE. You get an alert with each booking or membership, and the money in your settlements." />
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'day'} className={`tab${tab === 'day' ? ' on' : ''}`} onClick={() => setTab('day')}>Schedule</button>
         <button role="tab" aria-selected={tab === 'courts'} className={`tab${tab === 'courts' ? ' on' : ''}`} onClick={() => setTab('courts')}>Courts and prices</button>
+        <button role="tab" aria-selected={tab === 'plans'} className={`tab${tab === 'plans' ? ' on' : ''}`} onClick={() => setTab('plans')}>Memberships</button>
       </div>
-      {tab === 'day' ? <Schedule /> : <Courts />}
+      {tab === 'day' ? <Schedule /> : tab === 'courts' ? <Courts /> : <Memberships />}
     </>
   );
 }
@@ -153,14 +155,14 @@ function FrontDesk({ onDone }: { onDone: () => void }) {
     <div className="card stack">
       <form className="row" onSubmit={check}>
         <strong style={{ marginRight: 6 }}>Front desk</strong>
-        <input style={{ maxWidth: 220 }} placeholder="Entry code, like ABC-123" aria-label="Entry code" value={code} onChange={(e) => setCode(e.target.value)} />
+        <input style={{ maxWidth: 220 }} placeholder="Entry or pass code, like ABC-123" aria-label="Entry or pass code" value={code} onChange={(e) => setCode(e.target.value)} />
         <button className="btn primary" disabled={busy || !code.trim()}>{busy ? 'Checking…' : 'Check in'}</button>
       </form>
       {error ? <Notice tone="error">{error}</Notice> : null}
       {result ? (
         <div className={`checkin ${result.result === 'admitted' ? 'success' : 'warning'}`} role="status">
           <strong>{result.result === 'admitted' ? '✓ ' : '✕ '}{result.message}</strong>
-          <span>{result.customerName} · {result.items.map((i) => `${i.sport} ${i.resourceName} ${timeLabel(i.startsAt)}–${timeLabel(i.endsAt)}${i.spots > 1 ? ` × ${i.spots}` : ''}`).join(', ')} · {result.bookingRef}</span>
+          <span>{result.customerName}{result.items.length ? ' · ' : ''}{result.items.map((i) => `${i.sport} ${i.resourceName} ${timeLabel(i.startsAt)}–${timeLabel(i.endsAt)}${i.spots > 1 ? ` × ${i.spots}` : ''}`).join(', ')} · {result.bookingRef}</span>
         </div>
       ) : null}
     </div>
@@ -267,6 +269,123 @@ function Courts() {
             </fieldset>
             <label className="check"><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /> Customers can book it</label>
             <p className="muted small" style={{ margin: 0 }}>Slots follow your opening hours (Profile and photos). Bookings open 14 days ahead.</p>
+            {error ? <Notice tone="error">{error}</Notice> : null}
+            <div className="modal-foot"><button className="btn" onClick={() => setDraft(null)}>Cancel</button><button className="btn primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></div>
+          </div>
+        </Modal>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------- monthly memberships ----------
+type PlanDraft = { id: string | null; name: string; description: string; months: string; price: string; benefits: string; active: boolean };
+const blankPlan: PlanDraft = { id: null, name: '', description: '', months: '1', price: '', benefits: '', active: true };
+const MONTH_CHOICES = [1, 3, 6, 12];
+const dayText = (d: string) => new Date(`${d}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: IST });
+
+function Memberships() {
+  const { client } = useAuth();
+  const plans = useAsync(() => client.get<VenuePlan[]>('/v1/merchant/venue/plans'), [client]);
+  const members = useAsync(() => client.get<VenueMember[]>('/v1/merchant/venue/members'), [client]);
+  const [draft, setDraft] = useState<PlanDraft | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const edit = (p: VenuePlan) => setDraft({ id: p.id, name: p.name, description: p.description, months: String(p.months), price: paiseToRupees(p.price), benefits: p.benefits.join('\n'), active: p.active });
+
+  const save = async () => {
+    if (!draft) return;
+    const price = rupeesToPaise(draft.price);
+    if (draft.name.trim().length < 2) return setError('Give the plan a name, like “Monthly unlimited”.');
+    if (price === null) return setError('Enter the price for the whole plan in rupees.');
+    const benefits = draft.benefits.split('\n').map((b) => b.trim()).filter(Boolean);
+    if (benefits.length > 8) return setError('Up to 8 benefits.');
+    const body: VenuePlanInput = { name: draft.name.trim(), description: draft.description.trim(), months: Number(draft.months) as VenuePlan['months'], price, benefits, active: draft.active, sortOrder: 0 };
+    setBusy(true);
+    setError(null);
+    try {
+      if (draft.id) await client.put(`/v1/merchant/venue/plans/${draft.id}`, body); else await client.post('/v1/merchant/venue/plans', body);
+      setNotice(`Saved ${body.name}.${body.active ? ' Customers can join in the app.' : ''}`);
+      setDraft(null);
+      plans.reload();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (p: VenuePlan) => {
+    if (!window.confirm(`Delete ${p.name}? If customers have bought it, it can only be switched off.`)) return;
+    setError(null);
+    try { await client.del(`/v1/merchant/venue/plans/${p.id}`); setNotice(`${p.name} deleted.`); plans.reload(); } catch (e) { setError(errorText(e)); }
+  };
+
+  const active = members.data?.filter((m) => m.activeNow).length ?? 0;
+  return (
+    <div className="stack">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <p className="muted small" style={{ margin: 0 }}>Customers choose a plan and the month they start, and pay through VIBE. They show their pass code at the front desk (Schedule tab) on any day it’s valid. Trials and single days are booked by the slot instead.</p>
+        <button className="btn primary" onClick={() => { setError(null); setDraft({ ...blankPlan }); }}>Add plan</button>
+      </div>
+      {notice ? <Notice tone="success">{notice}</Notice> : null}
+      {error && !draft ? <Notice tone="error">{error}</Notice> : null}
+      {plans.loading && !plans.data ? <Loading /> : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Plan</th><th>Length</th><th>Price</th><th>Per month</th><th>Status</th><th /></tr></thead>
+            <tbody>
+              {plans.data?.map((p) => (
+                <tr key={p.id} className={p.active ? '' : 'dim'}>
+                  <td><strong>{p.name}</strong>{p.description ? <div className="muted small">{p.description}</div> : null}</td>
+                  <td>{p.months === 1 ? '1 month' : `${p.months} months`}</td>
+                  <td>{formatINR(p.price)}</td>
+                  <td className="small">{formatINR(p.perMonth)}</td>
+                  <td>{p.active ? <Badge tone="success">On sale</Badge> : <Badge>Switched off</Badge>}</td>
+                  <td className="actions"><button className="btn ghost sm" onClick={() => { setError(null); edit(p); }}>Edit</button><button className="btn ghost sm danger" onClick={() => remove(p)}>Delete</button></td>
+                </tr>
+              ))}
+              {plans.data?.length === 0 ? <tr><td colSpan={6} className="muted">No plans yet. Add a monthly plan so customers can join.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h3 style={{ margin: '8px 0 0' }}>Members {members.data ? <span className="muted small">· {active} active now</span> : null}</h3>
+      {members.error ? <Notice tone="error">{members.error}</Notice> : members.loading && !members.data ? <Loading /> : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Member</th><th>Plan</th><th>Valid</th><th>Visits</th><th>Last visit</th><th>Status</th></tr></thead>
+            <tbody>
+              {members.data?.map((m) => (
+                <tr key={m.passId}>
+                  <td><strong>{m.customerName}</strong><div className="muted small">{m.vibeId} · {m.passRef}</div></td>
+                  <td>{m.planName}</td>
+                  <td className="small">{dayText(m.startsOn)} – {dayText(m.endsOn)}</td>
+                  <td>{m.checkIns}</td>
+                  <td className="small">{m.lastCheckIn ? new Date(m.lastCheckIn).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: IST }) : '—'}</td>
+                  <td>{m.activeNow ? <Badge tone="success">Active</Badge> : m.startsOn > todayIST() ? <Badge tone="pink">Starts {dayText(m.startsOn)}</Badge> : <Badge>Ended</Badge>}</td>
+                </tr>
+              ))}
+              {members.data?.length === 0 ? <tr><td colSpan={6} className="muted">No members yet.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {draft ? (
+        <Modal title={draft.id ? `Edit ${draft.name}` : 'Add a membership plan'} onClose={() => setDraft(null)} wide>
+          <div className="stack">
+            <div className="grid3">
+              <Field label="Name"><input value={draft.name} maxLength={80} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Monthly unlimited" /></Field>
+              <Field label="Length"><select value={draft.months} onChange={(e) => setDraft({ ...draft, months: e.target.value })}>{MONTH_CHOICES.map((m) => <option key={m} value={m}>{m === 1 ? '1 month' : `${m} months`}</option>)}</select></Field>
+              <Field label="Price for the whole plan (₹)"><input inputMode="decimal" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} placeholder="2999" /></Field>
+            </div>
+            <Field label="Short description"><input value={draft.description} maxLength={300} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder="Unlimited gym access, every day." /></Field>
+            <Field label="Benefits, one per line (up to 8)"><textarea rows={4} value={draft.benefits} onChange={(e) => setDraft({ ...draft, benefits: e.target.value })} placeholder={'All equipment\nLocker and shower'} /></Field>
+            <label className="check"><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /> On sale in the app</label>
             {error ? <Notice tone="error">{error}</Notice> : null}
             <div className="modal-foot"><button className="btn" onClick={() => setDraft(null)}>Cancel</button><button className="btn primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></div>
           </div>

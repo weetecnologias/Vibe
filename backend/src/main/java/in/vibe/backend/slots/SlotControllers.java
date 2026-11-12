@@ -113,4 +113,48 @@ public class SlotControllers {
         @PostMapping("/v1/merchant/venue/check-in")
         SlotBooking.CheckIn checkIn(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody Code in) { return slots.checkIn(StaffPrincipal.from(jwt), in.code()); }
     }
+
+    @RestController
+    public static class PassesApi {
+        private final VenuePasses passes;
+
+        PassesApi(VenuePasses passes) { this.passes = passes; }
+
+        /** The monthly plans a gym, studio or trainer sells. */
+        @GetMapping("/v1/businesses/{id}/plans")
+        List<VenuePasses.Plan> plans(@PathVariable String id) { return passes.plans(parse(id), true); }
+
+        @PostMapping("/v1/venue-passes")
+        ResponseEntity<VenuePasses.Pass> buy(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody VenuePasses.BuyInput in) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(passes.buy(CustomerPrincipal.from(jwt).id(), in));
+        }
+
+        @GetMapping("/v1/venue-passes/{id}")
+        VenuePasses.Pass one(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) { return passes.pass(CustomerPrincipal.from(jwt).id(), parse(id)); }
+
+        @GetMapping("/v1/me/venue-passes")
+        List<VenuePasses.Pass> mine(@AuthenticationPrincipal Jwt jwt) { return passes.mine(CustomerPrincipal.from(jwt).id()); }
+
+        @GetMapping("/v1/merchant/venue/plans")
+        List<VenuePasses.Plan> myPlans(@AuthenticationPrincipal Jwt jwt) { return passes.plans(StaffPrincipal.from(jwt).requireBusiness(), false); }
+
+        @PostMapping("/v1/merchant/venue/plans")
+        ResponseEntity<VenuePasses.Plan> addPlan(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody VenuePasses.PlanInput in) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(passes.addPlan(StaffPrincipal.from(jwt), in));
+        }
+
+        @PutMapping("/v1/merchant/venue/plans/{id}")
+        VenuePasses.Plan updatePlan(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @Valid @RequestBody VenuePasses.PlanInput in) {
+            return passes.updatePlan(StaffPrincipal.from(jwt), parse(id), in);
+        }
+
+        @DeleteMapping("/v1/merchant/venue/plans/{id}")
+        ResponseEntity<Void> deletePlan(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+            passes.deletePlan(StaffPrincipal.from(jwt), parse(id));
+            return ResponseEntity.noContent().build();
+        }
+
+        @GetMapping("/v1/merchant/venue/members")
+        List<VenuePasses.Member> members(@AuthenticationPrincipal Jwt jwt) { return passes.members(StaffPrincipal.from(jwt).requireBusiness()); }
+    }
 }

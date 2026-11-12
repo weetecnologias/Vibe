@@ -28,7 +28,7 @@ export function TransactionsPage() {
       </div>
       <form className="row" style={{ marginBottom: 14 }} onSubmit={(e) => { e.preventDefault(); setOffset(0); setTerm(q.trim()); }}>
         <select aria-label="Status" style={{ maxWidth: 160 }} value={status} onChange={(e) => { setOffset(0); setStatus(e.target.value); }}><option value="">Any status</option><option value="verified">Confirmed</option><option value="pending">Pending</option><option value="failed">Failed</option></select>
-        <select aria-label="Type" style={{ maxWidth: 180 }} value={kind} onChange={(e) => { setOffset(0); setKind(e.target.value); }}><option value="">Any type</option><option value="redemption">Bills</option><option value="tickets">Tickets</option><option value="slots">Court bookings</option><option value="membership">Membership</option></select>
+        <select aria-label="Type" style={{ maxWidth: 180 }} value={kind} onChange={(e) => { setOffset(0); setKind(e.target.value); }}><option value="">Any type</option><option value="redemption">Bills</option><option value="tickets">Tickets</option><option value="slots">Court bookings</option><option value="pass">Venue memberships</option><option value="membership">VIBE Membership</option></select>
         <input style={{ maxWidth: 280 }} placeholder="Reference, place or VIBE ID" aria-label="Search transactions" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn">Search</button>
         {term ? <button type="button" className="btn ghost" onClick={() => { setQ(''); setTerm(''); setOffset(0); }}>Clear</button> : null}
@@ -42,7 +42,7 @@ export function TransactionsPage() {
               <tbody>
                 {list.data?.items.map((x) => (
                   <tr key={x.reference}>
-                    <td><strong>{x.reference}</strong><div className="muted small">{x.kind === 'membership' ? 'Membership' : x.kind === 'tickets' ? 'Tickets' : x.kind === 'slots' ? 'Court booking' : 'Bill'} · {x.method.toUpperCase()}</div></td>
+                    <td><strong>{x.reference}</strong><div className="muted small">{x.kind === 'membership' ? 'Membership' : x.kind === 'tickets' ? 'Tickets' : x.kind === 'slots' ? 'Court booking' : x.kind === 'pass' ? 'Venue membership' : 'Bill'} · {x.method.toUpperCase()}</div></td>
                     <td>{x.payee}</td>
                     <td className="small">{x.customerName}<div className="muted">ID {x.vibeId}</div></td>
                     <td>{formatINR(x.amount)}{x.savings > 0 ? <div className="muted small">saved {formatINR(x.savings)}</div> : null}</td>

@@ -64,6 +64,9 @@ export function createSlots(opts: { now: () => number; businesses: { id: ID; nam
   /** Midnight India time for a YYYY-MM-DD date, as a UTC timestamp. */
   const dayStart = (date: string) => Date.parse(`${date}T00:00:00+05:30`);
   const label = (ms: number) => { const d = ist(ms); const h = d.getUTCHours(), m = d.getUTCMinutes(); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+  const short = (ms: number) => { const d = ist(ms); const h = d.getUTCHours(), m = d.getUTCMinutes(); return `${h % 12 || 12}${m ? `:${String(m).padStart(2, '0')}` : ''} ${h < 12 ? 'AM' : 'PM'}`; };
+  /** "6–7 AM", "6–8 AM", "11 AM–1 PM": the same as the backend's SlotBooking.range. */
+  const range = (from: number, to: number) => { const a = short(from), b = short(to); return a.slice(-2) === b.slice(-2) ? `${a.slice(0, -3)}–${b}` : `${a}–${b}`; };
 
   return {
     fromPrice(businessId: ID): number | null {
@@ -91,7 +94,7 @@ export function createSlots(opts: { now: () => number; businesses: { id: ID; nam
         const past = from <= opts.now();
         const options = rs.map((x) => { const left = past ? 0 : x.capacity - taken(x, from, to); return { resourceId: x.id, name: x.name, available: left > 0, spotsLeft: Math.max(0, left), price: priceFor(x, from, len, 1) }; });
         const avail = options.filter((o) => o.available);
-        slots.push({ startsAt: new Date(from).toISOString(), label: label(from), available: avail.length > 0, fromPrice: Math.min(...(avail.length ? avail : options).map((o) => o.price)), options });
+        slots.push({ startsAt: new Date(from).toISOString(), endsAt: new Date(to).toISOString(), label: range(from, to), startLabel: label(from), available: avail.length > 0, fromPrice: Math.min(...(avail.length ? avail : options).map((o) => o.price)), options });
       }
       return { date, sport, minutes: len, slotMinutes: 60, durations, kind: rs[0].kind, slots, closedReason: null };
     },
@@ -118,7 +121,7 @@ export function createSlots(opts: { now: () => number; businesses: { id: ID; nam
         total, expiresAt: new Date(opts.now() + HOLD_MS).toISOString(), paymentRequestId: '', items, paidAt: null, checkedInAt: null, customerId,
       };
       bookings.set(booking.id, booking);
-      const lines = items.map((i) => ({ label: `${i.sport} · ${i.resourceName} · ${label(Date.parse(i.startsAt))}${i.spots > 1 ? ` × ${i.spots}` : ''}`, amount: i.price }));
+      const lines = items.map((i) => ({ label: `${i.sport} · ${i.resourceName} · ${range(Date.parse(i.startsAt), Date.parse(i.endsAt))}${i.spots > 1 ? ` × ${i.spots}` : ''}`, amount: i.price }));
       return { booking, lines, total };
     },
 

@@ -25,7 +25,7 @@ public class Exports {
 
     private static String stamp() { return LocalDate.now(ZoneId.of("Asia/Kolkata")).toString(); }
 
-    private static String kind(String k) { return switch (k) { case "redemption" -> "Bill"; case "membership" -> "Membership"; case "tickets" -> "Tickets"; case "slots" -> "Court booking"; default -> k; }; }
+    private static String kind(String k) { return switch (k) { case "redemption" -> "Bill"; case "membership" -> "Membership"; case "tickets" -> "Tickets"; case "slots" -> "Court booking"; case "pass" -> "Venue membership"; default -> k; }; }
 
     public ResponseEntity<byte[]> transactions(String status, String kind, String q) {
         Csv csv = new Csv().row("Transaction ID", "Type", "Status", "Method", "Amount (Rs)", "Customer saved (Rs)", "Customer", "VIBE ID", "Paid to", "Payment partner", "Started", "Confirmed");

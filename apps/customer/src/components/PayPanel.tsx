@@ -33,10 +33,10 @@ export function BillBreakdown({ req, title = 'Bill', showLines = true }: { req: 
           ))}
         </View>
       ) : null}
-      {req.discount > 0 || req.discountLabel ? (
+      {req.discount > 0 || req.discountLabel || req.vibeFee > 0 ? (
         <>
-          <Row k="Eligible bill" v={formatINR(req.eligibleAmount, { decimals: 'always' })} />
-          <Row k={req.discountLabel || 'Discount'} v={formatINR(-req.discount, { decimals: 'always' })} pink />
+          <Row k={req.vibeFee > 0 ? 'Subtotal' : 'Eligible bill'} v={formatINR(req.eligibleAmount, { decimals: 'always' })} />
+          {req.discount > 0 || req.discountLabel ? <Row k={req.discountLabel || 'Discount'} v={formatINR(-req.discount, { decimals: 'always' })} pink /> : null}
         </>
       ) : null}
       <Row k="Taxes & charges" v={req.taxes === null ? 'Included' : formatINR(req.taxes, { decimals: 'always' })} />

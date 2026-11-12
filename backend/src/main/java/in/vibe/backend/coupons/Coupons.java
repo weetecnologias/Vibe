@@ -32,7 +32,7 @@ public class Coupons {
             @NotBlank @Size(max = 120) String title,
             @Size(max = 200) String description,
             Boolean memberOnly,
-            @NotEmpty List<@Pattern(regexp = "tickets|movie") String> kinds,
+            @NotEmpty List<@Pattern(regexp = "tickets|movie|slots|pass") String> kinds,
             @NotBlank @Pattern(regexp = "percentage|flat") String kind,
             @Min(1) @Max(9000) Integer rateBps, @Min(1) Long flatAmount, @Min(1) Long maxDiscount, @Min(0) Long minBill,
             Boolean firstBookingOnly, @Min(1) Integer maxUsesPerUser, @Size(max = 8) List<@NotBlank @Size(max = 200) String> terms,

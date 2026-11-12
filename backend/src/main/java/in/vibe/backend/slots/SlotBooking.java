@@ -64,7 +64,8 @@ public class SlotBooking {
 
     public record Option(String resourceId, String name, boolean available, int spotsLeft, long price) {}
 
-    public record SlotTime(OffsetDateTime startsAt, String label, boolean available, long fromPrice, List<Option> options) {}
+    /** label is the time range for the chosen duration ("6–8 AM"); startLabel is just the start ("6:00 AM"). fromPrice is for the whole duration. */
+    public record SlotTime(OffsetDateTime startsAt, OffsetDateTime endsAt, String label, String startLabel, boolean available, long fromPrice, List<Option> options) {}
 
     public record Slots(String date, String sport, int minutes, int slotMinutes, List<Integer> durations, String kind, List<SlotTime> slots, String closedReason) {}
 
@@ -98,8 +99,13 @@ public class SlotBooking {
     private final StaffNotifications staffNotifications;
     private final AuditService audit;
     private final Clock clock;
+    private final long bookingFee;
+    private final VenuePasses passes;
 
-    SlotBooking(JdbcClient jdbc, Notifications notifications, StaffNotifications staffNotifications, AuditService audit, Clock clock) {
+    SlotBooking(JdbcClient jdbc, Notifications notifications, StaffNotifications staffNotifications, AuditService audit, Clock clock,
+                @org.springframework.beans.factory.annotation.Value("${vibe.billing.booking-fee:0}") long bookingFee, VenuePasses passes) {
+        this.bookingFee = bookingFee;
+        this.passes = passes;
         this.jdbc = jdbc;
         this.notifications = notifications;
         this.staffNotifications = staffNotifications;
@@ -265,9 +271,23 @@ public class SlotBooking {
             }
             boolean any = options.stream().anyMatch(Option::available);
             long fromPrice = options.stream().filter(Option::available).mapToLong(Option::price).min().orElse(options.stream().mapToLong(Option::price).min().orElse(0));
-            slots.add(new SlotTime(from, TIME.format(from), any, fromPrice, options));
+            slots.add(new SlotTime(from, to, range(from, to), TIME.format(from), any, fromPrice, options));
         }
         return new Slots(date.toString(), sport, minutes, step, durations, kind, slots, null);
+    }
+
+    /** "6–7 AM", "11 AM–1 PM", "6:30–8 PM". */
+    static String range(OffsetDateTime from, OffsetDateTime to) {
+        ZonedDateTime f = from.atZoneSameInstant(IST), t = to.atZoneSameInstant(IST);
+        String a = short12(f), b = short12(t);
+        // "6–8 AM" when both ends share AM or PM; "11 AM–1 PM" and "11 PM–12 AM" when they don't.
+        boolean sameHalf = a.substring(a.length() - 2).equals(b.substring(b.length() - 2));
+        return sameHalf ? a.substring(0, a.length() - 3) + "–" + b : a + "–" + b;
+    }
+
+    private static String short12(ZonedDateTime z) {
+        int h = z.getHour() % 12 == 0 ? 12 : z.getHour() % 12;
+        return h + (z.getMinute() == 0 ? "" : ":" + String.format("%02d", z.getMinute())) + (z.getHour() < 12 ? " AM" : " PM");
     }
 
     // =====================================================================
@@ -319,11 +339,11 @@ public class SlotBooking {
         OffsetDateTime expires = now().plusMinutes(HOLD_MINUTES);
         String ref = "VBS-" + code(4) + "-" + code(4);
         jdbc.sql("insert into payment_requests (id, kind, business_id, customer_id, bill_ref, raised_by, eligible_amount, discount, discount_label, vibe_fee, payable, expires_at) "
-                        + "values (:id, 'slots', :b, :c, :ref, 'VIBE Bookings', :t, 0, '', 0, :t, :x)")
-                .param("id", pr).param("b", business).param("c", customer).param("ref", ref).param("t", total).param("x", expires).update();
+                        + "values (:id, 'slots', :b, :c, :ref, 'VIBE Bookings', :t, 0, '', :fee, :t + :fee, :x)")
+                .param("id", pr).param("b", business).param("c", customer).param("ref", ref).param("t", total).param("fee", bookingFee).param("x", expires).update();
         int pos = 0;
         for (Line l : lines) {
-            String label = l.r().sport() + " · " + l.r().name() + " · " + WHEN.format(l.from()) + "–" + TIME.format(l.to()) + (l.spots() > 1 ? " × " + l.spots() : "");
+            String label = l.r().sport() + " · " + l.r().name() + " · " + DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH).withZone(IST).format(l.from()) + ", " + range(l.from(), l.to()) + (l.spots() > 1 ? " × " + l.spots() : "");
             jdbc.sql("insert into payment_request_lines (payment_request_id, position, label, amount) values (:p, :n, :l, :a)").param("p", pr).param("n", pos++).param("l", label).param("a", l.price()).update();
         }
         jdbc.sql("insert into slot_bookings (id, business_id, customer_id, booking_ref, total, expires_at, payment_request_id) values (:id, :b, :c, :ref, :t, :x, :p)")
@@ -457,10 +477,14 @@ public class SlotBooking {
         UUID business = who.requireBusiness();
         String code = raw.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
         if (code.length() == 6) code = code.substring(0, 3) + "-" + code.substring(3);
+        if (jdbc.sql("select count(*) from slot_bookings where business_id = :b and entry_code = :c and status = 'paid'").param("b", business).param("c", code).query(Integer.class).single() == 0) {
+            CheckIn member = passes.checkIn(who, code); // the same desk takes members' pass codes
+            if (member != null) return member;
+        }
         record B(UUID id, String ref, String cname, OffsetDateTime checked) {}
         B b = jdbc.sql("select s.id, s.booking_ref, c.name, s.checked_in_at from slot_bookings s join customers c on c.id = s.customer_id where s.business_id = :bz and s.entry_code = :code and s.status = 'paid' for update of s")
                 .param("bz", business).param("code", code).query((rs, i) -> new B((UUID) rs.getObject(1), rs.getString(2), rs.getString(3), rs.getObject(4, OffsetDateTime.class))).optional()
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "no_booking", "No booking with that code at your venue."));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "no_booking", "No booking or membership with that code at your venue."));
         List<ItemView> items = items(b.id());
         if (b.checked() != null) return new CheckIn("already", "Already checked in at " + WHEN.format(b.checked()) + ".", b.ref(), Customers.displayName(b.cname()), items);
         jdbc.sql("update slot_bookings set checked_in_at = now() where id = :id").param("id", b.id()).update();

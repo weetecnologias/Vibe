@@ -44,6 +44,8 @@ vibe:
     large-bill: 5000000
     # Added to every bill (paise). VIBE's fee model is a business decision; none until it is settled.
     vibe-fee: 0
+    # VIBE's fee on each court or class booking and venue membership (paise), shown to the customer at checkout. A business decision: 0 = none.
+    booking-fee: ${VIBE_BOOKING_FEE:0}
   payments:
     # Signs webhooks from the payment partner. Webhooks are refused until this is set.
     webhook-secret: ${VIBE_WEBHOOK_SECRET:}

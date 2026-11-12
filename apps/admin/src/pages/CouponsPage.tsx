@@ -9,6 +9,7 @@ type Draft = {
   id: string | null; code: string; title: string; description: string; memberOnly: boolean; kinds: CouponKind[]; rule: RuleDraft; firstBookingOnly: boolean; maxUses: string; terms: string;
   startsAt: string; endsAt: string; active: boolean;
 };
+const KIND_LABEL: Record<CouponKind, string> = { movie: 'Movies', tickets: 'Events', slots: 'Court bookings', pass: 'Memberships' };
 const blank = (): Draft => ({ id: null, code: '', title: '', description: '', memberOnly: false, kinds: ['movie', 'tickets'], rule: emptyRule(), firstBookingOnly: false, maxUses: '', terms: '', startsAt: nowLocal(), endsAt: nowLocal(90), active: true });
 
 function status(c: Coupon): { label: string; tone: 'success' | 'warning' | 'muted' } {
@@ -76,7 +77,7 @@ export function CouponsPage() {
 
   return (
     <>
-      <PageHead title="Checkout coupons" sub="Codes and offers customers can apply when paying for movie or event tickets. Members-only and first-booking rules are checked at checkout." actions={<button className="btn primary" onClick={() => { setError(null); setDraft(blank()); }}>Create coupon</button>} />
+      <PageHead title="Checkout coupons" sub="Codes and offers customers can apply when paying for movie or event tickets, court and class bookings, and gym and studio memberships. Members-only and first-booking rules are checked at checkout. VIBE funds the discount; the business is settled the full price." actions={<button className="btn primary" onClick={() => { setError(null); setDraft(blank()); }}>Create coupon</button>} />
       {notice ? <Notice tone="success">{notice}</Notice> : null}
       {error && !draft ? <Notice tone="error">{error}</Notice> : null}
       {list.error ? <Notice tone="error">{list.error}</Notice> : null}
@@ -92,7 +93,7 @@ export function CouponsPage() {
                     <td><strong>{c.code}</strong></td>
                     <td>{c.title} {c.memberOnly ? <Badge tone="pink">Members</Badge> : null}{c.firstBookingOnly ? <> <Badge>First booking</Badge></> : null}</td>
                     <td className="small">{ruleSummary(c)}</td>
-                    <td className="small">{c.kinds.map((k) => (k === 'movie' ? 'Movies' : 'Events')).join(', ')}</td>
+                    <td className="small">{c.kinds.map((k) => KIND_LABEL[k]).join(', ')}</td>
                     <td className="small">{showDateTime(c.startsAt)}<br />to {showDateTime(c.endsAt)}</td>
                     <td><Badge tone={s.tone}>{s.label}</Badge></td>
                     <td className="actions"><button className="btn ghost sm" onClick={() => edit(c)}>Edit</button><button className="btn ghost sm danger" onClick={() => remove(c)}>Delete</button></td>
@@ -118,6 +119,8 @@ export function CouponsPage() {
               <div className="row" style={{ gap: 20 }}>
                 <label className="check"><input type="checkbox" checked={draft.kinds.includes('movie')} onChange={(e) => toggleKind('movie', e.target.checked)} /> Movie tickets</label>
                 <label className="check"><input type="checkbox" checked={draft.kinds.includes('tickets')} onChange={(e) => toggleKind('tickets', e.target.checked)} /> Event tickets</label>
+                <label className="check"><input type="checkbox" checked={draft.kinds.includes('slots')} onChange={(e) => toggleKind('slots', e.target.checked)} /> Court and class bookings</label>
+                <label className="check"><input type="checkbox" checked={draft.kinds.includes('pass')} onChange={(e) => toggleKind('pass', e.target.checked)} /> Gym and studio memberships</label>
                 <label className="check"><input type="checkbox" checked={draft.memberOnly} onChange={(e) => setDraft({ ...draft, memberOnly: e.target.checked })} /> VIBE members only</label>
                 <label className="check"><input type="checkbox" checked={draft.firstBookingOnly} onChange={(e) => setDraft({ ...draft, firstBookingOnly: e.target.checked })} /> First booking only</label>
               </div>

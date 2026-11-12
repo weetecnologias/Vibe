@@ -72,6 +72,7 @@ class DevSeed implements ApplicationRunner {
         demo.categories(admin);
         demo.businesses(admin);
         demo.slots(); // courts, turfs, nets and classes for sports and fitness places
+        demo.plans(); // monthly memberships at gyms, yoga and meditation studios, and trainers
 
         UUID saffronId = demo.byName.get("Saffron Courtyard");
         StaffPrincipal merchant = new StaffPrincipal(UUID.fromString(staff.createMerchant(admin, saffronId, new StaffService.NewMerchant("merchant@vibe.local", "Saffron Courtyard manager", password)).id()), "MERCHANT", saffronId);
@@ -84,8 +85,9 @@ class DevSeed implements ApplicationRunner {
         plans.create(admin, new Plans.Input("Monthly", "month", 29900L, "Billed every month. Cancel anytime.", null, List.of("Member-only offers at partner places", "Member prices on movie and event tickets"), 1, true));
         plans.create(admin, new Plans.Input("Yearly", "year", 299900L, "Billed once a year.", "Save 17%", List.of("Everything in Monthly", "Two months free"), 2, true));
         // A fictional customer who is a member, so the customer app can sign in with 98765 43210 and the code 123456 (development only).
-        UUID customer = UUID.randomUUID();
-        jdbc.sql("insert into customers (id, phone, name, vibe_id, area) values (:id, '9876543210', 'Aarav Reddy', '482173', 'Jubilee Hills')").param("id", customer).update();
+        // The server is already taking requests while this runs, so someone may have signed in with this number a moment ago: keep that row.
+        UUID customer = jdbc.sql("insert into customers (id, phone, name, vibe_id, area) values (:id, '9876543210', 'Aarav Reddy', '482173', 'Jubilee Hills') "
+                        + "on conflict (phone) do update set name = excluded.name, area = excluded.area returning id").param("id", UUID.randomUUID()).query(UUID.class).single();
         jdbc.sql("insert into memberships (customer_id, status, valid_until, plan_id, member_no) values (:c, 'active', now() + interval '30 days', (select id from membership_plans where interval = 'month' order by sort_order limit 1), 'VB 482173 7730')").param("c", customer).update();
         home.createBanner(admin, new HomeContent.BannerInput("MEMBERS", "Save 30% at Saffron Courtyard", "Every day for VIBE members", "See offer", null, "offer", offer.id(), 1, true, null, null));
         home.setPicks(admin, "offers", List.of(offer.id()));
@@ -100,9 +102,12 @@ class DevSeed implements ApplicationRunner {
 
         OffsetDateTime from = OffsetDateTime.now().minusDays(1), to = OffsetDateTime.now().plusMonths(6);
         coupons.create(admin, new Coupons.Input("MEMBERFLIX", "Members: 15% off movie tickets", "Up to ₹150 off bookings of ₹300 or more", true, List.of("movie"), "percentage", 1500, null, 15000L, 30000L, false, 4, List.of("For active VIBE members."), from, to, true));
-        coupons.create(admin, new Coupons.Input("WELCOME50", "₹50 off your first booking", "Movies and events, on bookings of ₹250 or more", false, List.of("movie", "tickets"), "flat", null, 5000L, null, 25000L, true, 1, List.of(), from, to, true));
+        coupons.create(admin, new Coupons.Input("WELCOME50", "₹50 off your first booking", "Movies, events, courts and memberships, on bookings of ₹250 or more", false, List.of("movie", "tickets", "slots", "pass"), "flat", null, 5000L, null, 25000L, true, 1, List.of(), from, to, true));
+        // The VIBE member offer at checkout on court and class bookings, memberships and tickets.
+        coupons.create(admin, new Coupons.Input("MEMBER5", "VIBE members: 5% off", "On court and class bookings, gym and studio memberships, and event tickets. Up to ₹300 off.", true, List.of("slots", "pass", "tickets"), "percentage", 500, null, 30000L, null, false, null, List.of("For active VIBE members."), from, to, true));
         // A sports venue login, to try court bookings from the merchant side.
         staff.createMerchant(admin, demo.byName.get("Smash Arena"), new StaffService.NewMerchant("sports@vibe.local", "Smash Arena manager", password));
+        staff.createMerchant(admin, demo.byName.get("Pulse Studio"), new StaffService.NewMerchant("gym@vibe.local", "Pulse Studio manager", password)); // monthly memberships and gym sessions
         staff.addTeamMember(merchant, new StaffService.TeamInput("cashier@vibe.local", "Saffron cashier", password, "cashier", List.of()));
         jdbc.sql("update staff_users set must_change_password = false").update();
         log.warn("DEV SEED loaded: admin@vibe.local and merchant@vibe.local with the dev seed password. Development only.");

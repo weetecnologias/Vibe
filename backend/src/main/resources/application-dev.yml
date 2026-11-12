@@ -10,3 +10,6 @@ vibe:
     webhook-secret: ${VIBE_WEBHOOK_SECRET:dev-only-webhook-secret-do-not-use}
     # The simulated payment partner confirms a payment this long after it starts.
     simulate-after-ms: 1800
+  billing:
+    # Development only: a sample VIBE fee on court and class bookings and memberships (₹20), so checkout shows it. The real amount is a business decision.
+    booking-fee: ${VIBE_BOOKING_FEE:2000}

@@ -1,6 +1,6 @@
 import type {
   AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
-  HomeFeed, ID, RedeemMode, SlotBooking, SlotGrid, SlotPick, VenueSport, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
+  HomeFeed, ID, RedeemMode, SlotBooking, SlotGrid, SlotPick, VenuePass, VenuePlan, VenueSport, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
   ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
 
@@ -73,6 +73,12 @@ export interface VibeApi {
   getSlotBooking(id: ID): Promise<SlotBooking>;
   getMySlotBookings(): Promise<SlotBooking[]>;
   releaseSlotBooking(id: ID): Promise<void>;
+  /** Monthly plans at a gym, yoga or meditation studio, or trainer. Empty when the place sells none. */
+  getVenuePlans(businessId: ID): Promise<VenuePlan[]>;
+  /** Holds a membership from the chosen start date (YYYY-MM-DD) for a few minutes; pay its paymentRequestId through startPayment. */
+  buyVenuePass(planId: ID, startsOn: string): Promise<VenuePass>;
+  getVenuePass(id: ID): Promise<VenuePass>;
+  getMyVenuePasses(): Promise<VenuePass[]>;
 
   // Events & tickets
   getEvents(filter: { kind?: EventKind; day?: string }): Promise<EventSummary[]>;
@@ -212,6 +218,10 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     getSlotBooking: (sid) => call('GET', `/slot-bookings/${sid}`),
     getMySlotBookings: () => call('GET', '/me/slot-bookings'),
     releaseSlotBooking: (sid) => call('POST', `/slot-bookings/${sid}/release`),
+    getVenuePlans: (bid) => call('GET', `/businesses/${bid}/plans`),
+    buyVenuePass: (planId, startsOn) => call('POST', '/venue-passes', { planId, startsOn }),
+    getVenuePass: (pid) => call('GET', `/venue-passes/${pid}`),
+    getMyVenuePasses: () => call('GET', '/me/venue-passes'),
     reserveTickets: (eventId, items, attendees) => call('POST', `/events/${eventId}/reservations`, { items, attendees }),
     getMyTickets: () => call('GET', '/me/tickets'),
     getTicket: (id) => call('GET', `/tickets/${id}`),

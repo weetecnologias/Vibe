@@ -160,7 +160,7 @@ export type Redemption = {
 
 export type PaymentMethod = 'upi' | 'card' | 'netbanking';
 export type PaymentStatus = 'created' | 'pending' | 'verified' | 'failed' | 'refunded';
-export type PaymentKind = 'redemption' | 'tickets' | 'membership' | 'movie' | 'meetup' | 'slots';
+export type PaymentKind = 'redemption' | 'tickets' | 'membership' | 'movie' | 'meetup' | 'slots' | 'pass';
 
 /**
  * How to collect money. `provider` = open the payment aggregator's checkout SDK.
@@ -191,6 +191,8 @@ export type Payment = {
   redemptionId?: ID | null;
   /** The court or class booking a slot payment confirmed. */
   slotBookingId?: ID | null;
+  /** The gym, studio or trainer membership a pass payment confirmed. */
+  passId?: ID | null;
 };
 
 // ---------- Slot booking: sports and fitness (like Playo) ----------
@@ -198,7 +200,8 @@ export type Payment = {
 export type SlotKind = 'court' | 'spots';
 export type VenueSport = { sport: string; kind: SlotKind; resources: number; fromPrice: Paise; slotMinutes: number };
 export type SlotOption = { resourceId: ID; name: string; available: boolean; spotsLeft: number; price: Paise };
-export type SlotTime = { startsAt: ISODate; label: string; available: boolean; fromPrice: Paise; options: SlotOption[] };
+/** label is the whole range for the chosen duration ("6–7 AM", "6–8 AM", "11 AM–1 PM"); startLabel is the start alone ("6:00 AM"). fromPrice covers the whole duration. */
+export type SlotTime = { startsAt: ISODate; endsAt: ISODate; label: string; startLabel: string; available: boolean; fromPrice: Paise; options: SlotOption[] };
 export type SlotGrid = { date: string; sport: string; minutes: number; slotMinutes: number; durations: number[]; kind: SlotKind; slots: SlotTime[]; closedReason: string | null };
 export type SlotPick = { resourceId: ID; startsAt: ISODate; minutes: number; spots?: number };
 export type SlotBookingItem = { resourceId: ID; resourceName: string; sport: string; startsAt: ISODate; endsAt: ISODate; spots: number; price: Paise };
@@ -207,6 +210,17 @@ export type SlotBooking = {
   /** Shown at the venue's front desk; only once paid. */
   entryCode: string | null;
   total: Paise; expiresAt: ISODate; paymentRequestId: ID; items: SlotBookingItem[]; paidAt: ISODate | null; checkedInAt: ISODate | null;
+};
+
+// ---------- Monthly memberships at gyms, yoga and meditation studios, and trainers ----------
+export type VenuePlan = { id: ID; name: string; description: string; months: 1 | 3 | 6 | 12; price: Paise; perMonth: Paise; benefits: string[]; active: boolean; sortOrder: number };
+export type VenuePass = {
+  id: ID; businessId: ID; businessName: string; area: string; address: string; planName: string; months: number; status: 'held' | 'paid' | 'released';
+  /** YYYY-MM-DD, valid from the start of startsOn to the end of endsOn (India time). */
+  startsOn: string; endsOn: string; activeNow: boolean; daysLeft: number; passRef: string;
+  /** Shown at the front desk; only once paid. */
+  passCode: string | null;
+  total: Paise; expiresAt: ISODate; paymentRequestId: ID; paidAt: ISODate | null; checkIns: number;
 };
 
 // ---------- Events & tickets ----------

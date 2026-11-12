@@ -17,6 +17,7 @@ import * as D from './data';
 import { img } from './images';
 import { CHAT_AFTER_MEETUP_MIN, CHAT_FREE_TEXT_MAX, CHAT_LIMIT, renderQuick } from '../chat';
 import { createCinema } from './cinema';
+import { createPasses } from './passes';
 import { createSlots } from './slots';
 import { checkContact } from './contactGuard';
 import { matchesFilter } from './socialFilter';
@@ -201,6 +202,9 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
   const isMember = () => membership.status === 'active' || (membership.status === 'cancelled' && !!membership.validUntil && Date.parse(membership.validUntil) > now());
 
   const slotEngine = createSlots({ now, businesses, newId: id, code });
+  const passEngine = createPasses({ now, businesses, newId: id, code });
+  /** VIBE's booking fee on courts, classes and memberships (sample value, as the backend's dev profile). */
+  const BOOKING_FEE = 2000;
   const summaryOf = (b: (typeof businesses)[number]): BusinessSummary => {
     const { description, verified, categoryNames, address, location, hours, menu, branches, reviews, terms, bookingEnabled, photos, ...s } = b;
     void photos; void description; void verified; void categoryNames; void address; void location; void hours; void menu; void branches; void reviews; void terms; void bookingEnabled;
@@ -280,6 +284,9 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     } else if (pr.kind === 'slots') {
       slotEngine.markPaid(pr.context);
       p.slotBookingId = pr.context;
+    } else if (pr.kind === 'pass') {
+      passEngine.markPaid(pr.context);
+      p.passId = pr.context;
     } else if (pr.kind === 'movie') {
       const paid = cinema.markPaid(pr.context);
       const bookingId = `VBM-${code(4)}-${code(4)}`;
@@ -325,7 +332,7 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
 
   const newPaymentRequest = (kind: Payment['kind'], payee: string, context: string, req: Omit<PaymentRequest, 'id' | 'currency'>) => {
     const pr: PaymentRequest = { ...req, id: id('pr'), currency: 'INR' };
-    paymentRequests.set(pr.id, { req: pr, kind, payee, context, base: pr.payable });
+    paymentRequests.set(pr.id, { req: pr, kind, payee, context, base: pr.eligibleAmount });
     return pr;
   };
 
@@ -487,8 +494,8 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       try {
         const { booking, lines, total } = slotEngine.hold(u.id, bid, items);
         const pr = newPaymentRequest('slots', booking.businessName, booking.id, {
-          billRef: booking.bookingRef, raisedBy: 'VIBE Bookings', raisedAt: new Date(now()).toISOString(), lines, eligibleAmount: total, discount: 0, discountLabel: '', taxes: null, vibeFee: 0,
-          payable: total, expiresAt: booking.expiresAt,
+          billRef: booking.bookingRef, raisedBy: 'VIBE Bookings', raisedAt: new Date(now()).toISOString(), lines, eligibleAmount: total, discount: 0, discountLabel: '', taxes: null, vibeFee: BOOKING_FEE,
+          payable: total + BOOKING_FEE, expiresAt: booking.expiresAt,
         });
         slotEngine.attachPaymentRequest(booking.id, pr.id);
         return wait({ ...booking, paymentRequestId: pr.id });
@@ -504,6 +511,28 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     async releaseSlotBooking(sid) {
       slotEngine.release(requireUser().id, sid);
       return wait(undefined);
+    },
+    async getVenuePlans(bid) {
+      return wait(passEngine.plans(bid));
+    },
+    async buyVenuePass(planId, startsOn) {
+      const u = requireUser();
+      try {
+        const { pass, line } = passEngine.hold(u.id, planId, startsOn);
+        const pr = newPaymentRequest('pass', pass.businessName, pass.id, {
+          billRef: pass.passRef, raisedBy: 'VIBE Memberships', raisedAt: new Date(now()).toISOString(), lines: [line], eligibleAmount: pass.total, discount: 0, discountLabel: '', taxes: null,
+          vibeFee: BOOKING_FEE, payable: pass.total + BOOKING_FEE, expiresAt: pass.expiresAt,
+        });
+        passEngine.attachPaymentRequest(pass.id, pr.id);
+        return wait({ ...pass, paymentRequestId: pr.id });
+      } catch (e) { const x = e as { status: number; code: string; message: string }; return fail(x.status, x.code, x.message); }
+    },
+    async getVenuePass(pid) {
+      const u = requireUser();
+      try { return wait(passEngine.get(u.id, pid)); } catch (e) { const x = e as { status: number; code: string; message: string }; return fail(x.status, x.code, x.message); }
+    },
+    async getMyVenuePasses() {
+      return wait(passEngine.mine(requireUser().id));
     },
 
     async getMovies(filter) {

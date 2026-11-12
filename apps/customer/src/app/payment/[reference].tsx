@@ -53,6 +53,7 @@ export default function PaymentStatus() {
     if ((p?.kind === 'tickets' || p?.kind === 'movie') && p.ticketIds.length) router.replace(`/ticket/${p.ticketIds[0]}`);
     else if (p?.kind === 'membership') router.replace('/membership');
     else if (p?.kind === 'slots' && p.slotBookingId) router.replace(`/booking/${p.slotBookingId}`);
+    else if (p?.kind === 'pass' && p.passId) router.replace(`/pass/${p.passId}`);
     else if (p?.kind === 'meetup') router.dismissTo('/social'); // back to the plan, still on One-on-one
     else router.replace('/home');
   };
@@ -116,6 +117,10 @@ export default function PaymentStatus() {
           <KV k="Paid to" v={p.payeeName} />
           {p.lines.map((l, i) => <KV key={i} k={l.label} v={formatINR(l.amount, { decimals: 'always' })} />)}
           {p.savings > 0 ? <KV k={p.offerTitle ?? 'Member offer'} v={formatINR(-p.savings, { decimals: 'always' })} pink /> : null}
+          {/* Whatever the lines and saving don't explain is the VIBE fee plus any taxes and charges on top of the bill. */}
+          {p.lines.length && p.amount - (p.lines.reduce((n, l) => n + l.amount, 0) - p.savings) > 0 ? (
+            <KV k="VIBE fee, taxes & charges" v={formatINR(p.amount - (p.lines.reduce((n, l) => n + l.amount, 0) - p.savings), { decimals: 'always' })} />
+          ) : null}
           <Divider />
           <View style={styles.between}><T variant="bodyStrong">Total</T><T variant="title2">{formatINR(p.amount, { decimals: 'always' })}</T></View>
         </Card>

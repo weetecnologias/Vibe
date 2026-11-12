@@ -74,18 +74,22 @@ class SlotBookingTest extends ApiTestSupport {
         // The grid: every hour 9 AM to 10 PM, both courts free, evening at the peak price on Court 1.
         mvc.perform(get("/v1/businesses/" + v.biz + "/slots").param("sport", "Badminton").param("date", MONDAY.toString())).andExpect(status().isOk())
                 .andExpect(jsonPath("$.slots", hasSize(13))).andExpect(jsonPath("$.durations", hasSize(3))).andExpect(jsonPath("$.kind", is("court")))
-                .andExpect(jsonPath("$.slots[0].label", is("9:00 AM"))).andExpect(jsonPath("$.slots[0].options[?(@.name=='Court 1')].price", hasItem(35000)))
-                .andExpect(jsonPath("$.slots[10].label", is("7:00 PM"))).andExpect(jsonPath("$.slots[10].options[?(@.name=='Court 1')].price", hasItem(50000)));
+                .andExpect(jsonPath("$.slots[0].label", is("9–10 AM"))).andExpect(jsonPath("$.slots[0].startLabel", is("9:00 AM"))).andExpect(jsonPath("$.slots[0].options[?(@.name=='Court 1')].price", hasItem(35000)))
+                .andExpect(jsonPath("$.slots[10].label", is("7–8 PM"))).andExpect(jsonPath("$.slots[10].options[?(@.name=='Court 1')].price", hasItem(50000)));
+        // Choosing 2 hours: each start shows its whole range, 11 AM–1 PM, at the price for both hours.
+        mvc.perform(get("/v1/businesses/" + v.biz + "/slots").param("sport", "Badminton").param("date", MONDAY.toString()).param("minutes", "120"))
+                .andExpect(jsonPath("$.slots[0].label", is("9–11 AM"))).andExpect(jsonPath("$.slots[2].label", is("11 AM–1 PM"))).andExpect(jsonPath("$.slots[0].fromPrice", is(70000)));
         mvc.perform(get("/v1/businesses/" + v.biz + "/slots").param("sport", "Badminton").param("date", MONDAY.plusDays(2).toString())).andExpect(jsonPath("$.closedReason", is("Closed on this day.")));
 
-        // 6–8 PM on Court 1 is one normal and one peak hour.
+        // 5–7 PM on Court 1 is one normal and one peak hour.
         String customer = customerToken(phone());
         MvcResult held = v.book(customer, "[" + v.item(v.court1, 17, 120, 1) + "]");
         assertEquals(201, held.getResponse().getStatus(), held.getResponse().getContentAsString());
         mvc.perform(as(customer, get("/v1/slot-bookings/" + JsonPath.read(held.getResponse().getContentAsString(), "$.id")))).andExpect(jsonPath("$.total", is(85000))).andExpect(jsonPath("$.status", is("held")))
                 .andExpect(jsonPath("$.entryCode").doesNotExist());
         String pr = JsonPath.read(held.getResponse().getContentAsString(), "$.paymentRequestId");
-        mvc.perform(as(customer, get("/v1/payment-requests/" + pr))).andExpect(jsonPath("$.kind", is("slots"))).andExpect(jsonPath("$.lines[0].label", containsString("Badminton · Court 1")));
+        mvc.perform(as(customer, get("/v1/payment-requests/" + pr))).andExpect(jsonPath("$.kind", is("slots"))).andExpect(jsonPath("$.lines[0].label", containsString("Badminton · Court 1")))
+                .andExpect(jsonPath("$.lines[0].label", containsString("5–7 PM"))).andExpect(jsonPath("$.vibeFee", is(2000))).andExpect(jsonPath("$.payable", is(87000)));
         // While held, Court 1 isn't offered at 5 PM to anyone else.
         mvc.perform(get("/v1/businesses/" + v.biz + "/slots").param("sport", "Badminton").param("date", MONDAY.toString()))
                 .andExpect(jsonPath("$.slots[8].options[?(@.name=='Court 1')].available", hasItem(false))).andExpect(jsonPath("$.slots[8].options[?(@.name=='Court 2')].available", hasItem(true)));
@@ -102,7 +106,8 @@ class SlotBookingTest extends ApiTestSupport {
         mvc.perform(as(v.merchant, get("/v1/staff/notifications"))).andExpect(jsonPath("$.items[?(@.kind=='slot_booked')].title", hasItem(containsString("Badminton booked: Court 1"))));
         mvc.perform(as(v.merchant, get("/v1/merchant/venue/day").param("date", MONDAY.toString()))).andExpect(jsonPath("$.bookings", hasSize(1))).andExpect(jsonPath("$.bookings[0].resourceId", is(v.court1)))
                 .andExpect(jsonPath("$.resources", hasSize(3)));
-        mvc.perform(as(adminToken(), get("/v1/admin/settlements/due"))).andExpect(jsonPath("$[?(@.businessId=='" + v.biz + "')].gross", hasItem(85000)));
+        mvc.perform(as(adminToken(), get("/v1/admin/settlements/due"))).andExpect(jsonPath("$[?(@.businessId=='" + v.biz + "')].gross", hasItem(87000)))
+                .andExpect(jsonPath("$[?(@.businessId=='" + v.biz + "')].vibeFees", hasItem(2000))); // the ₹20 booking fee is VIBE's, not the venue's
 
         // Front desk: the entry code checks in once.
         String code = JsonPath.read(mvc.perform(as(customer, get("/v1/slot-bookings/" + bookingId))).andReturn().getResponse().getContentAsString(), "$.entryCode");

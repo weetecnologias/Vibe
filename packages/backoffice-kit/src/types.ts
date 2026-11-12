@@ -105,7 +105,8 @@ export type Plan = { id: string; name: string; interval: 'month' | 'year'; price
 export type PlanInput = Omit<Plan, 'id'>;
 
 // ---------- checkout coupons ----------
-export type CouponKind = 'tickets' | 'movie';
+/** Where a checkout coupon applies: event tickets, movie seats, court and class bookings (slots), gym and studio memberships (pass). */
+export type CouponKind = 'tickets' | 'movie' | 'slots' | 'pass';
 export type Coupon = {
   id: string; code: string; title: string; description: string; memberOnly: boolean; kinds: CouponKind[]; kind: OfferKind; rateBps: number | null; flatAmount: number | null; maxDiscount: number | null;
   minBill: number | null; firstBookingOnly: boolean; maxUsesPerUser: number | null; terms: string[]; startsAt: string; endsAt: string; active: boolean;
@@ -224,5 +225,9 @@ export type VenueResource = {
 export type VenueResourceInput = Omit<VenueResource, 'id'>;
 export type VenueDayBooking = { bookingId: string; bookingRef: string; customerName: string; vibeId: string; resourceId: string; startsAt: string; endsAt: string; spots: number; status: string; checkedIn: boolean; price: number };
 export type VenueBlock = { id: string; resourceId: string; startsAt: string; endsAt: string; reason: string };
+/** A monthly plan at a gym, yoga or meditation studio, or trainer. Prices in paise. */
+export type VenuePlan = { id: string; name: string; description: string; months: 1 | 3 | 6 | 12; price: number; perMonth: number; benefits: string[]; active: boolean; sortOrder: number };
+export type VenuePlanInput = Omit<VenuePlan, 'id' | 'perMonth'>;
+export type VenueMember = { passId: string; passRef: string; customerName: string; vibeId: string; planName: string; startsOn: string; endsOn: string; activeNow: boolean; checkIns: number; lastCheckIn: string | null };
 export type VenueDay = { date: string; resources: VenueResource[]; bookings: VenueDayBooking[]; blocks: VenueBlock[]; bookedToday: number; salesToday: number };
-export type VenueCheckIn = { result: 'admitted' | 'already'; message: string; bookingRef: string; customerName: string; items: { resourceName: string; sport: string; startsAt: string; endsAt: string; spots: number }[] };
+export type VenueCheckIn = { result: 'admitted' | 'already' | 'not_started' | 'expired'; message: string; bookingRef: string; customerName: string; items: { resourceName: string; sport: string; startsAt: string; endsAt: string; spots: number }[] };

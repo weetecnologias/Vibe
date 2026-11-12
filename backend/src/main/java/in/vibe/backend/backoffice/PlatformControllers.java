@@ -130,7 +130,7 @@ public class PlatformControllers {
             in.vibe.backend.security.TeamAccess.Access a = access.access(who);
             boolean accepts = jdbc.sql("select accepts_vibe_payments from businesses where id = :b").param("b", who.requireBusiness()).query(Boolean.class).single();
             // Sports and fitness venues take bookings by the slot (courts, turfs, classes); so does any place that has set up a court or session.
-            boolean slots = jdbc.sql("select exists (select 1 from venue_resources where business_id = :b) or exists (select 1 from businesses z join categories c on c.id = z.primary_category_id where z.id = :b and (c.slug like 'fitness%' or c.slug like 'kids.sports%'))")
+            boolean slots = jdbc.sql("select exists (select 1 from venue_resources where business_id = :b) or exists (select 1 from venue_plans where business_id = :b) or exists (select 1 from businesses z join categories c on c.id = z.primary_category_id where z.id = :b and (c.slug like 'fitness%' or c.slug like 'kids.sports%'))")
                     .param("b", who.requireBusiness()).query(Boolean.class).single();
             return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.AREAS, accepts, slots);
         }
