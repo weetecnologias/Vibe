@@ -12,8 +12,8 @@ import { T } from './ui';
 export function DemoRibbon() {
   if (apiMode !== 'demo') return null;
   return (
-    <View style={styles.wrap} accessibilityLabel="Demo mode. Sample data, no real payments.">
-      <T variant="small" color={colors.white} style={styles.text}>DEMO DATA · NO REAL PAYMENTS</T>
+    <View style={styles.wrap} accessibilityLabel="Demo mode. Sample data on this device only, not connected to VIBE for Business. No real payments.">
+      <T variant="small" color={colors.white} style={styles.text}>DEMO DATA · NOT CONNECTED TO MERCHANTS · NO REAL PAYMENTS</T>
     </View>
   );
 }

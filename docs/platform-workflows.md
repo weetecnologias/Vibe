@@ -79,6 +79,14 @@ Status key: ✅ built and tested · 🟡 partly built · ⛔ not built yet.
 
 **Auto-approval (built 12 Nov 2026).** The admin can mark a merchant as trusted: its new and changed offers and events go live straight away, marked "Auto-approved", and admins are still told. Trust can be taken away; the merchant is told either way.
 
+## 2b. How VIBE's own team works, by category (13 Nov 2026)
+
+The admin dashboard is organised by category. A super admin starts in **All of VIBE**: one card per category (Food & Dining, Movies, Sports...) with its sales, what VIBE owes its businesses and what is waiting. Opening a card works inside that category: the same menu, but only its businesses, money and approvals, so each category can have its own team and finance person. Category managers only ever see their own categories.
+
+**Settling a category:** Settlements → Step 1 shows what each business is owed; *Create pay run* draws up one settlement per business that can be paid (KYC and bank verified, sales more than refunds) and tells each one; the rest are held with the reason. Step 2: download the bank file and transfer from the bank. Step 3: enter each bank reference (UTR); the business is told it's paid. Merchant balances shows, per business, earned, paid out and still owed, with the category's total, and downloads to Excel.
+
+**Approvals:** the To do list gathers everything waiting (new businesses, KYC and bank checks, offers, promotions, events, disputes, refunds), oldest first. KYC, bank details and the agreement are on each merchant's own page.
+
 ## 3. Who is told what
 
 | Event | Told | How |

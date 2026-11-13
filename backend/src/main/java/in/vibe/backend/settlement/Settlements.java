@@ -97,11 +97,14 @@ public class Settlements {
     }
 
     // ---------- admin ----------
-    public List<Due> due() {
+    public List<Due> due() { return due(""); }
+
+    /** scope: AdminAccess.businessScope on b.id (a category manager's categories and the category being looked at). */
+    public List<Due> due(String scope) {
         Map<String, Long> pending = new HashMap<>();
         jdbc.sql("select business_id, sum(amount) from settlement_adjustments where settlement_id is null group by business_id").query((rs, i) -> pending.put(rs.getString(1), rs.getLong(2))).list();
         return jdbc.sql("select b.id, b.name, b.area, count(*) n, sum(p.amount + pr.vibe_funded) gross, sum(pr.vibe_fee) fees, sum(p.commission) comm, sum(p.gst) gst, sum(p.refund_merchant_share) refunds, "
-                        + "sum(p.savings) saved, min(p.verified_at) oldest, max(p.verified_at) newest" + UNSETTLED + " group by b.id, b.name, b.area order by min(p.verified_at)")
+                        + "sum(p.savings) saved, min(p.verified_at) oldest, max(p.verified_at) newest" + UNSETTLED + scope + " group by b.id, b.name, b.area order by min(p.verified_at)")
                 .query((rs, i) -> {
                     long gross = rs.getLong("gross"), fees = rs.getLong("fees"), comm = rs.getLong("comm"), gst = rs.getLong("gst"), refunds = rs.getLong("refunds"), adj = pending.getOrDefault(rs.getString("id"), 0L);
                     UUID biz = UUID.fromString(rs.getString("id"));
@@ -170,8 +173,10 @@ public class Settlements {
         return detail(id, null);
     }
 
-    public List<Summary> list(String status, UUID business) {
-        StringBuilder w = new StringBuilder(" where true");
+    public List<Summary> list(String status, UUID business) { return list(status, business, ""); }
+
+    public List<Summary> list(String status, UUID business, String scope) {
+        StringBuilder w = new StringBuilder(" where true").append(scope);
         if (status != null && !status.isBlank()) w.append(" and s.status = :st");
         if (business != null) w.append(" and s.business_id = :b");
         JdbcClient.StatementSpec q = jdbc.sql("select s.*, b.name bname from settlements s join businesses b on b.id = s.business_id" + w + " order by s.created_at desc limit 500");

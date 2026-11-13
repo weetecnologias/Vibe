@@ -2,8 +2,10 @@ import { useState } from 'react';
 
 import {
   Badge, DownloadButton, Field, Loading, Modal, Notice, PageHead, bpsToPercent, errorText, formatINR, rupeesToPaise, showDateTime, useAsync, useAuth,
-  type AdjustmentRow, type SettlementDetail, type SettlementDue, type SettlementSummary,
+  type AdjustmentRow, type PayRunHeld, type PayRunResult, type SettlementDetail, type SettlementDue, type SettlementSummary,
 } from '@kit';
+
+import { useWorkspace } from '../workspace';
 
 type Tab = 'due' | 'pending' | 'paid';
 
@@ -21,28 +23,63 @@ export function SettlementsPage() {
   const [adjusting, setAdjusting] = useState<SettlementDue | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const { current } = useWorkspace();
+  const [held, setHeld] = useState<PayRunHeld[]>([]);
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
   const totalDue = (due.data ?? []).reduce((n, d) => n + d.payout, 0);
   const totalShown = (list.data ?? []).reduce((n, s) => n + s.payout, 0);
+  const ready = (due.data ?? []).filter((d) => d.kycStatus === 'verified' && d.payout > 0);
+  const readyTotal = ready.reduce((n, d) => n + d.payout, 0);
+  const go = (t: Tab) => { setTab(t); setNotice(null); setRunError(null); };
+
+  const runPay = async () => {
+    setRunning(true);
+    setRunError(null);
+    try {
+      const r = await client.post<PayRunResult>('/v1/admin/settlements/run', { businessIds: ready.map((d) => d.businessId) });
+      setHeld(r.held);
+      setNotice(`Pay run created: ${r.created.length} settlement${r.created.length === 1 ? '' : 's'}, ${formatINR(r.total)}. Each business has been told. Next, download the bank file and pay them.`);
+      setTab('pending');
+    } catch (e) {
+      setRunError(errorText(e));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const STEPS: { key: Tab; n: string; title: string; sub: string }[] = [
+    { key: 'due', n: 'Step 1', title: 'Review what’s owed', sub: due.data ? `${due.data.length} businesses · ${formatINR(totalDue)}` : 'What each business has earned' },
+    { key: 'pending', n: 'Step 2', title: 'Pay from the bank', sub: 'Download the bank file, transfer, then enter the bank reference' },
+    { key: 'paid', n: 'Step 3', title: 'Paid', sub: 'Settlements with a bank reference' },
+  ];
 
   return (
     <>
-      <PageHead title="Settlements" sub="What VIBE owes each merchant for payments made through the app, and paying it. Merchants are told when a settlement is drawn up and when it is paid." />
-      <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'due'} className={`tab${tab === 'due' ? ' on' : ''}`} onClick={() => { setTab('due'); setNotice(null); }}>To settle</button>
-        <button role="tab" aria-selected={tab === 'pending'} className={`tab${tab === 'pending' ? ' on' : ''}`} onClick={() => { setTab('pending'); setNotice(null); }}>Waiting to pay</button>
-        <button role="tab" aria-selected={tab === 'paid'} className={`tab${tab === 'paid' ? ' on' : ''}`} onClick={() => { setTab('paid'); setNotice(null); }}>Paid</button>
+      <PageHead title="Settlements" sub={`Paying businesses${current.id ? ` in ${current.name}` : ''} for what customers paid through VIBE. Each business is told when a settlement is drawn up and when it’s paid.`} />
+      <div className="steps" role="tablist">
+        {STEPS.map((s) => <button key={s.key} role="tab" aria-selected={tab === s.key} className={tab === s.key ? 'on' : ''} onClick={() => go(s.key)}><span className="n">{s.n}</span><strong>{s.title}</strong><span className="muted small">{s.sub}</span></button>)}
       </div>
       {notice ? <Notice tone="success">{notice}</Notice> : null}
+      {held.length > 0 ? (
+        <Notice tone="info">
+          Held back from the pay run: {held.map((h) => `${h.businessName} (${h.reason})`).join('; ')}
+        </Notice>
+      ) : null}
 
       {tab === 'due' ? (
         <>
-          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
-            <div className="stats" style={{ margin: 0 }}>
-              <div className="card"><span className="muted small">Merchants owed</span><strong>{due.data?.length ?? '–'}</strong></div>
-              <div className="card"><span className="muted small">Total to pay</span><strong>{due.data ? formatINR(totalDue) : '–'}</strong></div>
+          <div className="card row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+            <div className="stack" style={{ gap: 2 }}>
+              <strong>{ready.length ? `${ready.length} ready to pay: ${formatINR(readyTotal)}` : 'Nobody is ready to pay yet'}</strong>
+              <span className="muted small">{(due.data?.length ?? 0) - ready.length > 0 ? `${(due.data?.length ?? 0) - ready.length} held: KYC and bank details not verified, or refunds more than sales. ` : ''}Creating the pay run draws up one settlement per business and tells each of them.</span>
             </div>
-            <DownloadButton path="/v1/admin/exports/settlements-due" filename="vibe-to-settle.csv" />
+            <div className="row">
+              <DownloadButton path="/v1/admin/exports/settlements-due" filename="vibe-to-settle.csv" label="Download Excel" />
+              <button className="btn primary" disabled={running || ready.length === 0} onClick={runPay}>{running ? 'Creating…' : `Create pay run (${ready.length})`}</button>
+            </div>
           </div>
+          {runError ? <Notice tone="error">{runError}</Notice> : null}
           {due.error ? <Notice tone="error">{due.error}</Notice> : null}
           {due.loading && !due.data ? <Loading /> : (
             <div className="table-wrap">
@@ -74,8 +111,14 @@ export function SettlementsPage() {
               <div className="card"><span className="muted small">Settlements</span><strong>{list.data?.length ?? '–'}</strong></div>
               <div className="card"><span className="muted small">{tab === 'pending' ? 'Still to transfer' : 'Transferred'}</span><strong>{list.data ? formatINR(totalShown) : '–'}</strong></div>
             </div>
-            <DownloadButton path={`/v1/admin/exports/settlements?status=${tab}`} filename={`vibe-settlements-${tab}.csv`} />
+            <div className="row">
+              {tab === 'pending' ? <DownloadButton path="/v1/admin/settlements/bank-file.csv" filename="vibe-bank-file.csv" label="Download bank file" /> : null}
+              <DownloadButton path={`/v1/admin/exports/settlements?status=${tab}`} filename={`vibe-settlements-${tab}.csv`} label="Download Excel" />
+            </div>
           </div>
+          {tab === 'pending' && (list.data?.length ?? 0) > 0 ? (
+            <p className="muted small" style={{ marginTop: 0 }}>The bank file lists each business’s account holder, account number, IFSC and amount, ready for your bank’s bulk transfer. Each download is recorded in the audit log. After the transfer, open each settlement and enter the bank reference (UTR).</p>
+          ) : null}
           {list.error ? <Notice tone="error">{list.error}</Notice> : null}
           {list.loading && !list.data ? <Loading /> : (
             <div className="table-wrap">
@@ -142,7 +185,7 @@ function CreateSettlement({ due, onClose, onCreated }: { due: SettlementDue; onC
   );
 }
 
-function SettlementModal({ id, onClose, onPaid }: { id: string; onClose: () => void; onPaid: (d: SettlementDetail) => void }) {
+export function SettlementModal({ id, onClose, onPaid }: { id: string; onClose: () => void; onPaid: (d: SettlementDetail) => void }) {
   const { client } = useAuth();
   const d = useAsync(() => client.get<SettlementDetail>(`/v1/admin/settlements/${id}`), [client, id]);
   const [ref, setRef] = useState('');

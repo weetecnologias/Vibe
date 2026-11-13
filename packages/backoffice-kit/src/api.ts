@@ -21,9 +21,16 @@ export type Client = {
   download(path: string, filename: string): Promise<void>;
 };
 
+/**
+ * Headers added to every request, set by the app (the admin dashboard sends the category being looked at). A function, so the value is read
+ * at the moment of each request.
+ */
+let extraHeaders: () => Record<string, string> = () => ({});
+export function setExtraHeaders(fn: () => Record<string, string>): void { extraHeaders = fn; }
+
 export function createClient(opts: { baseUrl: string; token: () => string | null; onUnauthorized: () => void }): Client {
   async function request<T>(method: string, path: string, body?: unknown, auth = true): Promise<T> {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders() };
     const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
     // A file upload sets its own multipart boundary, so no Content-Type is sent for it.
     if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
@@ -65,7 +72,7 @@ export function createClient(opts: { baseUrl: string; token: () => string | null
       const token = opts.token();
       let res: Response;
       try {
-        res = await fetch(`${opts.baseUrl}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        res = await fetch(`${opts.baseUrl}${path}`, { headers: { ...extraHeaders(), ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
       } catch {
         throw new ApiError(0, 'network', 'Can’t reach the server. Check your connection and try again.');
       }

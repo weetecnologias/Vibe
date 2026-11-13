@@ -321,3 +321,33 @@ export type VenuePlanInput = Omit<VenuePlan, 'id' | 'perMonth'>;
 export type VenueMember = { passId: string; passRef: string; customerName: string; vibeId: string; planName: string; startsOn: string; endsOn: string; activeNow: boolean; checkIns: number; lastCheckIn: string | null };
 export type VenueDay = { date: string; resources: VenueResource[]; bookings: VenueDayBooking[]; blocks: VenueBlock[]; bookedToday: number; salesToday: number };
 export type VenueCheckIn = { result: 'admitted' | 'already' | 'not_started' | 'expired'; message: string; bookingRef: string; customerName: string; items: { resourceName: string; sport: string; startsAt: string; endsAt: string; spots: number }[] };
+
+// ---------- admin by category ----------
+export type Workspace = { id: string; name: string };
+export type WorkspaceList = { all: boolean; categories: Workspace[] };
+/** salesByKind keys: redemption (bills), tickets, movie, slots (bookings), pass (venue memberships). */
+export type CategoryCard = {
+  id: string; name: string; hasChildren: boolean; outlets: number; liveOutlets: number; sales: number; collected: number; salesByKind: Record<string, number>;
+  toSettle: number; awaitingPayout: number; paidOut: number; payoutsHeld: number; kycWaiting: number; applications: number; reviews: number; disputes: number; refundsDue: number; waiting: number;
+};
+export type WorkspaceOverview = { from: string; to: string; workspaceName: string | null; cards: CategoryCard[]; total: CategoryCard };
+export type TodoType = 'application' | 'kyc' | 'offer' | 'promotion' | 'event' | 'dispute' | 'refund' | 'deletion';
+export type TodoItem = { type: TodoType; id: string; title: string; detail: string; category: string; since: string | null; link: string };
+export type TodoList = { counts: Partial<Record<TodoType, number>>; items: TodoItem[] };
+export type MerchantRow = {
+  id: string; name: string; area: string; category: string; live: boolean; joinedAt: string; kycStatus: KycStatus; agreementVersion: number | null; currentAgreement: number | null;
+  sales30d: number; owed: number; lastSaleAt: string | null;
+};
+export type MerchantPage = { total: number; rows: MerchantRow[] };
+export type MerchantApplication = { id: string; status: string; contactName: string; email: string; phone: string; submittedAt: string; decidedAt: string | null; note: string | null };
+export type MerchantAgreementAcceptance = { version: number; title: string; acceptedAt: string; acceptedBy: string | null };
+export type MerchantProfile = {
+  merchant: MerchantRow; categoryPath: string; application: MerchantApplication | null; kyc: KycView; agreements: MerchantAgreementAcceptance[]; money: MerchantMoney; liveOffers: number; teamMembers: number;
+};
+export type MerchantBalance = {
+  id: string; name: string; category: string; kycStatus: KycStatus | ''; payments: number; gross: number; vibeFees: number; commission: number; gst: number; refunds: number; adjustments: number;
+  earned: number; paidOut: number; awaitingPayout: number; owed: number; lastSaleAt: string | null;
+};
+export type MerchantBalances = { rows: MerchantBalance[]; total: MerchantBalance };
+export type PayRunHeld = { businessId: string; businessName: string; amount: number; reason: string };
+export type PayRunResult = { created: SettlementSummary[]; held: PayRunHeld[]; total: number };

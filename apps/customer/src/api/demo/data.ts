@@ -340,5 +340,5 @@ export const membershipPlans: MembershipPlan[] = [
   { id: 'plan-annual', name: 'Annual', interval: 'year', price: r(2999), note: 'Billed yearly · about ₹250 a month', savingsLabel: 'SAVE ₹589' },
 ];
 
-export const demoUser = { id: 'u-demo', name: 'Aarav Reddy', vibeId: '4821', memberNo: 'VB 4821 7730' };
+export const demoUser = { id: 'u-demo', name: 'Aarav Reddy', vibeId: '482173', memberNo: 'VB 482173 7730' };
 export const DEMO_OTP = '123456';

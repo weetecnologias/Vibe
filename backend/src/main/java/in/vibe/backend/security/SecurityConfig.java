@@ -72,7 +72,7 @@ public class SecurityConfig {
         // Patterns, so the dev profile can allow `http://localhost:*`. Production lists exact origins.
         c.setAllowedOriginPatterns(origins);
         c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        c.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key"));
+        c.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", AdminAccess.WORKSPACE_HEADER));
         c.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();
         src.registerCorsConfiguration("/v1/**", c);

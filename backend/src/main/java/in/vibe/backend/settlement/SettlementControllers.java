@@ -35,15 +35,16 @@ public class SettlementControllers {
         }
 
         @GetMapping("/v1/admin/settlements/due")
-        List<Settlements.Due> due() { return settlements.due(); }
+        List<Settlements.Due> due(@AuthenticationPrincipal Jwt jwt) { return settlements.due(adminAccess.businessScope(StaffPrincipal.from(jwt), "b.id")); }
 
         @GetMapping("/v1/admin/settlements")
-        List<Settlements.Summary> list(@RequestParam(required = false) String status, @RequestParam(required = false) String businessId) {
-            return settlements.list(status, businessId == null || businessId.isBlank() ? null : uuid(businessId));
+        List<Settlements.Summary> list(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status, @RequestParam(required = false) String businessId) {
+            return settlements.list(status, businessId == null || businessId.isBlank() ? null : uuid(businessId), adminAccess.businessScope(StaffPrincipal.from(jwt), "b.id"));
         }
 
         @PostMapping("/v1/admin/settlements")
         ResponseEntity<Settlements.Detail> create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody Settlements.CreateInput in) {
+            adminAccess.requireBusiness(StaffPrincipal.from(jwt), uuid(in.businessId()));
             return ResponseEntity.status(HttpStatus.CREATED).body(settlements.create(StaffPrincipal.from(jwt), in));
         }
 
@@ -76,10 +77,10 @@ public class SettlementControllers {
         ResponseEntity<byte[]> customers(@RequestParam(required = false) String q) { return exports.customers(q); }
 
         @GetMapping("/v1/admin/exports/settlements")
-        ResponseEntity<byte[]> settlementList(@RequestParam(required = false) String status) { return exports.settlementList(status); }
+        ResponseEntity<byte[]> settlementList(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status) { return exports.settlementList(status, adminAccess.businessScope(StaffPrincipal.from(jwt), "b.id")); }
 
         @GetMapping("/v1/admin/exports/settlements-due")
-        ResponseEntity<byte[]> dueExport() { return exports.dueList(); }
+        ResponseEntity<byte[]> dueExport(@AuthenticationPrincipal Jwt jwt) { return exports.dueList(adminAccess.businessScope(StaffPrincipal.from(jwt), "b.id")); }
 
         @GetMapping("/v1/admin/exports/settlements/{id}")
         ResponseEntity<byte[]> settlement(@PathVariable String id) { return exports.settlement(uuid(id), null); }

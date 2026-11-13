@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from './auth';
 import { NotificationBell } from './NotificationBell';
@@ -24,16 +24,27 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
   return { data: state.data, error: state.key === key ? state.error : undefined, loading: state.key !== key, reload, setData };
 }
 
-export type NavItem = { to: string; label: string } | { heading: string };
+export type NavItem = { to: string; label: string; badge?: number } | { heading: string };
 
-export function Shell({ title, nav }: { title: string; nav: NavItem[] }) {
+/**
+ * The dashboard frame: menu on the left, page on the right. `switcher` sits above the menu (the admin's category picker). On a narrow screen the
+ * menu folds behind a Menu button instead of wrapping across the top of the page.
+ */
+export function Shell({ title, nav, switcher }: { title: string; nav: NavItem[]; switcher?: ReactNode }) {
   const { staff, signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  useEffect(() => { setOpen(false); }, [location.pathname]);
   return (
     <div className="shell">
-      <aside className="side">
-        <div className="brand"><span className="brand-vibe">VIBE</span> <span>{title}</span></div>
+      <aside className={`side${open ? ' open' : ''}`}>
+        <div className="side-top">
+          <div className="brand"><span className="brand-vibe">VIBE</span> <span>{title}</span></div>
+          <button type="button" className="btn ghost sm menu-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Close' : 'Menu'}</button>
+        </div>
+        {switcher}
         <NotificationBell />
-        <nav>{nav.map((n) => ('heading' in n ? <div key={n.heading} className="nav-heading">{n.heading}</div> : <NavLink key={n.to} to={n.to} className={({ isActive }) => (isActive ? 'active' : '')}>{n.label}</NavLink>))}</nav>
+        <nav>{nav.map((n) => ('heading' in n ? <div key={n.heading} className="nav-heading">{n.heading}</div> : <NavLink key={n.to} to={n.to} className={({ isActive }) => (isActive ? 'active' : '')}>{n.label}{n.badge ? <span className="nav-badge">{n.badge}</span> : null}</NavLink>))}</nav>
         <div className="side-foot">
           <div className="small">{staff?.name}</div>
           <div className="small muted">{staff?.email}</div>

@@ -181,3 +181,40 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .choice { padding: 12px 10px; border-radius: 12px; border: 1.5px solid var(--line, #e7e3ea); background: #fff; font: inherit; font-weight: 600; cursor: pointer; text-align: center; }
 .choice:hover { border-color: var(--pink, #E80069); }
 .choice.on { border-color: var(--pink, #E80069); background: #FDE6F0; color: #C8005A; }
+
+/* ---------- menu: category switcher, badges, folding on narrow screens ---------- */
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.menu-toggle { display: none; }
+.nav-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: rgba(255, 255, 255, 0.16); color: var(--white); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.side nav a { display: flex; align-items: center; gap: 8px; }
+.side nav a.active .nav-badge { background: rgba(255, 255, 255, 0.3); }
+.ws-switch { display: grid; gap: 6px; }
+.ws-switch label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
+.ws-switch select { background: #221f27; color: var(--white); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; padding: 10px 12px; font: inherit; font-weight: 600; }
+.ws-switch .ws-path { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
+@media (max-width: 860px) {
+  .side { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 12px; padding: 12px 16px; }
+  .menu-toggle { display: inline-flex; }
+  .side > nav, .side > .side-foot, .side > .ws-switch, .side > .bell { display: none; }
+  .side.open > nav, .side.open > .side-foot, .side.open > .ws-switch, .side.open > .bell { display: grid; }
+  .side.open nav { display: grid; }
+  .side-foot { margin: 0; }
+}
+
+/* ---------- category cards, status strips, steps ---------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.cat-card { text-align: left; background: var(--white); border: 1px solid var(--hairline); border-radius: 16px; padding: 16px; display: grid; gap: 10px; cursor: pointer; font: inherit; color: inherit; }
+.cat-card:hover { border-color: var(--pink); }
+.cat-card .figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cat-card .figs strong { display: block; font-size: 18px; }
+.cat-card .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.strip .card { display: grid; gap: 6px; padding: 12px 14px; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.steps button { text-align: left; font: inherit; color: inherit; background: var(--white); border: 1px solid var(--hairline); border-radius: 14px; padding: 12px 14px; cursor: pointer; display: grid; gap: 2px; }
+.steps button.on { border-color: var(--pink); box-shadow: inset 0 0 0 1px var(--pink); }
+.steps .n { font-size: 12px; color: var(--muted); }
+@media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
+.todo-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
+.todo-row:last-child { border-bottom: 0; }
+.badge { white-space: nowrap; }

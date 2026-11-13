@@ -53,7 +53,9 @@ public class AdminAccess {
     /** The area an admin request needs; "team" is the team page (super admin and admin only); null is open to every admin. Unknown paths need a full admin. */
     static String areaFor(String path) {
         String p = path.substring("/v1/admin".length());
-        if (p.startsWith("/access")) return null;
+        if (p.startsWith("/access") || p.startsWith("/workspaces") || p.startsWith("/todo")) return null;
+        if (p.startsWith("/merchants")) return "partners";
+        if (p.startsWith("/balances")) return "money";
         if (p.startsWith("/overview") || p.startsWith("/reports")) return "reports";
         if (p.contains("/adjustments") || p.startsWith("/rate-cards") || p.startsWith("/ledger") || p.startsWith("/reconciliation") || p.startsWith("/disputes")) return "money";
         if (p.startsWith("/applications") || p.startsWith("/businesses") || p.startsWith("/kyc") || p.startsWith("/agreements")) return "partners";
@@ -73,16 +75,43 @@ public class AdminAccess {
      */
     public String businessScope(StaffPrincipal who, String businessIdColumn) {
         Access a = access(who);
-        if (!a.scoped()) return "";
-        return " and " + businessIdColumn + " in (select bc.business_id from business_categories bc where bc.category_id in (" + tree(a.categoryIds()) + "))";
+        String sql = "";
+        if (a.scoped()) sql += " and " + businessIdColumn + " in (select bc.business_id from business_categories bc where bc.category_id in (" + tree(a.categoryIds()) + "))";
+        UUID ws = workspace();
+        if (ws != null) sql += " and " + businessIdColumn + " in (select bc.business_id from business_categories bc where bc.category_id in (" + tree(List.of(ws)) + "))";
+        return sql;
     }
 
     /** The same for a category column (applications carry a category, not yet a business). */
     public String categoryScope(StaffPrincipal who, String categoryIdColumn) {
         Access a = access(who);
-        if (!a.scoped()) return "";
-        return " and " + categoryIdColumn + " in (" + tree(a.categoryIds()) + ")";
+        String sql = "";
+        if (a.scoped()) sql += " and " + categoryIdColumn + " in (" + tree(a.categoryIds()) + ")";
+        UUID ws = workspace();
+        if (ws != null) sql += " and " + categoryIdColumn + " in (" + tree(List.of(ws)) + ")";
+        return sql;
     }
+
+    /** Header the admin dashboard sends when someone is working inside one category ("Food and dining") rather than all of VIBE. */
+    public static final String WORKSPACE_HEADER = "X-Vibe-Workspace";
+
+    /**
+     * The category this request is looking at, or null for all of VIBE. It only ever narrows what a person sees: a category manager working in a
+     * category outside their own sees nothing, because their own limit still applies on top. Ids are checked to be UUIDs before they reach SQL.
+     */
+    public UUID workspace() {
+        if (!(org.springframework.web.context.request.RequestContextHolder.getRequestAttributes() instanceof org.springframework.web.context.request.ServletRequestAttributes attrs)) return null;
+        String h = attrs.getRequest().getHeader(WORKSPACE_HEADER);
+        if (h == null || h.isBlank() || "all".equalsIgnoreCase(h.trim())) return null;
+        try {
+            return UUID.fromString(h.trim());
+        } catch (IllegalArgumentException e) {
+            throw ApiException.badRequest("bad_workspace", "That category isn’t valid. Pick one from the list.");
+        }
+    }
+
+    /** SQL listing a category and everything below it (for code outside this class that needs the same tree). */
+    public static String treeOf(List<UUID> ids) { return tree(ids); }
 
     private static String tree(List<UUID> ids) {
         String list = String.join(", ", ids.stream().map(u -> "'" + u + "'::uuid").toList());

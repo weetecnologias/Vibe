@@ -61,19 +61,23 @@ public class Exports {
         return csv.download("vibe-customers-" + stamp() + ".csv");
     }
 
-    public ResponseEntity<byte[]> settlementList(String status) {
+    public ResponseEntity<byte[]> settlementList(String status) { return settlementList(status, ""); }
+
+    public ResponseEntity<byte[]> settlementList(String status, String scope) {
         Csv csv = new Csv().row("Settlement ID", "Merchant", "From", "To", "Payments", "Collected (Rs)", "VIBE fees (Rs)", "Commission %", "Commission (Rs)", "Payout (Rs)", "Customer savings (Rs)",
                 "Status", "Drawn up", "Paid on", "Bank reference");
-        for (var s : settlements.list(status, null)) {
+        for (var s : settlements.list(status, null, scope)) {
             csv.row(s.reference(), s.businessName(), s.periodFrom(), s.periodTo(), s.paymentCount(), rupees(s.gross()), rupees(s.vibeFees()), String.format("%.2f", s.commissionBps() / 100.0),
                     rupees(s.commission()), rupees(s.payout()), rupees(s.customerSavings()), s.status(), s.createdAt(), s.paidAt(), s.payoutRef());
         }
         return csv.download("vibe-settlements-" + stamp() + ".csv");
     }
 
-    public ResponseEntity<byte[]> dueList() {
+    public ResponseEntity<byte[]> dueList() { return dueList(""); }
+
+    public ResponseEntity<byte[]> dueList(String scope) {
         Csv csv = new Csv().row("Merchant", "Area", "Payments", "Collected (Rs)", "VIBE fees (Rs)", "Commission %", "Commission (Rs)", "To pay (Rs)", "Oldest payment", "Newest payment");
-        for (var d : settlements.due()) {
+        for (var d : settlements.due(scope)) {
             csv.row(d.businessName(), d.area(), d.count(), rupees(d.gross()), rupees(d.vibeFees()), String.format("%.2f", d.commissionBps() / 100.0), rupees(d.commission()), rupees(d.payout()), d.oldest(), d.newest());
         }
         return csv.download("vibe-to-settle-" + stamp() + ".csv");

@@ -2,9 +2,19 @@
 
 React + Vite + TypeScript. For VIBE staff. Shares its UI, API client and money handling with the merchant dashboard through [`packages/backoffice-kit`](../../packages/backoffice-kit).
 
+## How it is organised
+
+- **Looking at:** the picker at the top of the menu chooses **All of VIBE** or one category (Food & Dining, Movies, Sports...). Every page, total and Excel download then covers only that category: its businesses, sales, settlements, balances and approvals. A category's own team (category managers) only get their categories in the picker. Opening a category card on the Overview drills into it (Food & Dining → Restaurants). Remembered on this computer.
+- **Menu groups:** Daily (Overview, To do, Reports), Partners (Merchants, Applications), Money (Sales and payments, Settlements, Merchant balances, Refunds, Disputes), Content (offer, promotion, event and review moderation), and, in All of VIBE only, Customers and Setup (categories, home content, plans, coupons, rates and tax, merchant agreement versions, reconciliation, the accounting ledger, the VIBE team, logins, audit log). On a narrow window the menu folds behind a **Menu** button.
+- **Overview:** in All of VIBE, one card per category with sales (by kind: bills, movie and event tickets, bookings, memberships), money collected, what VIBE still owes the businesses, and what is waiting (KYC to check, applications, reviews, disputes, refunds due, payouts held). Inside a category the cards are its subcategories. Today, 7 days, 30 days or this month; downloads to Excel.
+- **To do:** one list of everything waiting for a decision, oldest first: new business applications, KYC and bank checks, offers, promotions and events to review, disputes, refunds to send and account deletions. Each opens where you act on it.
+- **Merchants:** every business with its KYC and bank status, merchant agreement, sales in 30 days and what VIBE owes it; filter by KYC status, agreement not accepted, live or hidden; downloads to Excel. **Each business has one page** with its application, KYC and bank details (verify or send back right there), agreement acceptances, money and settlements. The listing itself is edited from there.
+- **Merchant balances:** a plain statement per business: sales, VIBE fees, commission and GST, refunds charged, adjustments, earned, paid out, owed now, with the category's totals. Downloads to Excel. (The double-entry **Accounting ledger** is under Setup, for finance and audit.)
+- **Settlements, in three steps:** 1. review what each business is owed and **create the pay run** (one settlement per business that can be paid; businesses without verified KYC and bank details, or whose refunds exceed their sales, are held back with the reason); 2. **download the bank file** (account holder, account number, IFSC, amount; each download is audited) and transfer the money; 3. open each settlement and enter the bank reference (UTR). Each business is told at each step.
+
 ## What it does
 
-- **Overview:** money collected, redemptions, customers, members, what members saved, and what is waiting for you (applications, offers and events to review, deletion requests).
+- **VIBE-wide numbers** (All of VIBE): customers, active and lapsed members, membership sales and what members saved.
 - **Customers:** search everyone, see their membership, payments and redemptions, reveal a phone number (audited), grant membership with a reason.
 - **Transactions:** every payment, who paid, where, how much, and whether the payment partner confirmed it. Downloads to Excel with the same filters.
 - **Reviews:** every rating; hide one that breaks the rules (with a reason), and it drops out of the place's rating.

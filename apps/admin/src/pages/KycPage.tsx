@@ -50,6 +50,15 @@ export function KycPage() {
 }
 
 function KycModal({ businessId, onClose, onDone }: { businessId: string; onClose: () => void; onDone: (message: string) => void }) {
+  return (
+    <Modal title="KYC and bank details" onClose={onClose} wide>
+      <KycReview businessId={businessId} onDone={(m) => { onDone(m); onClose(); }} />
+    </Modal>
+  );
+}
+
+/** One business's legal and bank details, the automatic checks, and Verify or Send back. Used in the KYC list and on the merchant's own page. */
+export function KycReview({ businessId, onDone }: { businessId: string; onDone: (message: string) => void }) {
   const { client } = useAuth();
   const d = useAsync(() => client.get<KycView>(`/v1/admin/kyc/${businessId}`), [client, businessId]);
   const [note, setNote] = useState('');
@@ -62,12 +71,13 @@ function KycModal({ businessId, onClose, onDone }: { businessId: string; onClose
     try {
       await client.post(`/v1/admin/kyc/${businessId}/${kind}`, kind === 'reject' ? { note } : undefined);
       onDone(kind === 'approve' ? `${k?.businessName} is verified and can be paid out.` : `Sent back to ${k?.businessName} with your note.`);
-      onClose();
+      setRejecting(false);
+      d.reload();
     } catch (e) { setError(errorText(e)); }
   };
 
   return (
-    <Modal title={k ? k.businessName : 'KYC'} onClose={onClose} wide>
+    <>
       {d.loading && !k ? <Loading /> : d.error && !k ? <Notice tone="error">{d.error}</Notice> : k ? (
         <div className="stack">
           <div className="grid2">
@@ -106,6 +116,6 @@ function KycModal({ businessId, onClose, onDone }: { businessId: string; onClose
           )}
         </div>
       ) : null}
-    </Modal>
+    </>
   );
 }
