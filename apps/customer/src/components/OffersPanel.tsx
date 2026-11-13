@@ -47,7 +47,7 @@ export function OffersPanel({ requestId, discount, onRepriced }: { requestId: st
           <View style={styles.tick}><Icon name="check" size={16} color={colors.white} strokeWidth={3} /></View>
           <View style={{ flex: 1, gap: 2 }}>
             <T variant="captionStrong">{applied.title}</T>
-            <T variant="small" color={colors.success}>Code {applied.code} applied · you save {formatINR(discount, { decimals: 'always' })}</T>
+            <T variant="small" color={colors.success}>{applied.code ? `Code ${applied.code} applied` : 'Applied'} · you save {formatINR(discount, { decimals: 'always' })}</T>
           </View>
           <Button label="Remove" variant="ghost" size="sm" loading={busy === 'remove'} onPress={() => run('remove', () => api.removeOffer(requestId))} />
         </View>
@@ -64,7 +64,7 @@ export function OffersPanel({ requestId, discount, onRepriced }: { requestId: st
             <T variant="small" color={o.eligible ? colors.success : colors.mutedGrey} style={{ fontFamily: fonts.semibold }}>
               {o.eligible ? `You save ${formatINR(o.saving, { decimals: 'always' })}` : o.reason}
             </T>
-            <T variant="small" color={colors.mutedGrey}>Code {o.code}</T>
+            {o.code ? <T variant="small" color={colors.mutedGrey}>Code {o.code}</T> : null}
           </View>
           {o.eligible ? (
             <Button label="Apply" size="sm" loading={busy === o.id} onPress={() => run(o.id, () => api.applyOffer(requestId, o.id))} />

@@ -55,7 +55,11 @@ public class Redemptions {
     // ---- what the merchant dashboard reads and sends ----
     public record Line(@NotBlank @Size(max = 80) String label, @NotNull @Min(1) @Max(MAX_BILL) Long amount) {}
 
-    public record BillInput(@NotEmpty @Size(max = 30) List<@Valid Line> lines, @Size(max = 40) String billRef, Boolean confirmLarge) {}
+    /** offerId: leave out to keep the offer the redemption has, "none" for no discount, or the id of one of the business's offers the customer can use. */
+    public record BillInput(@NotEmpty @Size(max = 30) List<@Valid Line> lines, @Size(max = 40) String billRef, Boolean confirmLarge, String offerId) {}
+
+    /** The offers this customer can use on this bill, and the one applied now. */
+    public record BillOffers(String currentOfferId, List<UsableOffer> offers) {}
 
     public record Preview(long eligibleAmount, long discount, String discountLabel, String reason, long vibeFee, long customerPays, boolean needsConfirmation) {}
 
@@ -75,6 +79,14 @@ public class Redemptions {
 
     public record Board(List<Row> rows, Summary summary) {}
 
+    /** A customer found by VIBE ID at the counter: just their first name, whether they're a member, and which of this business's offers they can use now. */
+    public record UsableOffer(String id, String title, boolean memberOnly, boolean usable, String reason) {}
+
+    public record CustomerLookup(String vibeId, String name, boolean member, boolean acceptsVibePayments, List<UsableOffer> offers) {}
+
+    /** offerId is optional: without one the bill has no discount. */
+    public record StartInput(@NotBlank @Size(max = 12) String vibeId, String offerId) {}
+
     private final JdbcClient jdbc;
     private final AuditService audit;
     private final Notifications notifications;
@@ -84,6 +96,9 @@ public class Redemptions {
     private final int redemptionMinutes, billMinutes;
     private final long largeBill, vibeFee;
     private final SecureRandom random = new SecureRandom();
+    /** Looking up VIBE IDs is limited per business (in memory is enough for one instance; use Redis before running several). */
+    private final java.util.Map<UUID, java.util.Deque<Long>> lookups = new java.util.concurrent.ConcurrentHashMap<>();
+    static final int LOOKUPS_PER_10_MIN = 40;
 
     Redemptions(JdbcClient jdbc, AuditService audit, Notifications notifications, StaffNotifications staffNotifications, in.vibe.backend.catalogue.BillingRules billingRules, Clock clock, @Value("${vibe.billing.redemption-minutes}") int redemptionMinutes,
                 @Value("${vibe.billing.bill-minutes}") int billMinutes, @Value("${vibe.billing.large-bill}") long largeBill, @Value("${vibe.billing.vibe-fee}") long vibeFee) {
@@ -309,8 +324,8 @@ public class Redemptions {
             if (term.matches("\\d{1,6}")) { where += " and c.vibe_id like :q"; p.put("q", term + "%"); }
             else { where += " and lower(c.name) like :q escape '\\'"; p.put("q", term.toLowerCase().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"); }
         }
-        JdbcClient.StatementSpec s = jdbc.sql("select r.id, c.name cname, c.vibe_id, o.title otitle, r.status, r.created_at, r.expires_at, coalesce(r.paid_at, r.redeemed_at) paid_at, r.payment_request_id, r.mode, r.code, r.bill_amount, r.discount_given "
-                + "from redemptions r join customers c on c.id = r.customer_id join offers o on o.id = r.offer_id where r.business_id = :b" + where + " order by " + (today ? "coalesce(r.paid_at, r.redeemed_at) desc" : "r.created_at asc") + " limit 100");
+        JdbcClient.StatementSpec s = jdbc.sql("select r.id, c.name cname, c.vibe_id, coalesce(o.title, 'Bill without an offer') otitle, r.status, r.created_at, r.expires_at, coalesce(r.paid_at, r.redeemed_at) paid_at, r.payment_request_id, r.mode, r.code, r.bill_amount, r.discount_given "
+                + "from redemptions r join customers c on c.id = r.customer_id left join offers o on o.id = r.offer_id where r.business_id = :b" + where + " order by " + (today ? "coalesce(r.paid_at, r.redeemed_at) desc" : "r.created_at asc") + " limit 100");
         p.forEach(s::param);
         List<Row> rows = new ArrayList<>();
         s.query((rs, i) -> {
@@ -335,6 +350,109 @@ public class Redemptions {
         return jdbc.sql("select status from payments where payment_request_id = :id order by created_at desc limit 1").param("id", prId).query(String.class).optional().map(s -> "failed".equals(s) ? "failed" : "pending").orElse("not_started");
     }
 
+    // ---------- merchant: raise a bill for a customer, starting from their VIBE ID ----------
+    private UUID customerByVibeId(String raw) {
+        String id = raw == null ? "" : raw.replaceAll("\\s+", "");
+        if (!id.matches("\\d{6}")) throw ApiException.badRequest("vibe_id", "A VIBE ID is 6 digits, like 482173. The customer finds it on their profile.");
+        return jdbc.sql("select id from customers where vibe_id = :v").param("v", id).query(UUID.class).optional().orElseThrow(() -> ApiException.notFound("No VIBE customer has that ID. Check the 6 digits with them."));
+    }
+
+    private static UUID parseId(String raw) {
+        try { return UUID.fromString(raw); } catch (IllegalArgumentException e) { throw ApiException.notFound("That offer isn’t available."); }
+    }
+
+    private void limitLookups(UUID business) {
+        long cutoff = System.currentTimeMillis() - 600_000L;
+        var q = lookups.computeIfAbsent(business, k -> new java.util.concurrent.ConcurrentLinkedDeque<>());
+        while (!q.isEmpty() && q.peekFirst() < cutoff) q.pollFirst();
+        if (q.size() >= LOOKUPS_PER_10_MIN) throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "too_many_lookups", "Too many customer lookups in a short time. Wait a few minutes.");
+        q.addLast(System.currentTimeMillis());
+    }
+
+    /** Who is this VIBE ID, and which of our offers can they use right now? */
+    public CustomerLookup lookup(StaffPrincipal who, String vibeId) {
+        UUID business = who.requireBusiness();
+        limitLookups(business);
+        UUID customer = customerByVibeId(vibeId);
+        var c = jdbc.sql("select name, vibe_id from customers where id = :id").param("id", customer).query((rs, i) -> new String[]{rs.getString(1), rs.getString(2)}).single();
+        return new CustomerLookup(c[1], Customers.displayName(c[0]), memberUntil(customer) != null, acceptsVibePayments(business), usableOffers(business, customer));
+    }
+
+    /** The business's live offers, each marked usable or not for this customer (member-only, used today). */
+    private List<UsableOffer> usableOffers(UUID business, UUID customer) {
+        List<UsableOffer> offers = new ArrayList<>();
+        for (UUID oid : jdbc.sql("select id from offers where business_id = :b and active and review_status = 'approved' and starts_at <= :n and ends_at > :n order by member_only desc, created_at").param("b", business).param("n", now()).query(UUID.class).list()) {
+            OfferRow o = liveOffer(oid);
+            Eligibility e = eligibility(customer, oid);
+            offers.add(new UsableOffer(oid.toString(), o.title(), o.memberOnly(), e.eligible(), e.eligible() ? null : e.reason()));
+        }
+        return offers;
+    }
+
+    /** What the staff can pick from when sending this bill. */
+    public BillOffers offersFor(StaffPrincipal who, UUID id) {
+        Locked r = lock(who.requireBusiness(), id);
+        return new BillOffers(r.offerId() == null ? null : r.offerId().toString(), usableOffers(who.requireBusiness(), r.customerId()));
+    }
+
+    /** The offer a bill is priced with: the staff's pick if they made one, else what the redemption already has. */
+    private UUID chosenOffer(Locked r, UUID business, BillInput in) {
+        String o = in.offerId();
+        if (o == null || o.isBlank()) return r.offerId();
+        if ("none".equals(o)) return null;
+        UUID id = parseId(o);
+        if (id.equals(r.offerId())) return id;
+        OfferRow row = liveOffer(id);
+        if (!row.businessId().equals(business)) throw ApiException.notFound("That offer isn’t yours.");
+        Eligibility e = eligibility(r.customerId(), id);
+        if (!e.eligible()) throw ApiException.conflict("not_eligible", e.reason());
+        return id;
+    }
+
+    /**
+     * The business starts a bill for a customer who hasn't asked for one: finds them by VIBE ID, optionally applies one of its offers they can use,
+     * and opens it on the board, where the bill is then built and sent exactly like one the customer asked for. Starting again for the same
+     * customer and offer returns the same one; a customer who already has an unpaid bill here must have it withdrawn first.
+     */
+    @Transactional
+    public Row start(StaffPrincipal who, StartInput in) {
+        UUID business = who.requireBusiness();
+        if (!acceptsVibePayments(business)) throw ApiException.conflict("pay_at_counter", "Your business takes payment at the counter, not through VIBE. Customers show a code instead.");
+        UUID customer = customerByVibeId(in.vibeId());
+        UUID offerId = in.offerId() == null || in.offerId().isBlank() ? null : parseId(in.offerId());
+        if (offerId != null) {
+            OfferRow o = liveOffer(offerId);
+            if (!o.businessId().equals(business)) throw ApiException.notFound("That offer isn’t yours.");
+            Eligibility e = eligibility(customer, offerId);
+            if (!e.eligible()) throw ApiException.conflict("not_eligible", e.reason());
+        }
+        var open = jdbc.sql("select id, status, expires_at from redemptions where customer_id = :c and business_id = :b and status in ('awaiting_bill', 'bill_ready') and offer_id is not distinct from :o for update")
+                .param("c", customer).param("b", business).param("o", offerId, java.sql.Types.OTHER).query((rs, i) -> new Object[]{rs.getObject(1), rs.getString(2), rs.getObject(3, OffsetDateTime.class)}).optional();
+        UUID id;
+        if (open.isPresent() && !effective((String) open.get()[1], (OffsetDateTime) open.get()[2], null).equals("expired")) {
+            if ("bill_ready".equals(open.get()[1])) throw ApiException.conflict("has_bill", "This customer already has an unpaid bill from you. Withdraw it first if it needs changing.");
+            id = (UUID) open.get()[0];
+        } else {
+            if (open.isPresent()) jdbc.sql("update redemptions set status = 'cancelled', updated_at = now() where id = :id").param("id", open.get()[0]).update();
+            id = UUID.randomUUID();
+            jdbc.sql("insert into redemptions (id, customer_id, offer_id, business_id, status, expires_at, initiated_by) values (:id, :c, :o, :b, 'awaiting_bill', :e, 'merchant')")
+                    .param("id", id).param("c", customer).param("o", offerId, java.sql.Types.OTHER).param("b", business).param("e", now().plusMinutes(redemptionMinutes)).update();
+            audit.record(who, "start_bill", "redemption", id, "VIBE ID " + in.vibeId().trim() + (offerId == null ? " (no offer)" : ""));
+        }
+        UUID row = id;
+        return board(who, "open", null).rows().stream().filter(x -> x.id().equals(row.toString())).findFirst().orElseThrow();
+    }
+
+    /** Bills waiting for this customer to pay, whoever started them, newest first. */
+    public List<RedemptionView> openBills(UUID customer) {
+        List<RedemptionView> out = new ArrayList<>();
+        for (UUID id : jdbc.sql("select id from redemptions where customer_id = :c and status = 'bill_ready' order by updated_at desc limit 10").param("c", customer).query(UUID.class).list()) {
+            RedemptionView v = view(customer, id);
+            if ("bill_ready".equals(v.status())) out.add(v);
+        }
+        return out;
+    }
+
     // ---------- merchant: raise a bill ----------
     private record Locked(UUID id, UUID customerId, UUID offerId, String status, OffsetDateTime expiresAt, UUID prId, String customerName) {}
 
@@ -351,6 +469,12 @@ public class Redemptions {
         return sum;
     }
 
+    /** The price for a redemption: with its offer's discount, or none for a bill without an offer. */
+    private Preview quoteFor(UUID offerId, long eligible, BillInput in) {
+        if (offerId == null) return new Preview(eligible, 0, "", null, vibeFee, eligible + vibeFee, eligible >= largeBill);
+        return quote(anyOffer(offerId), eligible, in);
+    }
+
     private Preview quote(OfferRow o, long eligible, BillInput in) {
         Pricing.Quote q = Pricing.quote(o.kind(), o.rateBps(), o.flatAmount(), o.maxDiscount(), o.minBill(), eligible);
         return new Preview(eligible, q.discount(), q.discount() > 0 ? o.title() : o.title() + " — " + q.reason(), q.reason(), vibeFee, eligible - q.discount() + vibeFee, eligible >= largeBill);
@@ -360,7 +484,7 @@ public class Redemptions {
     public Preview preview(StaffPrincipal who, UUID id, BillInput in) {
         Locked r = lock(who.requireBusiness(), id);
         if (!r.status().equals("awaiting_bill")) throw stateError(r);
-        return quote(anyOffer(r.offerId()), total(in), in);
+        return quoteFor(chosenOffer(r, who.requireBusiness(), in), total(in), in);
     }
 
     @Transactional
@@ -370,7 +494,8 @@ public class Redemptions {
         if (!r.status().equals("awaiting_bill")) throw stateError(r);
         if (r.expiresAt().isBefore(now())) throw new ApiException(HttpStatus.GONE, "expired", "This customer’s request has expired. Ask them to tap Redeem again.");
         long eligible = total(in);
-        Preview p = quote(anyOffer(r.offerId()), eligible, in);
+        UUID offer = chosenOffer(r, business, in);
+        Preview p = quoteFor(offer, eligible, in);
         if (p.needsConfirmation() && !Boolean.TRUE.equals(in.confirmLarge())) throw ApiException.conflict("confirm_large", "This bill is ₹" + (eligible / 100) + ". Check the amount and confirm to send it.");
         String raisedBy = jdbc.sql("select name from staff_users where id = :id").param("id", who.id()).query(String.class).optional().orElse("Staff");
         String ref = in.billRef() == null || in.billRef().isBlank() ? "BILL-" + code(6) : in.billRef().trim();
@@ -380,10 +505,14 @@ public class Redemptions {
                 .param("e", eligible).param("d", p.discount()).param("dl", p.discountLabel()).param("f", p.vibeFee()).param("p", p.customerPays()).param("x", now().plusMinutes(billMinutes)).update();
         int n = 0;
         for (Line l : in.lines()) jdbc.sql("insert into payment_request_lines (payment_request_id, position, label, amount) values (:p, :n, :l, :a)").param("p", pr).param("n", n++).param("l", l.label().trim()).param("a", l.amount()).update();
-        jdbc.sql("update redemptions set status = 'bill_ready', payment_request_id = :p, updated_at = now() where id = :id").param("p", pr).param("id", id).update();
+        try {
+            jdbc.sql("update redemptions set status = 'bill_ready', payment_request_id = :p, offer_id = :o, updated_at = now() where id = :id").param("p", pr).param("o", offer, java.sql.Types.OTHER).param("id", id).update();
+        } catch (org.springframework.dao.DuplicateKeyException clash) {
+            throw ApiException.conflict("offer_in_use", "This customer already has another open bill with that offer.");
+        }
         audit.record(who, "raise_bill", "redemption", id, "₹" + eligible / 100 + " for " + Customers.displayName(r.customerName()));
         String biz = jdbc.sql("select name from businesses where id = :id").param("id", business).query(String.class).single();
-        notifications.notify(r.customerId(), "bill_ready", "Your bill from " + biz + " is ready", "Pay ₹" + rupees(p.customerPays()) + (p.discount() > 0 ? " and save ₹" + rupees(p.discount()) : ""), "redemption", id.toString());
+        notifications.notify(r.customerId(), "bill_ready", "Your bill from " + biz + " is ready", "Pay ₹" + rupees(p.customerPays()) + (p.discount() > 0 ? " and save ₹" + rupees(p.discount()) : ". Open it to apply an offer or coupon"), "redemption", id.toString());
         return board(who, "open", null).rows().stream().filter(x -> x.id().equals(id.toString())).findFirst().orElseThrow();
     }
 
@@ -416,5 +545,14 @@ public class Redemptions {
         return sb.toString();
     }
 
-    static String rupees(long paise) { return paise % 100 == 0 ? String.valueOf(paise / 100) : String.format("%d.%02d", paise / 100, paise % 100); }
+    /** Indian grouping for messages: 1,300 and 1,00,000, with paise only when there are some. */
+    static String rupees(long paise) {
+        String whole = String.valueOf(Math.abs(paise) / 100);
+        if (whole.length() > 3) {
+            String head = whole.substring(0, whole.length() - 3), tail = whole.substring(whole.length() - 3);
+            head = head.replaceAll("(\\d)(?=(\\d{2})+$)", "$1,");
+            whole = head + "," + tail;
+        }
+        return (paise < 0 ? "-" : "") + whole + (paise % 100 == 0 ? "" : String.format(".%02d", Math.abs(paise % 100)));
+    }
 }

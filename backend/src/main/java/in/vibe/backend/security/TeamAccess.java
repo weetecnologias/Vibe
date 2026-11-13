@@ -25,7 +25,7 @@ public class TeamAccess {
     /** Which area each staff alert belongs to, so a cashier sees bill alerts and not settlements. Kinds not listed are shown to everyone. */
     static final Map<String, String> ALERT_AREA = Map.ofEntries(
             Map.entry("redeem_started", "bills"), Map.entry("redeem_cancelled", "bills"), Map.entry("payment_received", "bills"),
-            Map.entry("offer_decision", "offers"), Map.entry("promotion_decision", "offers"), Map.entry("auto_approve", "offers"), Map.entry("event_decision", "events"), Map.entry("tickets_sold", "events"),
+            Map.entry("offer_decision", "offers"), Map.entry("dispute_opened", "money"), Map.entry("kyc_decision", "team"), Map.entry("agreement_new", "team"), Map.entry("promotion_decision", "offers"), Map.entry("auto_approve", "offers"), Map.entry("event_decision", "events"), Map.entry("tickets_sold", "events"),
             Map.entry("slot_booked", "bookings"), Map.entry("pass_bought", "bookings"), Map.entry("settlement_created", "money"), Map.entry("settlement_paid", "money"), Map.entry("review_received", "profile"));
 
     /** signedIn is false when the login no longer exists or the owner switched it off: the person must be signed out. */
@@ -133,7 +133,7 @@ public class TeamAccess {
         if (p.startsWith("/reservation-settings")) return "reservations";
         if (p.startsWith("/settlements") || p.startsWith("/results")) return "money";
         if (p.startsWith("/venue")) return "bookings";
-        if (p.startsWith("/team")) return "team";
+        if (p.startsWith("/team") || p.startsWith("/kyc") || p.startsWith("/agreement/accept")) return "team"; // the owner's alone
         return null;
     }
 }

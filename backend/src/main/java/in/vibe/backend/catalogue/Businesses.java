@@ -75,7 +75,18 @@ public class Businesses {
         this.clock = clock;
     }
 
-    public Page<Summary> search(String q, UUID categoryId, String sort, int limit, int offset) {
+    /**
+     * Filters for the places list (a category page, Discover). All optional. openNow depends on each place's hours, so it is worked out here
+     * after the database has applied the rest. offers: has a live offer; memberOffers: has a live members-only offer; bookable: takes bookings
+     * by the hour; plans: sells monthly memberships.
+     */
+    public record Filters(boolean openNow, boolean offers, boolean memberOffers, Double maxDistanceKm, Double minRating, Integer maxPriceLevel, boolean bookable, boolean plans) {
+        public static final Filters NONE = new Filters(false, false, false, null, null, null, false, false);
+    }
+
+    public Page<Summary> search(String q, UUID categoryId, String sort, int limit, int offset) { return search(q, categoryId, sort, limit, offset, Filters.NONE); }
+
+    public Page<Summary> search(String q, UUID categoryId, String sort, int limit, int offset, Filters f) {
         int lim = Math.min(Math.max(limit, 1), 100);
         int off = Math.max(offset, 0);
         StringBuilder where = new StringBuilder(" where b.active");
@@ -91,11 +102,29 @@ public class Businesses {
             where.append(" and exists (select 1 from business_categories bc where bc.business_id = b.id and bc.category_id in (select id from tree))");
             p.put("cat", categoryId);
         }
-        String distance = "(case when b.lat is null or b.lng is null then 9999 else 6371 * acos(least(1, cos(radians(" + REF_LAT + ")) * cos(radians(b.lat)) * cos(radians(b.lng) - radians(" + REF_LNG
-                + ")) + sin(radians(" + REF_LAT + ")) * sin(radians(b.lat)))) end)";
-        String order = "nearest".equals(sort) ? distance + ", lower(b.name)" : "newest".equals(sort) ? "b.created_at desc, lower(b.name)" : "lower(b.name)";
+        String distance = distanceSql("b");
+        String liveOffer = "exists (select 1 from offers o where o.business_id = b.id and o.active and o.review_status = 'approved' and o.starts_at <= now() and o.ends_at > now()";
+        if (f.offers()) where.append(" and ").append(liveOffer).append(")");
+        if (f.memberOffers()) where.append(" and ").append(liveOffer).append(" and o.member_only)");
+        if (f.maxDistanceKm() != null) { where.append(" and ").append(distance).append(" <= :maxd"); p.put("maxd", f.maxDistanceKm()); }
+        if (f.maxPriceLevel() != null) { where.append(" and b.price_level <= :maxp"); p.put("maxp", f.maxPriceLevel()); }
+        if (f.minRating() != null) { where.append(" and (select avg(r.rating) from reviews r where r.business_id = b.id and not r.hidden) >= :minr"); p.put("minr", f.minRating()); }
+        if (f.bookable()) where.append(" and exists (select 1 from venue_resources vr where vr.business_id = b.id and vr.active)");
+        if (f.plans()) where.append(" and exists (select 1 from venue_plans vp where vp.business_id = b.id and vp.active)");
+        String rating = "(select coalesce(avg(r.rating), 0) from reviews r where r.business_id = b.id and not r.hidden)";
+        String reviews = "(select count(*) from reviews r where r.business_id = b.id and not r.hidden)";
+        String order = "nearest".equals(sort) ? distance + ", lower(b.name)" : "newest".equals(sort) ? "b.created_at desc, lower(b.name)"
+                : "rating".equals(sort) ? rating + " desc, " + reviews + " desc, " + distance : "popular".equals(sort) ? reviews + " desc, " + rating + " desc, " + distance : "lower(b.name)";
         String from = " from businesses b join categories c on c.id = b.primary_category_id";
 
+        if (f.openNow()) {
+            // Hours decide it, so: everything else filtered and sorted in the database, then open-now here, then the page.
+            JdbcClient.StatementSpec all = jdbc.sql(cte + "select b.*, c.name as category_label, c.slug as category_slug" + from + where + " order by " + order + " limit 1000");
+            p.forEach(all::param);
+            List<Summary> open = summaries(all.query(Businesses::row).list()).stream().filter(s -> s.status().open()).toList();
+            List<Summary> page = off >= open.size() ? List.of() : open.subList(off, Math.min(open.size(), off + lim));
+            return new Page<>(page, open.size(), off + lim < open.size() ? off + lim : null);
+        }
         JdbcClient.StatementSpec count = jdbc.sql(cte + "select count(*)" + from + where);
         p.forEach(count::param);
         int total = count.query(Integer.class).single();
@@ -250,7 +279,7 @@ public class Businesses {
         String dist = distanceSql("b");
         if (maxDistanceKm != null) { where.append(" and ").append(dist).append(" <= :maxd"); p.put("maxd", maxDistanceKm); }
         String order = "saving".equals(sort) ? "coalesce(o.rate_bps, 0) desc, o.flat_amount desc nulls last, " + dist
-                : "ending".equals(sort) ? "o.ends_at, " + dist : dist + ", coalesce(o.rate_bps, 0) desc";
+                : "ending".equals(sort) ? "o.ends_at, " + dist : "new".equals(sort) ? "o.created_at desc, " + dist : dist + ", coalesce(o.rate_bps, 0) desc";
         JdbcClient.StatementSpec spec = jdbc.sql(cte + "select o.*, b.name bname, b.area, b.logo_url, b.cover_url, b.lat, b.lng, c.name clabel, c.slug cslug from offers o join businesses b on b.id = o.business_id "
                 + "join categories c on c.id = b.primary_category_id" + where + " order by " + order + ", o.id limit 500");
         p.forEach(spec::param);

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
 import {
-  Badge, DownloadButton, Field, Loading, Modal, Notice, PageHead, bpsToPercent, errorText, formatINR, showDateTime, useAsync, useAuth,
-  type SettlementDetail, type SettlementDue, type SettlementSummary,
+  Badge, DownloadButton, Field, Loading, Modal, Notice, PageHead, bpsToPercent, errorText, formatINR, rupeesToPaise, showDateTime, useAsync, useAuth,
+  type AdjustmentRow, type SettlementDetail, type SettlementDue, type SettlementSummary,
 } from '@kit';
 
 type Tab = 'due' | 'pending' | 'paid';
@@ -18,6 +18,7 @@ export function SettlementsPage() {
   const list = useAsync(() => (tab === 'due' ? Promise.resolve([] as SettlementSummary[]) : client.get<SettlementSummary[]>(`/v1/admin/settlements?status=${tab}`)), [client, tab]);
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState<SettlementDue | null>(null);
+  const [adjusting, setAdjusting] = useState<SettlementDue | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const totalDue = (due.data ?? []).reduce((n, d) => n + d.payout, 0);
@@ -50,13 +51,13 @@ export function SettlementsPage() {
                 <tbody>
                   {due.data?.map((d) => (
                     <tr key={d.businessId}>
-                      <td><strong>{d.businessName}</strong><div className="muted small">{d.area}</div></td>
+                      <td><strong>{d.businessName}</strong><div className="muted small">{d.area}</div>{d.kycStatus !== 'verified' ? <div><Badge tone="warning">{d.kycStatus === 'submitted' ? 'KYC waiting' : d.kycStatus === 'rejected' ? 'KYC sent back' : 'No KYC yet'}</Badge></div> : null}</td>
                       <td>{d.count}</td>
                       <td>{formatINR(d.gross)}{d.vibeFees > 0 ? <div className="muted small">incl. VIBE fees {formatINR(d.vibeFees)}</div> : null}</td>
-                      <td>{formatINR(d.commission)}<div className="muted small">{bpsToPercent(d.commissionBps)}%</div></td>
-                      <td><strong>{formatINR(d.payout)}</strong></td>
+                      <td>{formatINR(d.commission)}<div className="muted small">{bpsToPercent(d.commissionBps)}% now{d.gst > 0 ? ` · + GST ${formatINR(d.gst)}` : ''}</div></td>
+                      <td><strong>{formatINR(d.payout)}</strong>{d.refundDeductions > 0 ? <div className="muted small">refunds − {formatINR(d.refundDeductions)}</div> : null}{d.adjustments !== 0 ? <div className="muted small">adjustments {d.adjustments > 0 ? '+' : '−'} {formatINR(Math.abs(d.adjustments))}</div> : null}</td>
                       <td className="small">{showDateTime(d.oldest)}</td>
-                      <td className="actions"><button className="btn primary sm" onClick={() => setCreating(d)}>Draw up settlement</button></td>
+                      <td className="actions"><button className="btn ghost sm" onClick={() => setAdjusting(d)}>Adjust</button><button className="btn primary sm" onClick={() => setCreating(d)}>Draw up settlement</button></td>
                     </tr>
                   ))}
                   {due.data?.length === 0 ? <tr><td colSpan={7} className="muted">Nothing to settle. Every confirmed payment is already in a settlement.</td></tr> : null}
@@ -64,7 +65,7 @@ export function SettlementsPage() {
               </table>
             </div>
           )}
-          <p className="muted small">Commission is set per merchant under Businesses → Commercial terms. A change applies to settlements drawn up afterwards.</p>
+          <p className="muted small">Each payment keeps the commission and GST it was charged, from Rates and tax. Adjust adds a credit or a deduction (with a reason) to a business’s next settlement.</p>
         </>
       ) : (
         <>
@@ -103,6 +104,7 @@ export function SettlementsPage() {
       {creating ? (
         <CreateSettlement due={creating} onClose={() => setCreating(null)} onCreated={(d) => { setCreating(null); setNotice(`Settlement ${d.summary.reference} drawn up for ${d.summary.businessName}. They have been told.`); due.reload(); setOpen(d.summary.id); }} />
       ) : null}
+      {adjusting ? <AddAdjustment due={adjusting} onClose={() => setAdjusting(null)} onSaved={(a) => { setAdjusting(null); setNotice(`${a.kind === 'credit' ? 'Credit' : 'Deduction'} of ${formatINR(Math.abs(a.amount))} added for ${a.businessName}. It goes in their next settlement.`); due.reload(); }} /> : null}
       {open ? <SettlementModal id={open} onClose={() => setOpen(null)} onPaid={(d) => { setNotice(`${d.summary.reference} marked as paid. ${d.summary.businessName} has been told.`); list.reload(); }} /> : null}
     </>
   );
@@ -124,7 +126,10 @@ function CreateSettlement({ due, onClose, onCreated }: { due: SettlementDue; onC
         <div className="card stack" style={{ gap: 6 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>{due.count} payments collected</span><strong>{formatINR(due.gross)}</strong></div>
           {due.vibeFees > 0 ? <div className="row" style={{ justifyContent: 'space-between' }}><span>VIBE fees paid by customers</span><strong>− {formatINR(due.vibeFees)}</strong></div> : null}
-          <div className="row" style={{ justifyContent: 'space-between' }}><span>VIBE commission ({bpsToPercent(due.commissionBps)}%)</span><strong>− {formatINR(due.commission)}</strong></div>
+          <div className="row" style={{ justifyContent: 'space-between' }}><span>VIBE commission</span><strong>− {formatINR(due.commission)}</strong></div>
+          {due.gst > 0 ? <div className="row" style={{ justifyContent: 'space-between' }}><span>GST on commission</span><strong>− {formatINR(due.gst)}</strong></div> : null}
+          {due.refundDeductions > 0 ? <div className="row" style={{ justifyContent: 'space-between' }}><span>Refunds the business bears</span><strong>− {formatINR(due.refundDeductions)}</strong></div> : null}
+          {due.adjustments !== 0 ? <div className="row" style={{ justifyContent: 'space-between' }}><span>Adjustments</span><strong>{due.adjustments > 0 ? '+' : '−'} {formatINR(Math.abs(due.adjustments))}</strong></div> : null}
           <div className="row" style={{ justifyContent: 'space-between', borderTop: '1px solid var(--hairline)', paddingTop: 8 }}><span>To pay {due.businessName}</span><strong style={{ fontSize: 20 }}>{formatINR(due.payout)}</strong></div>
         </div>
         {error ? <Notice tone="error">{error}</Notice> : null}
@@ -206,6 +211,36 @@ function SettlementModal({ id, onClose, onPaid }: { id: string; onClose: () => v
           )}
         </div>
       ) : null}
+    </Modal>
+  );
+}
+
+function AddAdjustment({ due, onClose, onSaved }: { due: SettlementDue; onClose: () => void; onSaved: (a: AdjustmentRow) => void }) {
+  const { client } = useAuth();
+  const [kind, setKind] = useState<'credit' | 'recovery' | 'penalty'>('credit');
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    const paise = rupeesToPaise(amount);
+    if (paise === null || paise <= 0) return setError('Enter the amount in rupees.');
+    setBusy(true);
+    setError(null);
+    try { onSaved(await client.post<AdjustmentRow>(`/v1/admin/businesses/${due.businessId}/adjustments`, { kind, amount: paise, reason: reason.trim() })); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title={`Adjust what ${due.businessName} is owed`} onClose={onClose}>
+      <div className="stack">
+        <p className="muted small" style={{ margin: 0 }}>A credit adds to their next settlement; a recovery or penalty takes from it (for example a refund paid after they were settled). It is recorded in the books straight away and the business is told.</p>
+        <Field label="Type"><select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}><option value="credit">Credit: VIBE owes more</option><option value="recovery">Recovery: take back an amount</option><option value="penalty">Penalty</option></select></Field>
+        <div className="grid2">
+          <Field label="Amount (₹)"><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+          <Field label="Reason" hint="The business sees this."><input value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} placeholder="Refund paid after settlement VB-…" /></Field>
+        </div>
+        {error ? <Notice tone="error">{error}</Notice> : null}
+        <div className="modal-foot"><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || reason.trim().length < 3} onClick={save}>{busy ? 'Saving…' : 'Add adjustment'}</button></div>
+      </div>
     </Modal>
   );
 }

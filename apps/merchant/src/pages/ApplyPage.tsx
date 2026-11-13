@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { Field, MERCHANT_FEATURES, Notice, errorText, useAuth, type Client, type MerchantFeature } from '@kit';
 
 type Node = { id: string; slug: string; name: string; features: MerchantFeature[]; children: Node[] };
-type Form = { businessName: string; categoryId: string; area: string; address: string; contactName: string; email: string; phone: string; about: string; documents: string };
+type Terms = { id: string; version: number; title: string; body: string };
+type Form = { acceptTerms?: boolean; businessName: string; categoryId: string; area: string; address: string; contactName: string; email: string; phone: string; about: string; documents: string };
 type Saved = { id: string; token: string; form: Form };
 type Status = { id: string; businessName: string; status: 'pending' | 'changes_requested' | 'approved' | 'rejected'; reviewNote: string | null; submittedAt: string; decidedAt: string | null };
 
@@ -26,7 +27,7 @@ const findPath = (nodes: Node[], id: string, path: Node[] = []): Node[] | null =
 const flatChildren = (n: Node, depth = 0): { node: Node; depth: number }[] => n.children.flatMap((c) => [{ node: c, depth }, ...flatChildren(c, depth + 1)]);
 
 const body = (f: Form) => ({
-  businessName: f.businessName.trim(), categoryId: f.categoryId || null, area: f.area.trim(), address: f.address.trim(), contactName: f.contactName.trim(), email: f.email.trim(), phone: f.phone.trim(), about: f.about.trim(),
+  acceptTerms: f.acceptTerms === true, businessName: f.businessName.trim(), categoryId: f.categoryId || null, area: f.area.trim(), address: f.address.trim(), contactName: f.contactName.trim(), email: f.email.trim(), phone: f.phone.trim(), about: f.about.trim(),
   documents: f.documents.split('\n').map((l) => l.trim()).filter(Boolean),
 });
 
@@ -86,6 +87,8 @@ function ApplicationForm({ client, initial, submitLabel, resubmit, onDone }: { c
   const [f, setF] = useState<Form>(initial);
   const [tree, setTree] = useState<Node[]>([]);
   const [top, setTop] = useState<string>('');
+  const [terms, setTerms] = useState<Terms | null>(null);
+  const [reading, setReading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF({ ...f, [k]: v });
@@ -98,12 +101,13 @@ function ApplicationForm({ client, initial, submitLabel, resubmit, onDone }: { c
       const path = initial.categoryId ? findPath(n, initial.categoryId) : null;
       if (path) setTop(path[0].id);
     }, () => undefined);
+    client.get<Terms | null>('/v1/business-applications/terms').then((t) => live && setTerms(t ?? null), () => undefined);
     return () => { live = false; };
   }, [client, initial.categoryId]);
 
   const topNode = tree.find((n) => n.id === top) ?? null;
   const chosen = f.categoryId ? findPath(tree, f.categoryId)?.at(-1) ?? null : null;
-  const ready = !!f.categoryId && f.businessName.trim() && f.area.trim() && f.contactName.trim() && /\S+@\S+\.\S+/.test(f.email) && f.phone.replace(/\D/g, '').length >= 10;
+  const ready = (!terms || f.acceptTerms === true) && !!f.categoryId && f.businessName.trim() && f.area.trim() && f.contactName.trim() && /\S+@\S+\.\S+/.test(f.email) && f.phone.replace(/\D/g, '').length >= 10;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,6 +170,12 @@ function ApplicationForm({ client, initial, submitLabel, resubmit, onDone }: { c
       </div>
       <Field label="About your business"><textarea rows={3} maxLength={1000} value={f.about} onChange={(e) => set('about', e.target.value)} /></Field>
       <Field label="Document links (optional)" hint="One link per line, for example your GST or FSSAI certificate. VIBE will tell you if it needs anything else."><textarea rows={2} value={f.documents} onChange={(e) => set('documents', e.target.value)} /></Field>
+      {terms ? (
+        <div className="card stack" style={{ gap: 8 }}>
+          <label className="check"><input type="checkbox" checked={f.acceptTerms === true} onChange={(e) => setF({ ...f, acceptTerms: e.target.checked })} /> I have read and accept the <button type="button" className="btn ghost sm" onClick={() => setReading(!reading)}>{terms.title}</button> (version {terms.version}).</label>
+          {reading ? <div style={{ whiteSpace: 'pre-wrap', maxHeight: 260, overflow: 'auto' }} className="small" tabIndex={0}>{terms.body}</div> : null}
+        </div>
+      ) : null}
       {error ? <Notice tone="error">{error}</Notice> : null}
       <button className="btn primary" disabled={busy || !ready}>{busy ? 'Sending…' : submitLabel}</button>
     </form>

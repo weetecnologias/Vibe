@@ -83,8 +83,8 @@ public class Reviews {
                 .query((rs, i) -> new PublicReview(rs.getString(1), Customers.displayName(rs.getString(2)), rs.getInt(3), rs.getString(4), rs.getObject(5, OffsetDateTime.class), true)).list();
     }
 
-    private static final String ITEM = "select r.id, r.business_id, b.name bname, c.name cname, c.vibe_id, r.rating, r.comment, o.title, red.mode, r.hidden, r.hidden_reason, r.created_at "
-            + "from reviews r join businesses b on b.id = r.business_id join customers c on c.id = r.customer_id join redemptions red on red.id = r.redemption_id join offers o on o.id = red.offer_id ";
+    private static final String ITEM = "select r.id, r.business_id, b.name bname, c.name cname, c.vibe_id, r.rating, r.comment, coalesce(o.title, 'Bill without an offer'), red.mode, r.hidden, r.hidden_reason, r.created_at "
+            + "from reviews r join businesses b on b.id = r.business_id join customers c on c.id = r.customer_id join redemptions red on red.id = r.redemption_id left join offers o on o.id = red.offer_id ";
 
     private static Item item(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
         return new Item(rs.getString(1), rs.getString(2), rs.getString(3), Customers.displayName(rs.getString(4)), rs.getString(5), rs.getInt(6), rs.getString(7), rs.getString(8), rs.getString(9),

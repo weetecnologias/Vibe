@@ -84,6 +84,9 @@ class SettlementTest extends ApiTestSupport {
 
         // Marking it paid needs the bank reference, happens once, and tells the merchant.
         mvc.perform(as(adminToken(), post("/v1/admin/settlements/" + id + "/paid")).content("{\"payoutRef\":\"\"}")).andExpect(status().isBadRequest());
+        // A business can't be paid out until its legal and bank details are verified.
+        mvc.perform(as(adminToken(), post("/v1/admin/settlements/" + id + "/paid")).content("{\"payoutRef\":\"UTR123456789\"}")).andExpect(status().isConflict()).andExpect(jsonPath("$.code", is("kyc_required")));
+        verifyKyc(p.biz, p.merchant);
         mvc.perform(as(adminToken(), post("/v1/admin/settlements/" + id + "/paid")).content("{\"payoutRef\":\"UTR123456789\"}")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.status", is("paid"))).andExpect(jsonPath("$.summary.payoutRef", is("UTR123456789"))).andExpect(jsonPath("$.summary.paidAt").exists());
         mvc.perform(as(adminToken(), post("/v1/admin/settlements/" + id + "/paid")).content("{\"payoutRef\":\"UTR999\"}")).andExpect(status().isConflict()).andExpect(jsonPath("$.code", is("already_paid")));

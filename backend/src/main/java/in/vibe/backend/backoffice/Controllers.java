@@ -54,8 +54,13 @@ public class Controllers {
         @GetMapping("/businesses")
         Businesses.Page<Businesses.Summary> businesses(@RequestParam(required = false) String q, @RequestParam(required = false) String categoryId,
                                                        @RequestParam(required = false) String sort, @RequestParam(defaultValue = "12") int limit,
-                                                       @RequestParam(defaultValue = "0") int offset) {
-            return businesses.search(q, categoryId == null || categoryId.isBlank() ? null : categories.resolve(categoryId), sort, limit, offset);
+                                                       @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "false") boolean openNow,
+                                                       @RequestParam(defaultValue = "false") boolean offers, @RequestParam(defaultValue = "false") boolean memberOffers,
+                                                       @RequestParam(required = false) Double maxDistanceKm, @RequestParam(required = false) Double minRating,
+                                                       @RequestParam(required = false) Integer maxPriceLevel, @RequestParam(defaultValue = "false") boolean bookable,
+                                                       @RequestParam(defaultValue = "false") boolean plans) {
+            return businesses.search(q, categoryId == null || categoryId.isBlank() ? null : categories.resolve(categoryId), sort, limit, offset,
+                    new Businesses.Filters(openNow, offers, memberOffers, maxDistanceKm, minRating, maxPriceLevel, bookable, plans));
         }
 
         @GetMapping("/businesses/{id}")

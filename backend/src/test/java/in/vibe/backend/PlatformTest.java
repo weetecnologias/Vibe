@@ -308,7 +308,7 @@ class PlatformTest extends ApiTestSupport {
 
     String application(String email) throws Exception {
         if (appCategory == null) appCategory = category(null, "Cafes " + uniq());
-        return "{\"categoryId\":\"" + appCategory + "\",\"businessName\":\"New Cafe " + uniq() + "\",\"area\":\"Madhapur\",\"address\":\"Plot 4\",\"contactName\":\"Rohan Das\",\"email\":\"" + email + "\",\"phone\":\"+91 98765 43210\",\"about\":\"A small cafe\",\"documents\":[\"https://example.com/fssai.pdf\"]}";
+        return "{\"categoryId\":\"" + appCategory + "\",\"businessName\":\"New Cafe " + uniq() + "\",\"area\":\"Madhapur\",\"address\":\"Plot 4\",\"contactName\":\"Rohan Das\",\"email\":\"" + email + "\",\"phone\":\"+91 98765 43210\",\"about\":\"A small cafe\",\"documents\":[\"https://example.com/fssai.pdf\"],\"acceptTerms\":true}";
     }
 
     @Test
@@ -403,6 +403,10 @@ class PlatformTest extends ApiTestSupport {
         // Admins resetting a password also force a change.
         String id = JsonPath.read(mvc.perform(as(t, get("/v1/staff/me"))).andReturn().getResponse().getContentAsString(), "$.id");
         String settled = JsonPath.read(mvc.perform(as(t, post("/v1/staff/password")).content("{\"current\":\"" + PASSWORD + "\",\"next\":\"settled-password-1\"}")).andReturn().getResponse().getContentAsString(), "$.token");
+        // With the password chosen, the next gate is VIBE's merchant agreement: nothing works until the owner accepts it.
+        mvc.perform(as(settled, get("/v1/merchant/menu"))).andExpect(status().isForbidden()).andExpect(jsonPath("$.code", is("agreement_required")));
+        mvc.perform(as(settled, get("/v1/merchant/settings"))).andExpect(status().isOk()).andExpect(jsonPath("$.agreement.required", is(true))).andExpect(jsonPath("$.agreement.accepted", is(false)));
+        mvc.perform(as(settled, post("/v1/merchant/agreement/accept"))).andExpect(status().isOk()).andExpect(jsonPath("$.accepted", is(true)));
         mvc.perform(as(settled, get("/v1/merchant/menu"))).andExpect(status().isOk());
         mvc.perform(as(adminToken(), put("/v1/admin/staff/" + id + "/password")).content("{\"password\":\"reset-by-admin-1\"}")).andExpect(status().isNoContent());
         mvc.perform(as(login(email, "reset-by-admin-1"), get("/v1/merchant/menu"))).andExpect(status().isForbidden());

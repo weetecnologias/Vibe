@@ -139,7 +139,8 @@ export type RedemptionStatus = 'awaiting_bill' | 'bill_ready' | 'paid' | 'expire
 
 export type Redemption = {
   id: ID;
-  offerId: ID;
+  /** Null for a bill the business raised with no offer. */
+  offerId: ID | null;
   businessName: string;
   branchName: string;
   customerDisplayName: string;
@@ -486,10 +487,17 @@ export type HomeFeed = {
   membershipPromo: { price: Paise; interval: 'month' | 'year' } | null;
 };
 
+// ---------- Disputes: reporting a problem with a payment ----------
+export type DisputeReason = 'not_received' | 'wrong_amount' | 'charged_twice' | 'poor_service' | 'other';
+export type Dispute = {
+  reference: string; paymentReference: string; reason: DisputeReason; details: string; status: 'open' | 'refund' | 'rejected'; resolutionNote: string | null; refundAmount: Paise | null;
+  createdAt: ISODate; dueBy: ISODate; resolvedAt: ISODate | null;
+};
+
 // ---------- Discover: offers near you, and promotions ----------
 /** An offer with how far the place is, what kind of place it is, and whether it's open now. */
 export type NearbyOffer = OfferSummary & { distanceKm: number; categoryLabel: string; primaryCategorySlug: string | null; status: OpenStatus };
-export type OfferSort = 'nearest' | 'saving' | 'ending';
+export type OfferSort = 'nearest' | 'saving' | 'ending' | 'new';
 /** category: a category id (or slug); everything under it is included. */
 export type NearbyOfferQuery = { category?: string; q?: string; sort?: OfferSort; openNow?: boolean; maxDistanceKm?: number; memberOnly?: boolean };
 /** A place promoting itself in Discover. imageUrl falls back to the place's cover; offerId is set when it links to a live offer. */
@@ -513,6 +521,12 @@ export type BusinessQuery = {
   minRating?: number;
   maxDistanceKm?: number;
   maxPriceLevel?: number;
+  /** Has any live offer. */
+  offers?: boolean;
+  /** Takes bookings by the hour (courts, classes, private screens). */
+  bookable?: boolean;
+  /** Sells monthly memberships. */
+  plans?: boolean;
   sort?: SortKey;
 };
 
@@ -576,6 +590,9 @@ export type SeatHold = {
 };
 
 // ---------- Offers at checkout ----------
+/** Something VIBE told the customer, e.g. a bill that is ready. `target` says what tapping it opens. */
+export type AppNotification = { id: ID; kind: string; title: string; body: string; target: { type: string; id: string } | null; createdAt: string; read: boolean };
+
 export type AppliedOffer = { id: ID; code: string; title: string; memberOnly: boolean };
 
 /** An offer that could apply to a ticket order. When it can't, `reason` says why. */

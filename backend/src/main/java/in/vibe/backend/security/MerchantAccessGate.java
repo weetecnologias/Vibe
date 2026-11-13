@@ -22,10 +22,12 @@ import java.util.Arrays;
 class MerchantAccessGate extends OncePerRequestFilter {
     private final TeamAccess access;
     private final in.vibe.backend.catalogue.MerchantFeatures features;
+    private final in.vibe.backend.compliance.Agreements agreements;
     private final JsonMapper json;
 
-    MerchantAccessGate(TeamAccess access, in.vibe.backend.catalogue.MerchantFeatures features, JsonMapper json) {
+    MerchantAccessGate(TeamAccess access, in.vibe.backend.catalogue.MerchantFeatures features, in.vibe.backend.compliance.Agreements agreements, JsonMapper json) {
         this.access = access;
+        this.agreements = agreements;
         this.features = features;
         this.json = json;
     }
@@ -38,6 +40,12 @@ class MerchantAccessGate extends OncePerRequestFilter {
             TeamAccess.Access me = access.access(StaffPrincipal.from(t.getToken()));
             if (!me.signedIn()) { // switched off by the owner, or the login is gone: sign them out
                 write(response, 401, new ApiError("unauthorized", "Please sign in."));
+                return;
+            }
+            // Until the owner has accepted VIBE's current merchant agreement, only the settings (which say so) and the agreement itself work.
+            boolean open = path.startsWith("/v1/merchant/settings") || path.startsWith("/v1/merchant/agreement");
+            if (!open && t.getToken().getClaimAsString("bid") != null && !agreements.isAccepted(java.util.UUID.fromString(t.getToken().getClaimAsString("bid")))) {
+                write(response, 403, new ApiError("agreement_required", "VIBE's merchant agreement needs to be accepted by the business owner before you continue."));
                 return;
             }
             // First: is this part of VIBE for this kind of business at all? (A café has no court bookings; an event organiser has no bills.)

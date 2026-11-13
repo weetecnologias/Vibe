@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { api, type RedeemMode, type Redemption } from '@/api';
+import { OffersPanel } from '@/components/OffersPanel';
 import { BillBreakdown, PayPanel } from '@/components/PayPanel';
 import { RateVisit } from '@/components/RateVisit';
 import { Badge, Button, Card, EmptyState, ErrorState, Icon, LoadingState, Notice, Screen, T, TopBar } from '@/components/ui';
@@ -111,7 +112,7 @@ export default function Redeem() {
                 <T variant="caption" color={colors.onDarkMuted} align="center">{red.customerDisplayName} · VIBE ID {red.vibeId}</T>
               </Card>
               <Notice tone="info" icon="info"><T variant="caption">Pay the place as usual. Once staff confirm your code, this screen updates and you’ll get the discount.</T></Notice>
-              {api.demo ? <Button label="Demo: staff confirm the code" variant="outline" size="md" loading={demoBusy} onPress={() => demo(() => api.demo!.simulateCodeConfirmed(red.id))} /> : null}
+              {api.demo ? <Button label="Demo: act as the merchant and confirm the code" variant="outline" size="md" loading={demoBusy} onPress={() => demo(() => api.demo!.simulateCodeConfirmed(red.id))} /> : null}
             </>
           ) : done ? (
             <Card style={{ padding: 20, gap: 8, alignItems: 'center' }}>
@@ -176,8 +177,8 @@ export default function Redeem() {
             </T>
             {api.demo ? (
               <View style={{ alignSelf: 'stretch', gap: 6, marginTop: 6 }}>
-                <Button label="Demo: merchant sends ₹1,000 bill" variant="outline" size="md" loading={demoBusy} onPress={() => demo(() => api.demo!.simulateMerchantBill(red.id, 100000))} />
-                <T variant="small" color={colors.warning} align="center">Demo only. In the real app the merchant dashboard sends this.</T>
+                <Button label="Demo: act as the merchant and send a ₹1,000 bill" variant="outline" size="md" loading={demoBusy} onPress={() => demo(() => api.demo!.simulateMerchantBill(red.id, 100000))} />
+                <T variant="small" color={colors.warning} align="center">Demo only. In the real app the business sends the bill from its VIBE dashboard (Bills and codes → Send bill).</T>
               </View>
             ) : null}
           </Card>
@@ -185,6 +186,7 @@ export default function Redeem() {
           <Notice tone="success"><T variant="caption">This bill has been paid.</T></Notice>
         ) : red.paymentRequest ? (
           <>
+            <OffersPanel requestId={red.paymentRequest.id} discount={red.paymentRequest.discount} onRepriced={(next) => setRed((prev) => (prev ? { ...prev, paymentRequest: next } : prev))} />
             <BillBreakdown req={red.paymentRequest} title="Bill from merchant" />
             <PayPanel req={red.paymentRequest} />
           </>

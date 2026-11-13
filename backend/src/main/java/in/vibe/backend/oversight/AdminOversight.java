@@ -134,7 +134,7 @@ public class AdminOversight {
     public CustomerDetail customer(UUID id) {
         var c = jdbc.sql("select id, name, vibe_id, phone, area, created_at from customers where id = :id").param("id", id)
                 .query((rs, i) -> new Object[]{rs.getString(1), rs.getString(2), rs.getString(3), masked(rs.getString(4)), rs.getString(5), rs.getObject(6, OffsetDateTime.class)}).optional().orElseThrow(() -> ApiException.notFound("Customer not found."));
-        List<RedemptionLine> reds = jdbc.sql("select r.id, b.name, o.title, r.status, pr.payable, r.created_at from redemptions r join businesses b on b.id = r.business_id join offers o on o.id = r.offer_id "
+        List<RedemptionLine> reds = jdbc.sql("select r.id, b.name, coalesce(o.title, 'Bill without an offer'), r.status, pr.payable, r.created_at from redemptions r join businesses b on b.id = r.business_id left join offers o on o.id = r.offer_id "
                         + "left join payment_requests pr on pr.id = r.payment_request_id where r.customer_id = :c order by r.created_at desc limit 20").param("c", id)
                 .query((rs, i) -> new RedemptionLine(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getObject(5) == null ? null : rs.getLong(5), rs.getObject(6, OffsetDateTime.class))).list();
         List<PaymentLine> pays = jdbc.sql("select p.reference, pr.kind, p.status, coalesce(b.name, 'VIBE Membership'), p.amount, p.savings, p.created_at from payments p join payment_requests pr on pr.id = p.payment_request_id "

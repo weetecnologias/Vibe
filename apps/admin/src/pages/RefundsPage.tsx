@@ -55,7 +55,7 @@ export function RefundsPage() {
                   <td><strong>{x.reference}</strong><div className="muted small">{KIND[x.kind] ?? x.kind} · {x.payee}</div></td>
                   <td className="small">{x.customerName}<div className="muted">ID {x.vibeId}</div></td>
                   <td>{formatINR(x.refundAmount)}<div className="muted small">of {formatINR(x.paid)} paid</div></td>
-                  <td className="small">{x.reason}</td>
+                  <td className="small">{x.reason}{x.bearer ? <div className="muted">borne by {x.bearer === 'vibe' ? 'VIBE' : 'the business'}</div> : null}</td>
                   <td className="small">{showDateTime(x.requestedAt)}<div className="muted">by {x.requestedBy}</div></td>
                   <td>{x.status === 'due' ? <Badge tone="warning">To refund</Badge> : <><Badge tone="success">Refunded</Badge><div className="muted small">{x.refundedAt ? showDateTime(x.refundedAt) : ''} · {x.partnerReference}</div></>}</td>
                   <td className="actions">{x.status === 'due' ? <button className="btn primary sm" onClick={() => { setError(null); setRef(''); setDoing(x); }}>Mark refunded</button> : null}</td>

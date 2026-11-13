@@ -14,8 +14,15 @@ import { colors, fonts, radius } from '@/theme/tokens';
 
 type Section = 'offers' | 'promotions';
 const SORTS: { key: OfferSort; label: string }[] = [{ key: 'nearest', label: 'Nearest' }, { key: 'saving', label: 'Biggest saving' }, { key: 'ending', label: 'Ending soon' }];
-/** Top-level categories that aren't places with offers (they have their own tabs). */
-const HIDDEN = new Set(['social', 'offers']);
+/** VIBE Social has its own tab. */
+const HIDDEN = new Set(['social']);
+/**
+ * "Offers & Benefits" isn't a kind of place: it cuts every offer a different way. Its subcategories become presets here (all places, nearest, biggest
+ * saving, newest, ending soon, members only), and in Promotions it shows the promotions that lead to an offer.
+ */
+const OFFER_PRESETS: Record<string, { sort?: OfferSort; members?: boolean }> = {
+  'offers.all': {}, 'offers.nearby': { sort: 'nearest' }, 'offers.trending': { sort: 'saving' }, 'offers.new': { sort: 'new' }, 'offers.ending': { sort: 'ending' }, 'offers.member': { members: true },
+};
 type Filters = { openNow: boolean; near: boolean; members: boolean };
 const NO_FILTERS: Filters = { openNow: false, near: false, members: false };
 
@@ -41,11 +48,18 @@ export default function Discover() {
 
   const cats = useAsync(() => api.getCategories(), []);
   const tops = (cats.data ?? []).filter((c) => !HIDDEN.has(c.slug));
-  const category = sub?.id ?? top?.id;
+  const isOffersCat = top?.slug === 'offers';
+  const preset = isOffersCat && sub ? OFFER_PRESETS[sub.slug] ?? OFFER_PRESETS[sub.id] ?? {} : {};
+  // Offers & Benefits looks across every kind of place, so it doesn't narrow to a category.
+  const category = isOffersCat ? undefined : sub?.id ?? top?.id;
 
-  const query: NearbyOfferQuery = { category, q: q.trim() || undefined, sort, openNow: f.openNow || undefined, maxDistanceKm: f.near ? 3 : undefined, memberOnly: f.members || undefined };
+  const query: NearbyOfferQuery = { category, q: q.trim() || undefined, sort: preset.sort ?? sort, openNow: f.openNow || undefined, maxDistanceKm: f.near ? 3 : undefined, memberOnly: f.members || preset.members || undefined };
   const offers = usePaged<NearbyOffer>((offset) => api.getNearbyOffers(query, offset), [JSON.stringify(query)]);
-  const promos = useAsync(() => (section === 'promotions' ? api.getPromotions(category) : Promise.resolve([] as Promotion[])), [section, category]);
+  const promos = useAsync(async () => {
+    if (section !== 'promotions') return [] as Promotion[];
+    const list = await api.getPromotions(category);
+    return isOffersCat ? list.filter((p) => p.offerId) : list; // under Offers & Benefits: the promotions that lead to an offer
+  }, [section, category, isOffersCat]);
 
   const active = Object.values(f).filter(Boolean).length;
   const toggle = (k: keyof Filters) => setF((s) => ({ ...s, [k]: !s[k] }));

@@ -75,7 +75,7 @@ class PlatformAccessTest extends ApiTestSupport {
         assertTrue(!JsonPath.<List<String>>read(tree, "$[*].id").contains(social));
         assertEquals(List.of("bills", "offers", "menu"), JsonPath.<List<List<String>>>read(tree, "$[?(@.id=='" + shop + "')].features").get(0));
 
-        String app = "{\"businessName\":\"Shop " + uniq() + "\",\"categoryId\":%s,\"area\":\"Madhapur\",\"address\":\"Road 2\",\"contactName\":\"Ravi\",\"email\":\"a-" + uniq() + "@test.local\",\"phone\":\"9876501234\",\"about\":\"A shop\",\"documents\":[]}";
+        String app = "{\"businessName\":\"Shop " + uniq() + "\",\"categoryId\":%s,\"area\":\"Madhapur\",\"address\":\"Road 2\",\"contactName\":\"Ravi\",\"email\":\"a-" + uniq() + "@test.local\",\"phone\":\"9876501234\",\"about\":\"A shop\",\"documents\":[],\"acceptTerms\":true}";
         mvc.perform(post("/v1/business-applications").contentType("application/json").content(app.formatted("null"))).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code", is("category")));
         mvc.perform(post("/v1/business-applications").contentType("application/json").content(app.formatted("\"" + social + "\""))).andExpect(status().isBadRequest());
         mvc.perform(post("/v1/business-applications").contentType("application/json").content(app.formatted("\"" + shop + "\""))).andExpect(status().isCreated());

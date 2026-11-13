@@ -10,8 +10,7 @@
 import { ApiError, type VibeApi } from '../client';
 import type {
   BusinessDetail, BusinessQuery, BusinessSummary, ChatMessage, OneOnOneChat, EventDetail, EventSummary, ID, MeetReservation, MeetReservationOption, MemberCard, Membership, OfferSummary, OneOnOneInvite, Payment,
-  PaymentMethod, PaymentRequest, Redemption, SocialActivity, SocialProfile, Ticket, TicketReservation, User,
-} from '../types';
+  PaymentMethod, PaymentRequest, Redemption, SocialActivity, SocialProfile, Ticket, TicketReservation, User, Dispute } from '../types';
 import * as C from './catalog';
 
 import * as D from './data';
@@ -214,6 +213,7 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
   };
   const isMember = () => membership.status === 'active' || (membership.status === 'cancelled' && !!membership.validUntil && Date.parse(membership.validUntil) > now());
 
+  const disputes: Dispute[] = [];
   const slotEngine = createSlots({ now, businesses, newId: id, code });
   const passEngine = createPasses({ now, businesses, newId: id, code });
   /** VIBE's booking fee on courts, classes and memberships (sample value, as the backend's dev profile). */
@@ -278,7 +278,7 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       membership.savings.thisMonth += pr.req.discount;
       membership.savings.redemptions += 1;
       membership.recentSavings.unshift({ id: id('rs'), businessName: red.businessName, at: p.verifiedAt!, paid: pr.req.payable, saved: pr.req.discount });
-      redemptionsToday.set(red.offerId, (redemptionsToday.get(red.offerId) ?? 0) + 1);
+      redemptionsToday.set(red.offerId!, (redemptionsToday.get(red.offerId!) ?? 0) + 1);
     } else if (pr.kind === 'tickets') {
       const res = reservations.get(pr.context)!;
       res.status = 'paid';
@@ -388,6 +388,9 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         if (text && !`${b.name} ${b.categoryLabel} ${b.area} ${b.menu.map((m) => m.name).join(' ')}`.toLowerCase().includes(text)) return false;
         if (q.openNow && !b.status.open) return false;
         if (q.memberOffers && !b.hasMemberOffer) return false;
+        if (q.offers && !offers.some((o) => o.businessId === b.id)) return false;
+        if (q.bookable && slotEngine.fromPrice(b.id) === null) return false;
+        if (q.plans && passEngine.plans(b.id).length === 0) return false;
         if (q.minRating && b.rating < q.minRating) return false;
         if (q.maxDistanceKm && b.distanceKm > q.maxDistanceKm) return false;
         if (q.maxPriceLevel && b.priceLevel > q.maxPriceLevel) return false;
@@ -554,6 +557,19 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     async getMovie(mid) {
       return wait(cinema.movie(mid));
     },
+    async raiseDispute(paymentReference, reason, details) {
+      requireUser();
+      const p = [...payments.values()].find((x) => x.reference === paymentReference) ?? fail(404, 'not_found', 'Payment not found.');
+      if (p.status !== 'verified') fail(409, 'not_paid', 'Only a payment that went through can be reported. A failed payment wasn’t charged.');
+      if (disputes.some((d) => d.paymentReference === paymentReference && d.status === 'open')) fail(409, 'already_open', 'You’ve already reported this one. VIBE is looking into it.');
+      const d: Dispute = { reference: `DSP-${code(6)}`, paymentReference, reason, details, status: 'open', resolutionNote: null, refundAmount: null, createdAt: new Date(now()).toISOString(), dueBy: new Date(now() + 5 * 86_400_000).toISOString(), resolvedAt: null };
+      disputes.unshift(d);
+      return wait(d);
+    },
+    async getMyDisputes() {
+      requireUser();
+      return wait([...disputes]);
+    },
     async getMovieShows(mid, date) {
       return wait(cinema.showtimesForMovie(mid, date));
     },
@@ -603,7 +619,8 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         if (q.openNow && !b.status.open) return [];
         return [{ ...offerSummary(o), distanceKm: b.distanceKm, categoryLabel: b.categoryNames.find((c) => c.primary)?.name ?? b.categoryLabel, primaryCategorySlug: b.primaryCategoryId, status: b.status, _saving: saving(o) }];
       });
-      rows.sort((a, b) => (q.sort === 'saving' ? b._saving - a._saving : q.sort === 'ending' ? Date.parse(a.endsAt) - Date.parse(b.endsAt) : a.distanceKm - b.distanceKm));
+      if (q.sort === 'new') rows.reverse();
+      else rows.sort((a, b) => (q.sort === 'saving' ? b._saving - a._saving : q.sort === 'ending' ? Date.parse(a.endsAt) - Date.parse(b.endsAt) : a.distanceKm - b.distanceKm));
       const items = rows.slice(offset, offset + limit).map(({ _saving, ...o }) => { void _saving; return o; });
       return wait({ items, total: rows.length, nextOffset: offset + limit < rows.length ? offset + limit : null });
     },
@@ -684,6 +701,22 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
       red!.canReview = false;
       return wait(undefined);
     },
+
+    async getMyBills() {
+      requireUser();
+      return wait([...redemptions.values()].filter((r) => r.status === 'bill_ready'));
+    },
+
+    async getNotifications(unreadOnly) {
+      requireUser();
+      const items = [...redemptions.values()].filter((r) => r.status === 'bill_ready').map((r) => ({
+        id: `bill-${r.id}`, kind: 'bill_ready', title: `Your bill from ${r.businessName} is ready`, body: 'Open it to apply an offer or coupon and pay.',
+        target: { type: 'redemption', id: r.id }, createdAt: new Date().toISOString(), read: false,
+      }));
+      return wait(unreadOnly ? items.filter((n) => !n.read) : items);
+    },
+    async markNotificationRead() { return wait(undefined); },
+    async markAllNotificationsRead() { return wait(undefined); },
 
     async cancelRedemption(rid) {
       const red = redemptions.get(rid);
@@ -1066,7 +1099,7 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
         red!.status = 'redeemed';
         red!.code = null;
         red!.canReview = true;
-        redemptionsToday.set(red!.offerId, (redemptionsToday.get(red!.offerId) ?? 0) + 1);
+        redemptionsToday.set(red!.offerId!, (redemptionsToday.get(red!.offerId!) ?? 0) + 1);
         return wait(red!);
       },
       /** Stands in for the merchant entering a bill in the merchant dashboard. */

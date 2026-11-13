@@ -75,7 +75,10 @@ abstract class ApiTestSupport {
         String email = "m-" + uniq() + "@test.local";
         mvc.perform(as(adminToken(), post("/v1/admin/businesses/" + businessId + "/staff"))
                 .content("{\"email\":\"" + email + "\",\"name\":\"Manager\",\"password\":\"" + PASSWORD + "\"}")).andExpect(status().isCreated());
-        return signInSettled(email, PASSWORD);
+        // A new business's owner accepts VIBE's merchant agreement on first sign-in.
+        String token = signInSettled(email, PASSWORD);
+        mvc.perform(as(token, post("/v1/merchant/agreement/accept"))).andExpect(status().isOk());
+        return token;
     }
 
     /** A login made by someone else must choose its own password first. This signs in, does that, and returns the working token. */
@@ -96,6 +99,26 @@ abstract class ApiTestSupport {
         String requestId = JsonPath.read(c.getResponse().getContentAsString(), "$.requestId");
         MvcResult v = mvc.perform(post("/v1/auth/otp/verify").contentType(MediaType.APPLICATION_JSON).content("{\"requestId\":\"" + requestId + "\",\"code\":\"123456\"}")).andExpect(status().isOk()).andReturn();
         return JsonPath.read(v.getResponse().getContentAsString(), "$.accessToken");
+    }
+
+    /** The owner sends valid legal and bank details and VIBE verifies them, so the business can be paid out. */
+    void verifyKyc(String business, String merchantToken) throws Exception {
+        mvc.perform(as(merchantToken, org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/merchant/kyc")).content("""
+            {"legalName":"Test Traders Pvt Ltd","pan":"ABCPE1234F","bankAccountName":"Test Traders","bankAccountNo":"123456789012","bankIfsc":"HDFC0001234","bankName":"Test Bank"}"""))
+                .andExpect(status().isOk());
+        mvc.perform(as(adminToken(), post("/v1/admin/kyc/" + business + "/approve"))).andExpect(status().isOk());
+    }
+
+    /** A confirmed court booking: ₹600 plus VIBE's ₹20 booking fee, so the customer pays ₹620. Returns the payment reference. */
+    String paidSlot(String business, String merchantToken, String customer) throws Exception {
+        String court = id(mvc.perform(as(merchantToken, post("/v1/merchant/venue/resources")).content("{\"sport\":\"Tennis\",\"name\":\"Court " + uniq() + "\",\"kind\":\"court\",\"price\":60000}")).andExpect(status().isCreated()).andReturn());
+        MvcResult b = mvc.perform(as(customer, post("/v1/slot-bookings")).content("{\"businessId\":\"" + business + "\",\"items\":[{\"resourceId\":\"" + court + "\",\"startsAt\":\"" + SlotBookingTest.at(11) + "\",\"minutes\":60}]}")).andReturn();
+        if (b.getResponse().getStatus() != 201) throw new AssertionError(b.getResponse().getContentAsString());
+        String pr = JsonPath.read(b.getResponse().getContentAsString(), "$.paymentRequestId");
+        String ref = JsonPath.read(mvc.perform(as(customer, post("/v1/payment-requests/" + pr + "/payments")).header("Idempotency-Key", "p-" + uniq() + uniq()).content("{\"method\":\"upi\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.reference");
+        mvc.perform(as(customer, org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/v1/payments/" + ref))).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.status").value("verified"));
+        return ref;
     }
 
     void makeMember(String phone) {

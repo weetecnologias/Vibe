@@ -42,7 +42,9 @@ public class Applications {
             @NotBlank @Email @Size(max = 200) String email,
             @NotBlank @Size(max = 20) String phone,
             @Size(max = 1000) String about,
-            @Size(max = 5) List<@Pattern(regexp = "^https?://\\S+$", message = "must be an http(s) link") String> documents) {}
+            @Size(max = 5) List<@Pattern(regexp = "^https?://\\S+$", message = "must be an http(s) link") String> documents,
+            /** Accepting the current VIBE merchant agreement. Required once VIBE has published one. */
+            Boolean acceptTerms) {}
 
     public record Submitted(String id, String statusToken) {}
 
@@ -62,10 +64,12 @@ public class Applications {
     private final BusinessStore businesses;
     private final Clock clock;
     private final in.vibe.backend.catalogue.MerchantFeatures merchantFeatures;
+    private final in.vibe.backend.compliance.Agreements agreements;
     private final SecureRandom random = new SecureRandom();
 
-    Applications(JdbcClient jdbc, AuditService audit, StaffNotifications staffNotifications, StaffService staff, BusinessStore businesses, Clock clock, in.vibe.backend.catalogue.MerchantFeatures merchantFeatures) {
+    Applications(JdbcClient jdbc, AuditService audit, StaffNotifications staffNotifications, StaffService staff, BusinessStore businesses, Clock clock, in.vibe.backend.catalogue.MerchantFeatures merchantFeatures, in.vibe.backend.compliance.Agreements agreements) {
         this.merchantFeatures = merchantFeatures;
+        this.agreements = agreements;
         this.jdbc = jdbc;
         this.audit = audit;
         this.staffNotifications = staffNotifications;
@@ -103,20 +107,27 @@ public class Applications {
 
     // ---------- the applicant ----------
     /** The token returned here is the only way back to the application; only its hash is kept. At most 3 applications per email per day. */
+    public Submitted submit(Input in) { return submit(in, null); }
+
+    /** ip: where the acceptance came from, kept with it as evidence. */
     @Transactional
-    public Submitted submit(Input in) {
+    public Submitted submit(Input in, String ip) {
         String email = in.email().trim().toLowerCase(Locale.ROOT);
         if (jdbc.sql("select count(*) from merchant_applications where lower(email) = :e and created_at > :t").param("e", email).param("t", now().minusDays(1)).query(Integer.class).single() >= 3) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "too_many_applications", "You’ve already applied a few times today. Please wait for VIBE to get back to you.");
         }
         UUID cat = category(in.categoryId());
+        var terms = agreements.current();
+        if (terms.isPresent() && !Boolean.TRUE.equals(in.acceptTerms())) throw ApiException.badRequest("terms", "Please read and accept the VIBE merchant agreement to apply.");
         byte[] raw = new byte[24];
         random.nextBytes(raw);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
         UUID id = UUID.randomUUID();
-        jdbc.sql("insert into merchant_applications (id, business_name, category_id, area, address, contact_name, email, phone, about, documents, token_hash) values (:id, :bn, :c, :a, :ad, :cn, :e, :p, :ab, :d, :t)")
+        jdbc.sql("insert into merchant_applications (id, business_name, category_id, area, address, contact_name, email, phone, about, documents, token_hash, terms_version_id, terms_accepted_at, terms_accepted_ip) "
+                        + "values (:id, :bn, :c, :a, :ad, :cn, :e, :p, :ab, :d, :t, :tv, :ta, :ti)")
                 .param("id", id).param("bn", in.businessName().trim()).param("c", cat, java.sql.Types.OTHER).param("a", in.area().trim()).param("ad", in.address() == null ? "" : in.address().trim()).param("cn", in.contactName().trim())
-                .param("e", email).param("p", phone(in.phone())).param("ab", in.about() == null ? "" : in.about().trim()).param("d", docs(in)).param("t", sha256(token)).update();
+                .param("e", email).param("p", phone(in.phone())).param("ab", in.about() == null ? "" : in.about().trim()).param("d", docs(in)).param("t", sha256(token))
+                .param("tv", terms.map(v -> UUID.fromString(v.id())).orElse(null), java.sql.Types.OTHER).param("ta", terms.isPresent() ? now() : null).param("ti", terms.isPresent() ? ip : null).update();
         staffNotifications.toAdmins("application", "New business application", in.businessName().trim() + " in " + in.area().trim() + " wants to join VIBE.", "/applications");
         return new Submitted(id.toString(), token);
     }
@@ -206,7 +217,8 @@ public class Applications {
         BusinessStore.Profile profile = new BusinessStore.Profile(d.row().businessName(), d.row().area(), d.address(), null, null, d.about(), null, null, 2, null, List.of(), false, List.of(), null);
         BusinessStore.Editable b = businesses.create(who, new BusinessStore.AdminInput(cat, List.of(cat), profile, false, true, false));
         String temp = temporaryPassword();
-        staff.createOwner(who, UUID.fromString(b.id()), d.row().email(), d.row().contactName(), temp);
+        var owner = staff.createOwner(who, UUID.fromString(b.id()), d.row().email(), d.row().contactName(), temp);
+        agreements.carryOver(id, UUID.fromString(b.id()), UUID.fromString(owner.id())); // what they accepted when applying counts for the business
         jdbc.sql("update merchant_applications set status = 'approved', business_id = :b, decided_at = now(), decided_by = :by, review_note = null, updated_at = now() where id = :id").param("b", UUID.fromString(b.id())).param("by", who.id()).param("id", id).update();
         audit.record(who, "approve", "application", id, d.row().businessName());
         return new Approved(b.id(), d.row().email(), temp);

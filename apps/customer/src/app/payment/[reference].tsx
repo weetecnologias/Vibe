@@ -135,6 +135,9 @@ export default function PaymentStatus() {
         </>
       ) : null}
 
+      {verified ? (
+        <Button label="Report a problem" variant="ghost" style={{ marginTop: 12 }} onPress={() => router.push(`/dispute/${p!.reference}`)} />
+      ) : null}
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 24 }}>
         {verified ? <Button label="Share receipt" variant="outline" style={{ flex: 1 }} onPress={() => Share.share({ message: `VIBE receipt ${p!.reference}: ${formatINR(p!.amount, { decimals: 'always' })} to ${p!.payeeName}` })} /> : null}
         <Button

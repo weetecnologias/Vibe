@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import {
   Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, rupeesToPaise, useAsync, useAuth,
-  type BillBoard, type BillInput, type BillPreview, type BillRow, type CodeCheck, type MenuRow,
+  type BillBoard, type BillInput, type BillOffers, type BillPreview, type BillCustomer, type BillRow, type CodeCheck, type MenuRow,
 } from '@kit';
 
 import { useSettings } from '../settings';
@@ -35,6 +35,8 @@ export function BillsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [howTo, setHowTo] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const waiting = (board.data?.rows ?? []).filter((r) => r.status === 'awaiting_bill');
 
   // New customers appear and payments land without anyone pressing refresh.
   const reload = board.reload;
@@ -59,7 +61,18 @@ export function BillsPage() {
 
   return (
     <>
-      <PageHead title="Bills and codes" sub="Customers redeeming an offer show up here: with a code (they pay you at the counter; you confirm the code) or asking for the bill (you send it; they pay in VIBE)." actions={<button className="btn ghost" onClick={() => setHowTo(!howTo)}>{howTo ? 'Hide how it works' : 'How it works'}</button>} />
+      <PageHead title="Bills and codes" sub="Customers redeeming an offer show up here: with a code (they pay you at the counter; you confirm the code) or asking for the bill (you send it; they pay in VIBE)." actions={<div className="row"><button className="btn primary" onClick={() => { setError(null); setStarting(true); }}>Raise a bill</button><button className="btn ghost" onClick={() => setHowTo(!howTo)}>{howTo ? 'Hide how it works' : 'How it works'}</button></div>} />
+      {view === 'open' && waiting.length ? (
+        <div className="card stack" style={{ borderColor: 'var(--pink, #E80069)', marginBottom: 14 }} role="status">
+          <strong>{waiting.length === 1 ? '1 customer is waiting for their bill' : `${waiting.length} customers are waiting for their bill`}</strong>
+          {waiting.map((r) => (
+            <div key={r.id} className="row" style={{ justifyContent: 'space-between' }}>
+              <span><strong>{r.customerName}</strong> <span className="muted small">VIBE ID {r.vibeId} · asked {ago(r.requestedAt)} · {r.offerTitle}</span></span>
+              <button className="btn primary sm" onClick={() => { setError(null); setBilling(r); }}>Send bill</button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <CodeBox onFound={(id) => { setError(null); setConfirming(id); }} />
       {howTo || (board.data && board.data.rows.length === 0 && view === 'open' && !term) ? <HowABillStarts /> : null}
       <div className="stats">
@@ -112,7 +125,7 @@ export function BillsPage() {
                         <strong>{formatINR(r.bill.payable)}</strong>
                         <div className="muted small">{r.bill.discount > 0 ? `${formatINR(r.bill.eligibleAmount)} − ${formatINR(r.bill.discount)} discount` : formatINR(r.bill.eligibleAmount)}</div>
                       </>
-                    ) : <Badge tone="warning">Waiting for your bill</Badge>}
+                    ) : <Badge tone="warning">Waiting for you to send the bill</Badge>}
                     {r.bill && r.status !== 'paid' ? (
                       <div style={{ marginTop: 4 }}>
                         {r.bill.paymentStatus === 'pending' ? <Badge tone="pink">Customer is paying</Badge> : r.bill.paymentStatus === 'failed' ? <Badge>Payment didn’t go through</Badge> : <Badge tone="warning">Waiting for customer to pay</Badge>}
@@ -121,7 +134,7 @@ export function BillsPage() {
                     {r.status === 'paid' ? <div style={{ marginTop: 4 }}><Badge tone="success">Paid</Badge></div> : null}
                   </td>
                   <td className="actions">
-                    {r.status === 'awaiting_bill' ? <button className="btn primary sm" onClick={() => { setError(null); setBilling(r); }}>Raise bill</button> : null}
+                    {r.status === 'awaiting_bill' ? <button className="btn primary sm" onClick={() => { setError(null); setBilling(r); }}>Send bill</button> : null}
                     {r.status === 'code_issued' ? <button className="btn primary sm" onClick={() => { setError(null); setConfirming(r.id); }}>Yes, redeemed</button> : null}
                     {r.status === 'bill_ready' ? <button className="btn ghost sm danger" onClick={() => withdraw(r)}>Withdraw bill</button> : null}
                   </td>
@@ -136,6 +149,7 @@ export function BillsPage() {
       )}
       <p className="muted small">This list refreshes by itself every few seconds. The customer is told in the app when you send a bill, and you see here when they have paid. Push notifications arrive when the notification service is connected.</p>
 
+      {starting ? <FindCustomer onClose={() => setStarting(false)} onStarted={(row) => { setStarting(false); board.reload(); setBilling(row); }} /> : null}
       {billing ? <RaiseBill row={billing} onClose={() => setBilling(null)} onSent={(msg) => { setBilling(null); setNotice(msg); board.reload(); }} /> : null}
       {confirming ? <ConfirmCode row={board.data?.rows.find((r) => r.id === confirming) ?? null} id={confirming} onClose={() => setConfirming(null)} onDone={(msg) => { setConfirming(null); setNotice(msg); board.reload(); }} /> : null}
     </>
@@ -159,8 +173,8 @@ function HowABillStarts() {
         <div>
           <strong className="small">With a bill: they pay in VIBE</strong>
           <ol className="steps">
-            <li>The customer chooses <strong>Get the bill in VIBE</strong>. They appear here under Waiting.</li>
-            <li>Tap <strong>Raise bill</strong>, pick what they had and send it. VIBE works out the discount.</li>
+            <li>Either the customer chooses <strong>Get the bill in VIBE</strong> and appears here under Waiting, or you tap <strong>Raise a bill</strong> and enter their VIBE ID (they find it on their profile).</li>
+            <li>Tap <strong>Send bill</strong>, pick what they had (or type the amounts) and send it. VIBE works out the discount, and the bill appears on the customer’s phone at once.</li>
             <li>They pay on their phone. The money comes to you in your next settlement.</li>
           </ol>
         </div>
@@ -276,6 +290,9 @@ function RaiseBill({ row, onClose, onSent }: { row: BillRow; onClose: () => void
   const { menuLabel } = useSettings();
   const menu = useAsync(() => client.get<MenuRow[]>('/v1/merchant/menu'), [client]);
   const items = (menu.data ?? []).filter((m) => m.active);
+  const offerList = useAsync(() => client.get<BillOffers>(`/v1/merchant/bills/${row.id}/offers`), [client, row.id]);
+  const [offerPick, setOfferPick] = useState<string | null>(null); // null = keep what the bill started with
+  const currentOffer = offerPick ?? offerList.data?.currentOfferId ?? 'none';
   const [qty, setQty] = useState<Record<string, number>>({});
   const [mode, setMode] = useState<'pick' | 'type'>('pick');
   const picked = items.filter((m) => (qty[m.id] ?? 0) > 0);
@@ -288,7 +305,7 @@ function RaiseBill({ row, onClose, onSent }: { row: BillRow; onClose: () => void
     : lines.map((l) => ({ label: l.label.trim(), amount: rupeesToPaise(l.amount) }));
   const valid = parsed.length > 0 && parsed.every((l) => l.label && l.amount !== null && l.amount > 0);
   const total = valid ? parsed.reduce((n, l) => n + (l.amount ?? 0), 0) : 0;
-  const body: BillInput | null = valid ? { lines: parsed.map((l) => ({ label: l.label, amount: l.amount as number })), billRef: billRef.trim() || undefined } : null;
+  const body: BillInput | null = valid ? { lines: parsed.map((l) => ({ label: l.label, amount: l.amount as number })), billRef: billRef.trim() || undefined, offerId: offerPick ?? undefined } : null;
   const key = JSON.stringify(body);
 
   // Ask VIBE what the customer would pay, a moment after the amounts stop changing.
@@ -314,7 +331,7 @@ function RaiseBill({ row, onClose, onSent }: { row: BillRow; onClose: () => void
     setError(null);
     try {
       await client.post(`/v1/merchant/bills/${row.id}`, { ...body, confirmLarge: confirmed });
-      onSent(`Bill sent to ${row.customerName}. It’s on their phone now.`);
+      onSent(`Bill sent to ${row.customerName.replace(/\.$/, '')}. It’s on their phone now.`);
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -325,9 +342,9 @@ function RaiseBill({ row, onClose, onSent }: { row: BillRow; onClose: () => void
   const fresh = !!preview && !!body && preview.eligibleAmount === total;
 
   return (
-    <Modal title={`Bill for ${row.customerName}`} onClose={onClose} wide>
+    <Modal title={`Send bill to ${row.customerName}`} onClose={onClose} wide>
       <div className="stack">
-        <p className="muted small" style={{ margin: 0 }}>VIBE ID {row.vibeId} · {row.offerTitle}. Enter what they ordered. VIBE works out the discount.</p>
+        <p className="muted small" style={{ margin: 0 }}>VIBE ID {row.vibeId}. Enter what they ordered. VIBE works out the discount.</p>
         {items.length > 0 ? (
           <div className="tabs" role="tablist">
             <button type="button" role="tab" aria-selected={mode === 'pick'} className={`tab${mode === 'pick' ? ' on' : ''}`} onClick={() => { setConfirmed(false); setMode('pick'); }}>From the {menuLabel.toLowerCase()}</button>
@@ -361,13 +378,21 @@ function RaiseBill({ row, onClose, onSent }: { row: BillRow; onClose: () => void
           </div>
         )) : null}
         {!useMenu ? <div className="row"><button type="button" className="btn sm" disabled={lines.length >= 30} onClick={() => setLines([...lines, { label: '', amount: '' }])}>Add another item</button></div> : null}
+        {offerList.data && offerList.data.offers.length > 0 ? (
+          <Field label="Offer applied" hint="The customer can still switch to a VIBE coupon when they pay.">
+            <select aria-label="Offer applied" value={currentOffer} onChange={(e) => { setConfirmed(false); setOfferPick(e.target.value); }}>
+              <option value="none">No offer</option>
+              {offerList.data.offers.map((o) => <option key={o.id} value={o.id} disabled={!o.usable}>{o.title}{o.memberOnly ? ' (members)' : ''}{o.usable ? '' : ` — ${o.reason ?? 'not available'}`}</option>)}
+            </select>
+          </Field>
+        ) : null}
         <Field label="Your bill number (optional)" hint="For example the table or the number on your own bill."><input style={{ maxWidth: 260 }} value={billRef} maxLength={40} onChange={(e) => setBillRef(e.target.value)} /></Field>
 
         <div className="card" style={{ background: 'var(--soft-white)' }} aria-live="polite">
           {!body ? <span className="muted">{useMenu ? 'Pick what they ordered.' : 'Enter an amount for every item.'}</span> : previewError ? <span style={{ color: 'var(--error)' }}>{previewError}</span> : !fresh ? <span className="muted">Checking…</span> : (
             <div className="stack" style={{ gap: 6 }}>
               <div className="row" style={{ justifyContent: 'space-between' }}><span>Bill</span><strong>{formatINR(preview.eligibleAmount)}</strong></div>
-              <div className="row" style={{ justifyContent: 'space-between' }}><span>{preview.discountLabel}</span><strong style={{ color: 'var(--pink-deep)' }}>{preview.discount > 0 ? `− ${formatINR(preview.discount)}` : '₹0'}</strong></div>
+              <div className="row" style={{ justifyContent: 'space-between' }}><span>{preview.discountLabel || 'No offer'}</span><strong style={{ color: 'var(--pink-deep)' }}>{preview.discount > 0 ? `− ${formatINR(preview.discount)}` : '₹0'}</strong></div>
               {preview.vibeFee > 0 ? <div className="row" style={{ justifyContent: 'space-between' }}><span>VIBE fee</span><strong>{formatINR(preview.vibeFee)}</strong></div> : null}
               <div className="row" style={{ justifyContent: 'space-between', borderTop: '1px solid var(--hairline)', paddingTop: 8 }}><span>Customer pays</span><strong style={{ fontSize: 22 }}>{formatINR(preview.customerPays)}</strong></div>
               {preview.reason ? <span className="muted small">{preview.reason}. The customer pays the full amount.</span> : null}
@@ -382,6 +407,76 @@ function RaiseBill({ row, onClose, onSent }: { row: BillRow; onClose: () => void
         <div className="modal-foot">
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn primary" disabled={busy || !fresh || (preview.needsConfirmation && !confirmed)} onClick={send}>{busy ? 'Sending…' : 'Send bill to customer'}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Raise a bill for a customer who hasn't asked: enter their VIBE ID (6 digits, unique to each customer), see who they are and which of your offers
+ * they can use, then add the items and send. The bill appears in their VIBE app at once.
+ */
+function FindCustomer({ onClose, onStarted }: { onClose: () => void; onStarted: (row: BillRow) => void }) {
+  const { client } = useAuth();
+  const [vibeId, setVibeId] = useState('');
+  const [found, setFound] = useState<BillCustomer | null>(null);
+  const [offerId, setOfferId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const digits = vibeId.replace(/\D/g, '');
+
+  const find = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setFound(null);
+    try {
+      const c = await client.get<BillCustomer>(`/v1/merchant/bills/customer?vibeId=${digits}`);
+      setFound(c);
+      setOfferId(c.offers.find((o) => o.usable && o.memberOnly)?.id ?? c.offers.find((o) => o.usable)?.id ?? '');
+    } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
+  };
+
+  const start = async () => {
+    if (!found) return;
+    setBusy(true);
+    setError(null);
+    try { onStarted(await client.post<BillRow>('/v1/merchant/bills/start', { vibeId: found.vibeId, offerId: offerId || null })); } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal title="Raise a bill" onClose={onClose}>
+      <div className="stack">
+        <form className="row" onSubmit={find}>
+          <input style={{ maxWidth: 220 }} autoFocus inputMode="numeric" maxLength={7} placeholder="Customer's VIBE ID" aria-label="Customer's VIBE ID" value={vibeId} onChange={(e) => { setVibeId(e.target.value); setFound(null); }} />
+          <button className="btn" disabled={busy || digits.length !== 6}>{busy && !found ? 'Finding…' : 'Find customer'}</button>
+        </form>
+        <p className="muted small" style={{ margin: 0 }}>The 6-digit VIBE ID is on the customer’s profile in the VIBE app. It is unique to them.</p>
+        {found ? (
+          <div className="stack">
+            <div className="card row" style={{ justifyContent: 'space-between' }}>
+              <span><strong>{found.name}</strong> <span className="muted small">VIBE ID {found.vibeId}</span></span>
+              {found.member ? <Badge tone="pink">VIBE member</Badge> : <Badge>Not a member</Badge>}
+            </div>
+            {!found.acceptsVibePayments ? <Notice tone="error">Your business takes payment at the counter, not through VIBE, so bills can’t be sent here.</Notice> : (
+              <fieldset className="hours">
+                <legend>Offer to apply</legend>
+                {found.offers.map((o) => (
+                  <label key={o.id} className="check" style={{ opacity: o.usable ? 1 : 0.5 }}>
+                    <input type="radio" name="offer" disabled={!o.usable} checked={offerId === o.id} onChange={() => setOfferId(o.id)} />
+                    <span>{o.title} {o.memberOnly ? <Badge tone="pink">Members</Badge> : null}{!o.usable && o.reason ? <span className="muted small"> · {o.reason}</span> : null}</span>
+                  </label>
+                ))}
+                <label className="check"><input type="radio" name="offer" checked={offerId === ''} onChange={() => setOfferId('')} /> <span>No offer: just the bill</span></label>
+              </fieldset>
+            )}
+          </div>
+        ) : null}
+        {error ? <Notice tone="error">{error}</Notice> : null}
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" disabled={busy || !found || !found.acceptsVibePayments} onClick={start}>{busy && found ? 'Opening…' : 'Add the items'}</button>
         </div>
       </div>
     </Modal>

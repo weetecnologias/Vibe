@@ -1,6 +1,6 @@
 import type {
-  AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
-  HomeFeed, ID, NearbyOffer, NearbyOfferQuery, Promotion, RedeemMode, SlotBooking, SlotGrid, SlotPick, VenuePass, VenuePlan, VenueSport, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
+  AppNotification, AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
+  Dispute, DisputeReason, HomeFeed, ID, NearbyOffer, NearbyOfferQuery, Promotion, RedeemMode, SlotBooking, SlotGrid, SlotPick, VenuePass, VenuePlan, VenueSport, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
   ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
 
@@ -44,7 +44,13 @@ export interface VibeApi {
   /** Rate a visit once the code was confirmed or the bill paid. One rating per visit. */
   reviewRedemption(id: ID, rating: number, comment: string): Promise<void>;
   getRedemption(id: ID): Promise<Redemption>;
+  /** Bills waiting for me to pay, including ones a business raised without being asked. */
+  getMyBills(): Promise<Redemption[]>;
   cancelRedemption(id: ID): Promise<void>;
+  /** The customer's notifications, newest first (bills sent by a business, redemptions, renewals). */
+  getNotifications(unreadOnly?: boolean): Promise<AppNotification[]>;
+  markNotificationRead(id: ID): Promise<void>;
+  markAllNotificationsRead(): Promise<void>;
   /** A server-priced bill (redemption, ticket order or membership). */
   getPaymentRequest(id: ID): Promise<PaymentRequest & { payeeName: string; kind: PaymentKind }>;
   /** Offers that could apply to a ticket order (movie or event), with the reason for any that can't. */
@@ -56,6 +62,9 @@ export interface VibeApi {
   startPayment(paymentRequestId: ID, method: PaymentMethod, idempotencyKey: string): Promise<PaymentStart>;
   /** Server-verified payment status. The app shows success only when status === 'verified'. */
   getPayment(reference: string): Promise<Payment>;
+  /** Report a problem with a payment that went through. VIBE responds within 5 days; one open report per payment. */
+  raiseDispute(paymentReference: string, reason: DisputeReason, details: string): Promise<Dispute>;
+  getMyDisputes(): Promise<Dispute[]>;
 
   // Movies & cinema booking. Showtimes and seat availability come from each cinema's system; see docs/movie-booking-integration.md.
   getMovies(filter?: { status?: MovieSummary['status']; language?: string }): Promise<MovieSummary[]>;
@@ -205,7 +214,11 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     createRedemption: (offerId, mode) => call('POST', '/redemptions', { offerId, mode: mode ?? 'bill' }),
     reviewRedemption: (rid, rating, comment) => call('POST', `/redemptions/${rid}/review`, { rating, comment }),
     getRedemption: (id) => call('GET', `/redemptions/${id}`),
+    getMyBills: () => call('GET', '/me/bills'),
     cancelRedemption: (id) => call('POST', `/redemptions/${id}/cancel`),
+    getNotifications: (unreadOnly) => call('GET', `/me/notifications${unreadOnly ? '?unread=true' : ''}`),
+    markNotificationRead: (id) => call('POST', `/me/notifications/${id}/read`),
+    markAllNotificationsRead: () => call('POST', '/me/notifications/read'),
     getPaymentRequest: (id) => call('GET', `/payment-requests/${id}`),
     getCheckoutOffers: (id) => call('GET', `/payment-requests/${id}/offers`),
     applyOffer: (id, code) => call('POST', `/payment-requests/${id}/offer`, { code }),
@@ -213,6 +226,8 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     startPayment: (paymentRequestId, method, idempotencyKey) =>
       call('POST', `/payment-requests/${paymentRequestId}/payments`, { method }, { 'Idempotency-Key': idempotencyKey }),
     getPayment: (reference) => call('GET', `/payments/${reference}`),
+    raiseDispute: (paymentReference, reason, details) => call('POST', `/payments/${paymentReference}/dispute`, { reason, details }),
+    getMyDisputes: () => call('GET', '/me/disputes'),
     getMovies: (f) => call('GET', `/movies${qs({ status: f?.status, language: f?.language })}`),
     getMovie: (id) => call('GET', `/movies/${id}`),
     getMovieShows: (movieId, date) => call('GET', `/movies/${movieId}/showtimes${qs({ date })}`),

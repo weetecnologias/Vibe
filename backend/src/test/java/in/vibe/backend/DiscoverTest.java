@@ -35,6 +35,40 @@ class DiscoverTest extends ApiTestSupport {
 
     List<String> names(String json) { return JsonPath.read(json, "$.items[*].businessName"); }
 
+    List<String> ids(String json) { return JsonPath.read(json, "$.items[*].id"); }
+
+    @Test
+    void aCategoryPageFiltersPlacesByDistanceOpenNowOffersBudgetAndBookings() throws Exception {
+        String cafes = category(null, "Cafe filters " + uniq());
+        String near = place(cafes, "Near " + uniq(), 17.4330, 78.4075, true), far = place(cafes, "Far " + uniq(), 17.30, 78.60, true), shut = place(cafes, "Shut " + uniq(), 17.4340, 78.4080, false);
+        liveOffer(merchant(near), true);   // members-only offer
+        liveOffer(merchant(far), false);   // offer for everyone
+        String nearM = merchant(shut);
+        mvc.perform(as(nearM, post("/v1/merchant/venue/resources")).content("{\"sport\":\"Tennis\",\"name\":\"Court\",\"kind\":\"court\",\"price\":50000}")).andExpect(status().isCreated());
+        mvc.perform(as(nearM, post("/v1/merchant/venue/plans")).content("{\"name\":\"Monthly\",\"months\":1,\"price\":100000}")).andExpect(status().isCreated());
+
+        java.util.function.Function<String[], List<String>> q = (params) -> {
+            try {
+                var req = get("/v1/businesses").param("categoryId", cafes).param("limit", "50");
+                for (int i = 0; i < params.length; i += 2) req = req.param(params[i], params[i + 1]);
+                return ids(mvc.perform(req).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            } catch (Exception e) { throw new RuntimeException(e); }
+        };
+        assertEquals(List.of(near, shut, far), q.apply(new String[]{"sort", "nearest"}));
+        assertEquals(List.of(near, shut), q.apply(new String[]{"sort", "nearest", "maxDistanceKm", "2"}));
+        assertEquals(List.of(near, far), q.apply(new String[]{"sort", "nearest", "openNow", "true"}));
+        assertEquals(List.of(near, far), q.apply(new String[]{"sort", "nearest", "offers", "true"}));
+        assertEquals(List.of(near), q.apply(new String[]{"memberOffers", "true"}));
+        assertEquals(List.of(shut), q.apply(new String[]{"bookable", "true"}));
+        assertEquals(List.of(shut), q.apply(new String[]{"plans", "true"}));
+        assertEquals(List.of(), q.apply(new String[]{"maxPriceLevel", "1"}));
+        assertEquals(List.of(), q.apply(new String[]{"minRating", "4"}));
+        assertEquals(List.of(near), q.apply(new String[]{"openNow", "true", "maxDistanceKm", "2"}));
+        // Paging still works with open-now (which is worked out after the database).
+        mvc.perform(get("/v1/businesses").param("categoryId", cafes).param("openNow", "true").param("sort", "nearest").param("limit", "1"))
+                .andExpect(jsonPath("$.total", is(2))).andExpect(jsonPath("$.items[0].id", is(near))).andExpect(jsonPath("$.nextOffset", is(1)));
+    }
+
     @Test
     void offersNearYouFilterByCategorySearchDistanceOpenNowAndMembers() throws Exception {
         String food = category(null, "Food " + uniq()), cafes = category(food, "Cafes " + uniq()), sports = category(null, "Sports " + uniq());

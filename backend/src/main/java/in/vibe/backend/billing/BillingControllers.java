@@ -138,6 +138,10 @@ public class BillingControllers {
         @GetMapping("/v1/redemptions/{id}")
         Redemptions.RedemptionView redemption(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) { return redemptions.view(CustomerPrincipal.from(jwt).id(), uuid(id)); }
 
+        /** Bills waiting for this customer to pay, including ones a business raised without being asked. */
+        @GetMapping("/v1/me/bills")
+        List<Redemptions.RedemptionView> myBills(@AuthenticationPrincipal Jwt jwt) { return redemptions.openBills(CustomerPrincipal.from(jwt).id()); }
+
         @PostMapping("/v1/redemptions/{id}/cancel")
         ResponseEntity<Void> cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
             redemptions.cancel(CustomerPrincipal.from(jwt).id(), uuid(id));
@@ -183,6 +187,20 @@ public class BillingControllers {
         Redemptions.Board board(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "open") String view, @RequestParam(required = false) String q) {
             return redemptions.board(StaffPrincipal.from(jwt), view, q);
         }
+
+        /** Who is this VIBE ID, and which of the business's offers can they use? */
+        @GetMapping("/customer")
+        Redemptions.CustomerLookup customer(@AuthenticationPrincipal Jwt jwt, @RequestParam String vibeId) { return redemptions.lookup(StaffPrincipal.from(jwt), vibeId); }
+
+        /** Starts a bill for a customer by VIBE ID. Returns it as a row on the board, ready to have its items added and be sent. */
+        @PostMapping("/start")
+        ResponseEntity<Redemptions.Row> start(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody Redemptions.StartInput in) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(redemptions.start(StaffPrincipal.from(jwt), in));
+        }
+
+        /** Which offers the customer can use on this bill, for the staff to choose from when sending it. */
+        @GetMapping("/{id}/offers")
+        Redemptions.BillOffers offers(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) { return redemptions.offersFor(StaffPrincipal.from(jwt), uuid(id)); }
 
         @PostMapping("/{id}/preview")
         Redemptions.Preview preview(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @Valid @RequestBody Redemptions.BillInput in) { return redemptions.preview(StaffPrincipal.from(jwt), uuid(id), in); }

@@ -66,9 +66,13 @@ public class Payments {
     private final in.vibe.backend.tickets.Ticketing ticketing;
     private final in.vibe.backend.slots.SlotBooking slots;
     private final in.vibe.backend.slots.VenuePasses passes;
+    private final in.vibe.backend.finance.Ledger ledger;
+    private final in.vibe.backend.finance.RateCards rateCards;
 
     Payments(JdbcClient jdbc, Redemptions redemptions, Notifications notifications, StaffNotifications staffNotifications, Memberships memberships, PaymentProvider provider, JsonMapper json, Clock clock,
-             @Value("${vibe.payments.webhook-secret:}") String webhookSecret, @Value("${vibe.payments.simulate-after-ms:0}") long simulateAfterMs, in.vibe.backend.tickets.Ticketing ticketing, in.vibe.backend.slots.SlotBooking slots, in.vibe.backend.slots.VenuePasses passes) {
+             @Value("${vibe.payments.webhook-secret:}") String webhookSecret, @Value("${vibe.payments.simulate-after-ms:0}") long simulateAfterMs, in.vibe.backend.tickets.Ticketing ticketing, in.vibe.backend.slots.SlotBooking slots, in.vibe.backend.slots.VenuePasses passes, in.vibe.backend.finance.Ledger ledger, in.vibe.backend.finance.RateCards rateCards) {
+        this.ledger = ledger;
+        this.rateCards = rateCards;
         this.ticketing = ticketing;
         this.slots = slots;
         this.passes = passes;
@@ -155,6 +159,7 @@ public class Payments {
                 .query((rs, i) -> new P((UUID) rs.getObject(1), (UUID) rs.getObject(2), rs.getLong(3), rs.getLong(4))).single();
         var pr = jdbc.sql("select kind, redemption_id, business_id, plan_id from payment_requests where id = :id").param("id", p.pr()).query((rs, i) -> new Object[]{rs.getString(1), rs.getObject(2), rs.getObject(3), rs.getObject(4)}).single();
         jdbc.sql("update payment_requests set status = 'paid' where id = :id").param("id", p.pr()).update();
+        recordBooks(paymentId, p.pr(), p.amount(), (String) pr[0], (UUID) pr[2]);
         if ("tickets".equals(pr[0])) {
             ticketing.issue(p.pr(), paymentId);
             return true;
@@ -183,6 +188,30 @@ public class Payments {
         String who = jdbc.sql("select name, vibe_id from customers where id = :id").param("id", p.customer()).query((rs, i) -> Customers.displayName(rs.getString(1)) + " (VIBE ID " + rs.getString(2) + ")").single();
         staffNotifications.toBusiness(business, "payment_received", "Payment received: ₹" + Redemptions.rupees(p.amount()), who + " paid their bill" + (p.savings() > 0 ? " and saved ₹" + Redemptions.rupees(p.savings()) : "") + ".", "/bills");
         return true;
+    }
+
+    /**
+     * Freezes what this payment was charged (the commission rate at this moment, the commission and the GST on it) and posts it to the books:
+     * the customer's money in, and where it belongs (the business's share, VIBE's fee, commission and GST).
+     */
+    private void recordBooks(UUID paymentId, UUID prId, long amount, String kind, UUID business) {
+        String ref = jdbc.sql("select reference from payments where id = :id").param("id", paymentId).query(String.class).single();
+        if (business == null) {
+            String account = "membership".equals(kind) ? "membership_income" : "vibe_event_income";
+            ledger.post("payment", "payment", ref, kind, List.of(in.vibe.backend.finance.Ledger.Line.dr("gateway", amount), in.vibe.backend.finance.Ledger.Line.cr(account, amount)));
+            return;
+        }
+        long[] pr = jdbc.sql("select vibe_fee, vibe_funded from payment_requests where id = :id").param("id", prId).query((rs, i) -> new long[]{rs.getLong(1), rs.getLong(2)}).single();
+        long fee = pr[0], funded = pr[1];
+        var rate = rateCards.rateNow(business);
+        int gstBps = rateCards.gstBps();
+        long commission = (amount + funded - fee) * rate.bps() / 10000, gst = commission * gstBps / 10000;
+        jdbc.sql("update payments set commission_bps = :rb, commission = :c, gst_bps = :gb, gst = :g where id = :id").param("rb", rate.bps()).param("c", commission).param("gb", gstBps).param("g", gst).param("id", paymentId).update();
+        long net = amount + funded - fee - commission - gst;
+        ledger.post("payment", "payment", ref, kind, List.of(
+                in.vibe.backend.finance.Ledger.Line.dr("gateway", amount), in.vibe.backend.finance.Ledger.Line.dr("discount_expense", funded),
+                in.vibe.backend.finance.Ledger.Line.cr(in.vibe.backend.finance.Ledger.merchant(business), net), in.vibe.backend.finance.Ledger.Line.cr("vibe_fee_income", fee),
+                in.vibe.backend.finance.Ledger.Line.cr("commission_income", commission), in.vibe.backend.finance.Ledger.Line.cr("gst_payable", gst)));
     }
 
     @Transactional

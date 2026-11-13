@@ -49,7 +49,7 @@ export type MembersReport = {
 };
 export type RefundRow = {
   reference: string; kind: string; payee: string; customerName: string; vibeId: string; paid: number; refundAmount: number; reason: string; status: 'due' | 'refunded';
-  paidAt: string | null; requestedAt: string; requestedBy: string; refundedAt: string | null; refundedBy: string | null; partnerReference: string | null;
+  paidAt: string | null; requestedAt: string; requestedBy: string; refundedAt: string | null; refundedBy: string | null; partnerReference: string | null; bearer: 'merchant' | 'vibe' | null;
 };
 export type RefundPage = { items: RefundRow[]; totals: { due: number; dueAmount: number; refunded: number; refundedAmount: number } };
 
@@ -141,7 +141,7 @@ export type PlanInput = Omit<Plan, 'id'>;
 
 // ---------- checkout coupons ----------
 /** Where a checkout coupon applies: event tickets, movie seats, court and class bookings (slots), gym and studio memberships (pass). */
-export type CouponKind = 'tickets' | 'movie' | 'slots' | 'pass';
+export type CouponKind = 'tickets' | 'movie' | 'slots' | 'pass' | 'bill';
 export type Coupon = {
   id: string; code: string; title: string; description: string; memberOnly: boolean; kinds: CouponKind[]; kind: OfferKind; rateBps: number | null; flatAmount: number | null; maxDiscount: number | null;
   minBill: number | null; firstBookingOnly: boolean; maxUsesPerUser: number | null; terms: string[]; startsAt: string; endsAt: string; active: boolean;
@@ -184,8 +184,13 @@ export type BillRow = { id: string; customerName: string; vibeId: string; offerT
 export type CodeCheck = { id: string; code: string; customerName: string; vibeId: string | null; offerTitle: string; expiresAt: string; billAmount: number | null; discount: number | null; customerPays: number | null; reason: string | null };
 export type BillSummary = { paidToday: number; paidTodayAmount: number; savedTodayAmount: number; redeemedToday?: number };
 export type BillBoard = { rows: BillRow[]; summary: BillSummary };
+/** A customer found by VIBE ID: first name, member or not, and which of the business's offers they can use now. */
+export type BillCustomerOffer = { id: string; title: string; memberOnly: boolean; usable: boolean; reason: string | null };
+export type BillCustomer = { vibeId: string; name: string; member: boolean; acceptsVibePayments: boolean; offers: BillCustomerOffer[] };
 export type BillPreview = { eligibleAmount: number; discount: number; discountLabel: string; reason: string | null; vibeFee: number; customerPays: number; needsConfirmation: boolean };
-export type BillInput = { lines: { label: string; amount: number }[]; billRef?: string; confirmLarge?: boolean };
+/** offerId: leave out to keep the offer the bill started with, "none" to bill without a discount, or one of the business's offer ids. */
+export type BillInput = { lines: { label: string; amount: number }[]; billRef?: string; confirmLarge?: boolean; offerId?: string };
+export type BillOffers = { currentOfferId: string | null; offers: BillCustomerOffer[] };
 
 // ---------- admin overview, customers, transactions, members ----------
 export type DayTotal = { day: string; amount: number; count: number };
@@ -234,19 +239,52 @@ export type MerchantSettings = {
   payRedeem: boolean; menuLabel: string; owner?: boolean; staffRole?: StaffRole | null; permissions?: string[]; areas?: Record<string, string>; acceptsVibePayments?: boolean; slotBooking?: boolean;
   /** What this business gets, from its category. Older servers don't send it: then everything shows, as before. */
   features?: MerchantFeature[]; businessName?: string; categoryName?: string; topCategoryName?: string;
+  /** VIBE's merchant agreement: required once published, and until the owner accepts it nothing else in the dashboard works. */
+  agreement?: AgreementStatus; kycStatus?: KycStatus;
 };
 export type TeamMember = { id: string; email: string; name: string; active: boolean; owner: boolean; mustChangePassword: boolean; staffRole: StaffRole | null; permissions: string[] };
 
 // ---------- settlements and results ----------
-export type SettlementDue = { businessId: string; businessName: string; area: string; commissionBps: number; count: number; gross: number; vibeFees: number; commission: number; payout: number; customerSavings: number; oldest: string; newest: string };
+export type SettlementDue = { businessId: string; businessName: string; area: string; commissionBps: number; count: number; gross: number; vibeFees: number; commission: number; payout: number; customerSavings: number; oldest: string; newest: string;
+  gst: number; refundDeductions: number; adjustments: number; kycStatus: KycStatus };
 export type SettlementSummary = {
   id: string; reference: string; businessId: string; businessName: string; periodFrom: string; periodTo: string; paymentCount: number; gross: number; vibeFees: number; commissionBps: number;
   commission: number; payout: number; customerSavings: number; status: 'pending' | 'paid'; createdAt: string; paidAt: string | null; payoutRef: string | null; note: string | null;
+  gst: number; refundDeductions: number; adjustments: number;
 };
-export type SettlementItem = { paymentReference: string; paidAt: string; customerName: string; vibeId: string; billRef: string; offerTitle: string | null; amount: number; vibeFee: number; commission: number; payout: number; customerSaved: number };
-export type SettlementDetail = { summary: SettlementSummary; items: SettlementItem[] };
+export type SettlementItem = { paymentReference: string; paidAt: string; customerName: string; vibeId: string; billRef: string; offerTitle: string | null; amount: number; vibeFee: number; commission: number; payout: number; customerSaved: number; gst: number; refundShare: number };
+export type SettlementDetail = { summary: SettlementSummary; items: SettlementItem[]; adjustments: AdjustmentRow[] };
 export type SettlementBalance = { count: number; gross: number; commission: number; payout: number };
 export type MerchantMoney = { unsettled: SettlementBalance; awaitingPayout: number; paidOut: number; commissionBps: number; settlements: SettlementSummary[] };
+// ---------- rates, ledger, adjustments ----------
+export type RateCard = { id: string; scope: 'platform' | 'category' | 'business'; targetId: string | null; targetName: string; commissionBps: number; effectiveFrom: string; reason: string; createdBy: string | null; createdAt: string };
+export type EffectiveRate = { bps: number; source: 'business' | 'category' | 'platform' | 'none'; sourceName: string; cardId: string | null };
+export type LedgerAccount = { account: string; debit: number; credit: number; balance: number };
+export type TrialBalance = { debit: number; credit: number; balanced: boolean; accounts: LedgerAccount[] };
+export type LedgerEntry = { id: number; txnId: string; type: string; at: string; account: string; debit: number; credit: number; refType: string | null; refId: string | null; memo: string | null };
+export type AdjustmentRow = { id: string; businessId: string; businessName: string; kind: 'credit' | 'recovery' | 'penalty' | 'correction'; amount: number; reason: string; createdBy: string | null; createdAt: string; settlementReference: string | null };
+
+// ---------- compliance: agreement, KYC, disputes, reconciliation ----------
+export type KycStatus = 'not_submitted' | 'submitted' | 'verified' | 'rejected';
+export type KycCheck = { key: string; label: string; ok: boolean; message: string };
+export type KycView = {
+  businessId: string; businessName: string; status: KycStatus; fssaiRequired: boolean; legalName: string; pan: string; gstin: string; fssai: string; bankAccountName: string; bankAccountNo: string;
+  bankIfsc: string; bankName: string; documents: string[]; reviewNote: string | null; submittedAt: string | null; reviewedAt: string | null; checks: KycCheck[];
+};
+export type KycInput = { legalName: string; pan: string; gstin?: string; fssai?: string; bankAccountName: string; bankAccountNo: string; bankIfsc: string; bankName?: string; documents?: string[] };
+export type KycRow = { businessId: string; businessName: string; category: string; status: KycStatus; legalName: string; submittedAt: string; checksPass: boolean };
+export type AgreementVersion = { id: string; version: number; title: string; body: string; publishedAt: string; publishedBy: string | null; accepted: number };
+export type AgreementStatus = { required: boolean; accepted: boolean; current: AgreementVersion | null; acceptedAt: string | null; acceptedBy: string | null };
+export type AgreementAcceptance = { businessId: string; businessName: string; version: number; acceptedAt: string; acceptedBy: string | null; source: 'application' | 'dashboard'; ip: string | null };
+export type DisputeReason = 'not_received' | 'wrong_amount' | 'charged_twice' | 'poor_service' | 'other';
+export type DisputeRow = {
+  reference: string; paymentReference: string; businessId: string | null; businessName: string | null; customerName: string; vibeId: string; reason: DisputeReason; details: string; status: 'open' | 'refund' | 'rejected';
+  resolutionNote: string | null; refundAmount: number | null; createdAt: string; dueBy: string; resolvedAt: string | null; overdue: boolean; paid: number;
+};
+export type ReconRun = { id: string; fileName: string; from: string | null; to: string | null; uploadedBy: string | null; uploadedAt: string; partnerRows: number; matched: number; mismatched: number; missingInVibe: number; missingAtPartner: number; partnerAmount: number; vibeAmount: number };
+export type ReconItem = { line: number; key: string; result: 'matched' | 'amount_mismatch' | 'status_mismatch' | 'missing_in_vibe' | 'missing_at_partner'; partnerAmount: number | null; vibeAmount: number | null; partnerStatus: string | null; paymentReference: string | null };
+export type ReconDetail = { run: ReconRun; items: ReconItem[] };
+
 export type BusinessTerms = { businessId: string; businessName: string; commissionBps: number; autoApprove: boolean };
 export type OfferResult = { offerId: string; title: string; reviewStatus: ReviewStatus; live: boolean; redemptions: number; paid: number; sales: number; discount: number };
 export type MerchantResults = {

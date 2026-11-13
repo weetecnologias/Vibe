@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, type BusinessSummary, type CategoryNode, type OfferSummary, type OfferView } from '@/api';
+import { api, type BusinessQuery, type BusinessSummary, type CategoryNode, type OfferSummary, type OfferView, type SortKey } from '@/api';
 import { BusinessCard, OfferCard } from '@/components/cards';
 import { BackButton, Button, Chip, EmptyState, ErrorState, Icon, IconButton, LoadingState, Photo, T } from '@/components/ui';
 import { useAsync } from '@/lib/useAsync';
@@ -26,6 +26,23 @@ function locate(tree: CategoryNode[], id: string): CategoryNode[] | null {
 
 type Results = { kind: 'offers'; items: OfferSummary[] } | { kind: 'places'; items: BusinessSummary[] } | null;
 
+/** Filters a category page can show. Each category shows the ones that make sense for it (a gym can be booked by the hour; a shop can't). */
+type FilterKey = 'near' | 'open' | 'offers' | 'members' | 'top' | 'budget' | 'bookable' | 'plans';
+const FILTER_LABEL: Record<FilterKey, string> = {
+  near: 'Within 2 km', open: 'Open now', offers: 'Offers', members: 'Member offers', top: 'Rated 4+', budget: '₹₹ and under', bookable: 'Book by the hour', plans: 'Monthly plans',
+};
+const FILTERS_FOR: Record<string, FilterKey[]> = {
+  food: ['near', 'open', 'offers', 'members', 'top', 'budget'],
+  shopping: ['near', 'open', 'offers', 'members', 'budget'],
+  fitness: ['near', 'open', 'bookable', 'plans', 'offers', 'members', 'top'],
+  beauty: ['near', 'open', 'offers', 'members', 'top', 'budget'],
+  kids: ['near', 'open', 'bookable', 'offers', 'members', 'top'],
+  movies: ['near', 'open', 'bookable', 'top'],
+  events: ['near', 'open', 'offers'],
+};
+const DEFAULT_FILTERS: FilterKey[] = ['near', 'open', 'offers', 'members', 'top'];
+const SORTS: { key: SortKey; label: string }[] = [{ key: 'nearest', label: 'Near me' }, { key: 'rating', label: 'Top rated' }, { key: 'popular', label: 'Most reviewed' }];
+
 const OFFER_VIEWS: Record<string, OfferView> = {
   'offers.all': 'all', 'offers.nearby': 'nearby', 'offers.trending': 'trending', 'offers.new': 'new', 'offers.ending': 'ending', 'offers.member': 'member',
 };
@@ -40,8 +57,10 @@ export default function CategoryScreen() {
   const root = path?.[0];
   // `undefined` = follow the deep link (e.g. /category/fitness.sports) until the user picks something.
   const [sel, setSel] = useState<{ sub: string | null; leaf: string | null }>();
-  const [openNow, setOpenNow] = useState(false);
-  const [memberOffers, setMemberOffers] = useState(false);
+  const [on, setOn] = useState<FilterKey[]>([]);
+  const [sort, setSort] = useState<SortKey>('nearest');
+  const toggle = (k: FilterKey) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
+  const nextSort = () => setSort((cur) => SORTS[(SORTS.findIndex((x) => x.key === cur) + 1) % SORTS.length].key);
 
   const effectiveSub = sel ? sel.sub : path?.[1]?.id ?? null;
   const effectiveLeaf = sel ? sel.leaf : path?.[2]?.id ?? null;
@@ -54,11 +73,17 @@ export default function CategoryScreen() {
   const targetNode = tree.data ? locate(tree.data, target)?.at(-1) : undefined;
   const offerView = OFFER_VIEWS[target] ?? (targetNode ? OFFER_VIEWS[targetNode.slug] : undefined) ?? 'all';
 
+  // Only the filters this category offers count, so switching category never leaves a hidden one switched on.
+  const available = (root ? FILTERS_FOR[root.slug] ?? FILTERS_FOR[root.id] : undefined) ?? DEFAULT_FILTERS;
+  const active = on.filter((k) => available.includes(k));
+  const has = (k: FilterKey) => active.includes(k) || undefined;
+  const query: BusinessQuery = {
+    categoryId: target, sort, openNow: has('open'), offers: has('offers'), memberOffers: has('members'), maxDistanceKm: has('near') ? 2 : undefined,
+    minRating: has('top') ? 4 : undefined, maxPriceLevel: has('budget') ? 2 : undefined, bookable: has('bookable'), plans: has('plans'),
+  };
   const places = usePaged<BusinessSummary>(
-    (offset) => (!root || isOffers
-      ? Promise.resolve(EMPTY_PAGE)
-      : api.searchBusinessesPage({ categoryId: target, openNow: openNow || undefined, memberOffers: memberOffers || undefined, sort: 'popular' }, offset)),
-    [root?.id, target, openNow, memberOffers, isOffers],
+    (offset) => (!root || isOffers ? Promise.resolve(EMPTY_PAGE) : api.searchBusinessesPage(query, offset)),
+    [root?.id, isOffers, JSON.stringify(query)],
   );
   const results = useAsync<Results>(
     () => (!root || !isOffers ? Promise.resolve(null) : api.getOffers(offerView).then((o) => ({ kind: 'offers' as const, items: o }))),
@@ -126,8 +151,9 @@ export default function CategoryScreen() {
 
       {!isOffers && root ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.chips, { paddingTop: 14 }]}>
-          <Chip label="Open now" selected={openNow} onPress={() => setOpenNow((v) => !v)} />
-          <Chip label="Member offers" selected={memberOffers} onPress={() => setMemberOffers((v) => !v)} />
+          <Chip label={`Sort: ${SORTS.find((x) => x.key === sort)!.label}`} icon="chevronDown" onPress={nextSort} />
+          {available.map((k) => <Chip key={k} label={FILTER_LABEL[k]} selected={active.includes(k)} onPress={() => toggle(k)} />)}
+          {active.length ? <Chip label="Clear" icon="close" onPress={() => setOn([])} /> : null}
         </ScrollView>
       ) : null}
 
@@ -141,7 +167,7 @@ export default function CategoryScreen() {
 
       {root ? (
         <View style={styles.countRow}>
-          <T variant="caption" color={colors.mutedGrey}><T variant="captionStrong">{loading ? '…' : count} {isOffers ? (count === 1 ? 'offer' : 'offers') : count === 1 ? 'place' : 'places'}</T> · {label}</T>
+          <T variant="caption" color={colors.mutedGrey}><T variant="captionStrong">{loading ? '…' : count} {isOffers ? (count === 1 ? 'offer' : 'offers') : count === 1 ? 'place' : 'places'}</T> · {label}{!isOffers && active.length ? ` · ${active.map((k) => FILTER_LABEL[k].toLowerCase()).join(', ')}` : ''}</T>
         </View>
       ) : null}
 
@@ -149,7 +175,9 @@ export default function CategoryScreen() {
         {error ? <ErrorState message={error} onRetry={reload} /> : null}
         {loading && !(isOffers ? results.data : places.data) ? <LoadingState rows={2} /> : null}
         {!loading && (isOffers ? results.data : places.data) && count === 0 ? (
-          <EmptyState icon="search" title={`No ${isOffers ? 'offers' : 'places'} here yet`} message="We’re adding new businesses every week. Try another subcategory." />
+          <EmptyState icon="search" title={`No ${isOffers ? 'offers' : 'places'} ${active.length && !isOffers ? 'match these filters' : 'here yet'}`}
+            message={active.length && !isOffers ? 'Try removing a filter, or another subcategory.' : 'We’re adding new businesses every week. Try another subcategory.'}
+            actionLabel={active.length && !isOffers ? 'Clear filters' : undefined} onAction={() => setOn([])} />
         ) : null}
         {!isOffers ? places.data?.map((b) => <BusinessCard key={b.id} b={b} />) : null}
         {!isOffers && places.hasMore ? <Button label={`Show more (${Math.max(0, count - shown)} left)`} variant="outline" onPress={places.loadMore} loading={places.loadingMore} /> : null}

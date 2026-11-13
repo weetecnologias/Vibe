@@ -76,13 +76,14 @@ function TransactionModal({ reference, onClose }: { reference: string; onClose: 
   const [refunding, setRefunding] = useState(false);
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
+  const [bearer, setBearer] = useState<'merchant' | 'vibe'>('merchant');
   const [error, setError] = useState<string | null>(null);
   const raise = async () => {
     setError(null);
     const paise = amount.trim() ? rupeesToPaise(amount) : null;
     if (amount.trim() && paise === null) return setError('Enter the amount in rupees, or leave it empty to refund everything.');
     try {
-      await client.post(`/v1/admin/transactions/${reference}/refund`, { amount: paise, reason: reason.trim() });
+      await client.post(`/v1/admin/transactions/${reference}/refund`, { amount: paise, reason: reason.trim(), bearer });
       setRefunding(false);
       d.reload();
     } catch (e) { setError(errorText(e)); }
@@ -112,6 +113,9 @@ function TransactionModal({ reference, onClose }: { reference: string; onClose: 
                 <Field label="Amount (₹)" hint={`Empty refunds all ${formatINR(x.row.amount)}.`}><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
                 <Field label="Why" hint="Kept in the audit log and shown on the Refunds page."><input value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} placeholder="Charged twice" /></Field>
               </div>
+              <Field label="Who bears it" hint="The business: a full refund reverses the sale and a part refund comes off its settlement. VIBE: the business is still paid in full, even if already settled.">
+                <select value={bearer} onChange={(e) => setBearer(e.target.value as 'merchant' | 'vibe')}><option value="merchant">The business</option><option value="vibe">VIBE</option></select>
+              </Field>
               {error ? <Notice tone="error">{error}</Notice> : null}
               <div className="row"><button className="btn" onClick={() => setRefunding(false)}>Cancel</button><button className="btn primary" disabled={!reason.trim()} onClick={raise}>Add to refunds</button></div>
             </div>

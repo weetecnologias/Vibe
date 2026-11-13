@@ -3,7 +3,9 @@ import { Link, Navigate, Route, Routes } from 'react-router-dom';
 
 import { ChangePasswordPage, Loading, LoginPage, Notice, Shell, useAsync, useAuth, type MerchantFeature, type MerchantSettings, type NavItem } from '@kit';
 
+import { AgreementPage } from './pages/AgreementPage';
 import { ApplyPage } from './pages/ApplyPage';
+import { KycPage } from './pages/KycPage';
 import { BillsPage } from './pages/BillsPage';
 import { EventEditPage } from './pages/EventEditPage';
 import { EventSalesPage, EventsPage } from './pages/EventsPage';
@@ -51,6 +53,10 @@ function SignedIn() {
     );
   }
   const settings = s.data;
+  // Until the owner accepts VIBE's current merchant agreement, nothing else works: show it instead.
+  if (settings.agreement?.required && !settings.agreement.accepted) {
+    return <AgreementPage status={settings.agreement} owner={!!settings.owner} onAccepted={s.reload} />;
+  }
   const can = (area: string) => (area === 'team' ? !!settings.owner : !!settings.owner || (settings.permissions ?? []).includes(area));
   // What this kind of business gets on VIBE (from the category it onboarded in): a café never sees court bookings, a venue never sees bills it doesn't use.
   const has = (f: MerchantFeature) => !settings.features || settings.features.includes(f);
@@ -65,6 +71,7 @@ function SignedIn() {
     { group: 'Sell on VIBE', path: 'events', label: 'Events', area: 'events', element: <EventsPage />, when: has('events') },
     { group: 'Money', path: 'results', label: 'Your results', area: 'money', element: <ResultsPage /> },
     { group: 'Money', path: 'settlements', label: 'Settlements', area: 'money', element: <SettlementsPage /> },
+    { group: 'Money', path: 'kyc', label: settings.kycStatus === 'verified' ? 'Bank and KYC' : 'Bank and KYC (needed)', area: 'team', element: <KycPage /> },
     { group: 'My business', path: 'profile', label: 'Profile and photos', area: 'profile', element: <ProfilePage /> },
     { group: 'My business', path: 'menu', label: settings.menuLabel, area: 'menu', element: <MenuPage />, when: has('menu') },
     { group: 'My business', path: 'reviews', label: 'Reviews', area: 'profile', element: <ReviewsPage /> },

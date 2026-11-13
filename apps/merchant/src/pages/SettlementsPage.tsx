@@ -1,6 +1,10 @@
 import { useState } from 'react';
 
+import { Link } from 'react-router-dom';
+
 import { Badge, DownloadButton, Loading, Modal, Notice, PageHead, bpsToPercent, formatINR, showDateTime, useAsync, useAuth, type MerchantMoney, type SettlementDetail } from '@kit';
+
+import { useSettings } from '../settings';
 
 /** Money VIBE owes this business, settlements drawn up, and what has been paid to its bank. */
 export function SettlementsPage() {
@@ -8,11 +12,13 @@ export function SettlementsPage() {
   const money = useAsync(() => client.get<MerchantMoney>('/v1/merchant/settlements'), [client]);
   const [open, setOpen] = useState<string | null>(null);
   const m = money.data;
+  const settings = useSettings();
 
   return (
     <>
       <PageHead title="Settlements" sub="Customers pay you through VIBE. VIBE gathers those payments into settlements and transfers them to your bank. You’re told here each time." actions={<button className="btn" onClick={money.reload}>Refresh</button>} />
       {money.error ? <Notice tone="error">{money.error}</Notice> : null}
+      {settings.kycStatus && settings.kycStatus !== 'verified' ? <Notice tone="info">VIBE can’t pay you out until your bank details are verified. {settings.owner ? <Link to="/kyc">Send them now</Link> : 'Ask the owner to send them.'} Payments are still collected and counted meanwhile.</Notice> : null}
       {money.loading && !m ? <Loading /> : m ? (
         <>
           <div className="stats">
@@ -58,10 +64,16 @@ function SettlementModal({ id, onClose }: { id: string; onClose: () => void }) {
         <div className="stack">
           <div className="stats">
             <div className="card"><span className="muted small">Collected</span><strong>{formatINR(s.gross)}</strong></div>
-            <div className="card"><span className="muted small">VIBE commission ({bpsToPercent(s.commissionBps)}%)</span><strong>{formatINR(s.commission)}</strong></div>
+            <div className="card"><span className="muted small">VIBE commission ({bpsToPercent(s.commissionBps)}%)</span><strong>{formatINR(s.commission)}</strong>{s.gst > 0 ? <span className="muted small">+ GST {formatINR(s.gst)}</span> : null}</div>
             <div className="card"><span className="muted small">You receive</span><strong>{formatINR(s.payout)}</strong></div>
           </div>
           {s.status === 'paid' ? <Notice tone="success">Paid to your bank {s.paidAt ? showDateTime(s.paidAt) : ''}. Bank reference {s.payoutRef}.</Notice> : <Notice tone="info">VIBE will transfer this to your bank and tell you here with the bank reference.</Notice>}
+          {s.refundDeductions > 0 || s.adjustments !== 0 ? (
+            <div className="card stack" style={{ gap: 4 }}>
+              {s.refundDeductions > 0 ? <div className="row small" style={{ justifyContent: 'space-between' }}><span>Refunds to customers that came off this settlement</span><strong>− {formatINR(s.refundDeductions)}</strong></div> : null}
+              {d.data.adjustments.map((a) => <div key={a.id} className="row small" style={{ justifyContent: 'space-between' }}><span>{a.kind === 'credit' ? 'Credit' : 'Deduction'}: {a.reason}</span><strong>{a.amount > 0 ? '+' : '−'} {formatINR(Math.abs(a.amount))}</strong></div>)}
+            </div>
+          ) : null}
           <div className="row" style={{ justifyContent: 'flex-end' }}><DownloadButton small path={`/v1/merchant/settlements/${id}/export`} filename={`${s.reference}.csv`} /></div>
           <div className="table-wrap" style={{ maxHeight: 300, overflow: 'auto' }}>
             <table>

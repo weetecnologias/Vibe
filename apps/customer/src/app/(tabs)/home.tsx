@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,6 +23,54 @@ function Carousel({ children }: { children: React.ReactNode }) {
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
       {children}
     </ScrollView>
+  );
+}
+
+/**
+ * Bills waiting for you to pay, wherever they came from: one you asked for, or one a business raised from your VIBE ID. Checked every few seconds
+ * while Home is open, so a bill appears here by itself the moment the business sends it.
+ */
+/** The number of unread notifications on the bell, refreshed while Home is open (push is not connected yet). */
+function UnreadCount() {
+  const { status } = useSession();
+  const unread = useAsync(() => (status === 'signedIn' ? api.getNotifications(true) : Promise.resolve([])), [status]);
+  const reload = unread.reload;
+  useEffect(() => {
+    if (status !== 'signedIn') return;
+    const t = setInterval(reload, 8000);
+    return () => clearInterval(t);
+  }, [status, reload]);
+  const n = unread.data?.length ?? 0;
+  if (!n) return null;
+  return <View style={styles.badge} accessibilityLabel={`${n} unread`}><T variant="small" color={colors.white} style={{ fontSize: 11, lineHeight: 14 }}>{n > 9 ? '9+' : n}</T></View>;
+}
+
+function BillsDue() {
+  const { status } = useSession();
+  const bills = useAsync(() => (status === 'signedIn' ? api.getMyBills() : Promise.resolve([])), [status]);
+  const reload = bills.reload;
+  useEffect(() => {
+    if (status !== 'signedIn') return;
+    const t = setInterval(reload, 8000);
+    return () => clearInterval(t);
+  }, [status, reload]);
+  if (!bills.data?.length) return null;
+  return (
+    <View style={{ paddingHorizontal: 20, gap: 10, marginTop: 14 }}>
+      {bills.data.map((b) => (
+        <Pressable key={b.id} accessibilityRole="button" accessibilityLabel={`Bill from ${b.businessName}: ${formatINR(b.paymentRequest?.payable ?? 0, { decimals: 'always' })}. Pay now`} onPress={() => router.push(`/bill/${b.id}`)} style={styles.bill}>
+          <View style={{ flex: 1 }}>
+            <T variant="label" color={colors.pinkDeep}>Bill ready to pay</T>
+            <T variant="bodyStrong" numberOfLines={1}>{b.businessName}</T>
+            <T variant="caption" color={colors.mutedGrey}>{b.paymentRequest && b.paymentRequest.discount > 0 ? `You save ${formatINR(b.paymentRequest.discount, { decimals: 'always' })}` : 'Tap to see the items and apply an offer or coupon'}</T>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <T variant="title2">{formatINR(b.paymentRequest?.payable ?? 0, { decimals: 'always' })}</T>
+            <T variant="captionStrong" color={colors.pinkDeep}>Pay now</T>
+          </View>
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
@@ -51,6 +100,7 @@ export default function Home() {
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Notifications" onPress={() => router.push('/notifications')} style={styles.bell}>
             <Icon name="bell" color={colors.white} />
+            <UnreadCount />
           </Pressable>
         </View>
         <Pressable accessibilityRole="search" onPress={() => router.push('/discover')} style={styles.search}>
@@ -59,6 +109,8 @@ export default function Home() {
           <View style={styles.filterBtn}><Icon name="filters" size={18} color={colors.white} /></View>
         </Pressable>
       </View>
+
+      <BillsDue />
 
       {home.error && !h ? <ErrorState message={home.error} onRetry={home.reload} /> : null}
       {!h && !home.error ? <LoadingState rows={3} /> : null}
@@ -202,6 +254,8 @@ const styles = StyleSheet.create({
   header: { backgroundColor: colors.nearBlack, paddingHorizontal: 20, paddingBottom: 22, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, gap: 18 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logo: { fontFamily: fonts.displayHeavy, fontSize: 26, letterSpacing: -1.2, color: colors.pink },
+  bill: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.lg, backgroundColor: colors.pinkTint, borderWidth: 1.5, borderColor: colors.pink },
+  badge: { position: 'absolute', top: 4, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.pink, alignItems: 'center', justifyContent: 'center' },
   bell: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.darkSurface, alignItems: 'center', justifyContent: 'center' },
   search: { height: 52, borderRadius: 16, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 16, paddingRight: 7 },
   filterBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.nearBlack, alignItems: 'center', justifyContent: 'center' },

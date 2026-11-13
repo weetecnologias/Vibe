@@ -79,7 +79,9 @@ public class PlatformControllers {
         List<in.vibe.backend.catalogue.Categories.MerchantNode> categories() { return categories.merchantTree(); }
 
         @PostMapping
-        ResponseEntity<Applications.Submitted> submit(@Valid @RequestBody Applications.Input in) { return ResponseEntity.status(HttpStatus.CREATED).body(applications.submit(in)); }
+        ResponseEntity<Applications.Submitted> submit(@Valid @RequestBody Applications.Input in, jakarta.servlet.http.HttpServletRequest request) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(applications.submit(in, request.getRemoteAddr()));
+        }
 
         @GetMapping("/{id}")
         Applications.StatusView status(@PathVariable String id, @RequestParam String token) { return applications.status(uuid(id), token); }
@@ -123,8 +125,13 @@ public class PlatformControllers {
         private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
         private final in.vibe.backend.catalogue.MerchantFeatures features;
+        private final in.vibe.backend.compliance.Agreements agreements;
+        private final in.vibe.backend.compliance.Kyc kyc;
 
-        MerchantSettingsApi(BillingRules rules, in.vibe.backend.security.TeamAccess access, org.springframework.jdbc.core.simple.JdbcClient jdbc, in.vibe.backend.catalogue.MerchantFeatures features) {
+        MerchantSettingsApi(BillingRules rules, in.vibe.backend.security.TeamAccess access, org.springframework.jdbc.core.simple.JdbcClient jdbc, in.vibe.backend.catalogue.MerchantFeatures features,
+                            in.vibe.backend.compliance.Agreements agreements, in.vibe.backend.compliance.Kyc kyc) {
+            this.agreements = agreements;
+            this.kyc = kyc;
             this.jdbc = jdbc;
             this.features = features;
             this.rules = rules;
@@ -136,7 +143,7 @@ public class PlatformControllers {
          * areas: the parts of the dashboard the owner can give a team member, already cut down to those features.
          */
         public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas, boolean acceptsVibePayments, boolean slotBooking,
-                               List<String> features, String businessName, String categoryName, String topCategoryName) {}
+                               List<String> features, String businessName, String categoryName, String topCategoryName, in.vibe.backend.compliance.Agreements.Status agreement, String kycStatus) {}
 
         /** Whether this kind of business uses Pay & Redeem bills and what its item list is called (set by VIBE on the category), and what this person may do. */
         @GetMapping
@@ -153,7 +160,7 @@ public class PlatformControllers {
                     .param("b", who.requireBusiness()).query(Boolean.class).single();
             String name = jdbc.sql("select name from businesses where id = :b").param("b", who.requireBusiness()).query(String.class).single();
             return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.areasFor(p.features()), accepts, slots,
-                    p.features(), name, p.categoryName(), p.topCategoryName());
+                    p.features(), name, p.categoryName(), p.topCategoryName(), agreements.status(who.requireBusiness()), kyc.status(who.requireBusiness()));
         }
     }
 

@@ -10,7 +10,13 @@ import { AuditPage } from './pages/AuditPage';
 import { BusinessEditPage } from './pages/BusinessEditPage';
 import { BusinessesPage } from './pages/BusinessesPage';
 import { CategoriesPage } from './pages/CategoriesPage';
+import { AgreementsPage } from './pages/AgreementsPage';
 import { CouponsPage } from './pages/CouponsPage';
+import { DisputesPage } from './pages/DisputesPage';
+import { KycPage } from './pages/KycPage';
+import { LedgerPage } from './pages/LedgerPage';
+import { RatesPage } from './pages/RatesPage';
+import { ReconciliationPage } from './pages/ReconciliationPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { DeletionsPage } from './pages/DeletionsPage';
 import { EventEditPage } from './pages/EventEditPage';
@@ -36,12 +42,18 @@ const PAGES: Page[] = [
   { group: '', path: 'reports', label: 'Reports', area: 'reports', element: <ReportsPage /> },
   { group: 'Money', path: 'transactions', label: 'Transactions', area: 'money', element: <TransactionsPage /> },
   { group: 'Money', path: 'refunds', label: 'Refunds', area: 'money', element: <RefundsPage /> },
+  { group: 'Money', path: 'disputes', label: 'Disputes', area: 'money', element: <DisputesPage /> },
   { group: 'Money', path: 'settlements', label: 'Settlements', area: 'money', element: <SettlementsPage /> },
+  { group: 'Money', path: 'rates', label: 'Rates and tax', area: 'money', element: <RatesPage /> },
+  { group: 'Money', path: 'ledger', label: 'Ledger', area: 'money', element: <LedgerPage /> },
+  { group: 'Money', path: 'reconciliation', label: 'Reconciliation', area: 'money', element: <ReconciliationPage /> },
   { group: 'Customers', path: 'customers', label: 'Customers', area: 'customers', element: <CustomersPage /> },
   { group: 'Customers', path: 'members', label: 'Members', area: 'customers', element: <MembersPage /> },
   { group: 'Customers', path: 'deletions', label: 'Deletion requests', area: 'customers', element: <DeletionsPage /> },
   { group: 'Partners', path: 'applications', label: 'Applications', area: 'partners', element: <ApplicationsPage /> },
   { group: 'Partners', path: 'businesses', label: 'Businesses', area: 'partners', element: <BusinessesPage /> },
+  { group: 'Partners', path: 'kyc', label: 'KYC and bank', area: 'partners', element: <KycPage /> },
+  { group: 'Partners', path: 'agreement', label: 'Merchant agreement', area: 'partners', element: <AgreementsPage /> },
   { group: 'Reviews', path: 'offers', label: 'Offer review', area: 'content', element: <OfferReviewPage /> },
   { group: 'Reviews', path: 'promotions', label: 'Promotion review', area: 'content', element: <PromotionReviewPage /> },
   { group: 'Reviews', path: 'events', label: 'Events', area: 'content', element: <EventsPage /> },

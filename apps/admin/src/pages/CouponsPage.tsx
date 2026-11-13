@@ -9,7 +9,7 @@ type Draft = {
   id: string | null; code: string; title: string; description: string; memberOnly: boolean; kinds: CouponKind[]; rule: RuleDraft; firstBookingOnly: boolean; maxUses: string; terms: string;
   startsAt: string; endsAt: string; active: boolean;
 };
-const KIND_LABEL: Record<CouponKind, string> = { movie: 'Movies', tickets: 'Events', slots: 'Court bookings', pass: 'Memberships' };
+const KIND_LABEL: Record<CouponKind, string> = { movie: 'Movies', tickets: 'Events', slots: 'Court bookings', pass: 'Memberships', bill: 'Bills' };
 const blank = (): Draft => ({ id: null, code: '', title: '', description: '', memberOnly: false, kinds: ['movie', 'tickets'], rule: emptyRule(), firstBookingOnly: false, maxUses: '', terms: '', startsAt: nowLocal(), endsAt: nowLocal(90), active: true });
 
 function status(c: Coupon): { label: string; tone: 'success' | 'warning' | 'muted' } {
@@ -121,6 +121,7 @@ export function CouponsPage() {
                 <label className="check"><input type="checkbox" checked={draft.kinds.includes('tickets')} onChange={(e) => toggleKind('tickets', e.target.checked)} /> Event tickets</label>
                 <label className="check"><input type="checkbox" checked={draft.kinds.includes('slots')} onChange={(e) => toggleKind('slots', e.target.checked)} /> Court and class bookings</label>
                 <label className="check"><input type="checkbox" checked={draft.kinds.includes('pass')} onChange={(e) => toggleKind('pass', e.target.checked)} /> Gym and studio memberships</label>
+                <label className="check"><input type="checkbox" checked={draft.kinds.includes('bill')} onChange={(e) => toggleKind('bill', e.target.checked)} /> Restaurant, salon and shop bills</label>
                 <label className="check"><input type="checkbox" checked={draft.memberOnly} onChange={(e) => setDraft({ ...draft, memberOnly: e.target.checked })} /> VIBE members only</label>
                 <label className="check"><input type="checkbox" checked={draft.firstBookingOnly} onChange={(e) => setDraft({ ...draft, firstBookingOnly: e.target.checked })} /> First booking only</label>
               </div>

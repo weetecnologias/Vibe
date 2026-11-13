@@ -55,7 +55,8 @@ public class AdminAccess {
         String p = path.substring("/v1/admin".length());
         if (p.startsWith("/access")) return null;
         if (p.startsWith("/overview") || p.startsWith("/reports")) return "reports";
-        if (p.startsWith("/applications") || p.startsWith("/businesses")) return "partners";
+        if (p.contains("/adjustments") || p.startsWith("/rate-cards") || p.startsWith("/ledger") || p.startsWith("/reconciliation") || p.startsWith("/disputes")) return "money";
+        if (p.startsWith("/applications") || p.startsWith("/businesses") || p.startsWith("/kyc") || p.startsWith("/agreements")) return "partners";
         if (p.startsWith("/offers") || p.startsWith("/promotions") || p.startsWith("/events") || p.startsWith("/reviews")) return "content";
         if (p.startsWith("/customers") || p.startsWith("/members") || p.startsWith("/deletion-requests") || p.startsWith("/exports/members") || p.startsWith("/exports/customers")) return "customers";
         if (p.startsWith("/transactions") || p.startsWith("/settlements") || p.startsWith("/refunds") || p.startsWith("/exports")) return "money";
