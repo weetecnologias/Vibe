@@ -1,0 +1,769 @@
+{
+  "ranAt": "2026-11-14T04:22:23.478Z",
+  "api": "http://localhost:8090",
+  "results": [
+    {
+      "section": "1. Accounts and roles",
+      "name": "Super admin signs in",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Every merchant login signs in",
+      "ok": true,
+      "detail": "78 of 78 logins"
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Every business has an owner login",
+      "ok": true,
+      "detail": "77 businesses, 77 listed"
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Merchants are grouped by category",
+      "ok": true,
+      "detail": "Food & Dining 14, Shopping 22, Fitness & Wellness 11, Beauty & Personal Care 5, Kids & Family 15, Events & Experiences 0, Movies 10, VIBE Social 0, Offers & Benefits 0"
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Every VIBE team login signs in",
+      "ok": true,
+      "detail": "admin@vibe.local (super_admin), ceo@vibe.local (admin), beauty-manager@vibe.local (staff), events-manager@vibe.local (staff), fitness-manager@vibe.local (staff), food-manager@vibe.local (staff), kids-manager@vibe.local (staff), movies-manager@vibe.local (staff), shopping-manager@vibe.local (staff), finance@vibe.local (staff), support@vibe.local (staff)"
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "CEO (admin) sees everything, including the VIBE team page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Finance opens money checks",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Finance can’t manage the VIBE team",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Support opens disputes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Support can’t change categories",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Food & Dining manager sees only Food & Dining businesses",
+      "ok": true,
+      "detail": "14 businesses"
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "Category managers don’t get the money checks",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "A merchant can’t open the admin API",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "1. Accounts and roles",
+      "name": "An admin can’t use the merchant API",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "2. Commission set by VIBE",
+      "name": "Admin sets a 10% platform commission (rate card)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "2. Commission set by VIBE",
+      "name": "Admin sets GST on commission to 18%",
+      "ok": true,
+      "detail": "{\"commissionGstBps\":1800}"
+    },
+    {
+      "section": "2. Commission set by VIBE",
+      "name": "GST on commission",
+      "ok": null,
+      "detail": "18%"
+    },
+    {
+      "section": "3. Customers and VIBE Membership",
+      "name": "Members show as members",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "3. Customers and VIBE Membership",
+      "name": "Non-members show as not members",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "3. Customers and VIBE Membership",
+      "name": "A lapsed membership shows as not a member",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "3. Customers and VIBE Membership",
+      "name": "Member can use the member-only offer",
+      "ok": true,
+      "detail": "Members save 30%"
+    },
+    {
+      "section": "3. Customers and VIBE Membership",
+      "name": "Non-member is told it’s for members",
+      "ok": true,
+      "detail": "This offer is for VIBE members."
+    },
+    {
+      "section": "3. Customers and VIBE Membership",
+      "name": "Non-member buys VIBE Membership (₹299/month) and pays",
+      "ok": true,
+      "detail": "VB-4RXV-H7HT"
+    },
+    {
+      "section": "3. Customers and VIBE Membership",
+      "name": "Admin sees the new member and the fee as VIBE’s income",
+      "ok": true,
+      "detail": "members 4 → 5, fees ₹3,597 → ₹3,896"
+    },
+    {
+      "section": "3. Customers and VIBE Membership",
+      "name": "Admin lists customers who registered but never took membership",
+      "ok": true,
+      "detail": "2 customers"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Dine-in: the merchant sees the customer waiting for the bill",
+      "ok": true,
+      "detail": "Priya Sharma · VIBE ID 600101"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Dine-in: the merchant sends a ₹1,500 bill",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Dine-in: the customer is notified the bill is ready",
+      "ok": true,
+      "detail": "Your bill from Saffron Courtyard is ready"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Dine-in: the member offer (30%) is on the bill",
+      "ok": true,
+      "detail": "discount ₹450, pays ₹1,050"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Dine-in: the merchant sees it paid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "A second payment for the same bill is refused",
+      "ok": true,
+      "detail": "already_paid"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "The same Pay tap repeated returns the same payment, not a new one",
+      "ok": true,
+      "detail": "VB-JU64-CBD6"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "The same transaction ID is in the customer’s, the merchant’s and the admin’s records",
+      "ok": true,
+      "detail": "VB-JU64-CBD6"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Merchant raises a bill from the customer’s VIBE ID; customer applies coupon SAVE100",
+      "ok": true,
+      "detail": "pays ₹1,100"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Pay at the counter: the customer shows a code, the merchant confirms it",
+      "ok": true,
+      "detail": "code 104311 at Dragon Lane"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Sports: the customer books two court slots",
+      "ok": true,
+      "detail": "Badminton · 6–7 AM, 7–8 AM · ₹1,000"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Sports: the venue sees the booking on its day sheet",
+      "ok": true,
+      "detail": "VBS-562X-ZHXK"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Gym: the customer buys a monthly membership",
+      "ok": true,
+      "detail": "Monthly unlimited · ₹2,999"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Gym: the studio sees the new member",
+      "ok": true,
+      "detail": "Sneha Iyer"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Events: the customer reserves 2 seats",
+      "ok": true,
+      "detail": "Biryani Masterclass · ₹1,998"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Events: the organiser sees the tickets sold",
+      "ok": true,
+      "detail": "{\"eventId\":\"eae7c509-1ff0-4bcd-91ce-490276999b79\",\"title\":\"Biryani Masterclass\",\"startsAt\":\"2026-11-20T14:30:00Z\",\"statu"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Café with KYC waiting can still take a payment",
+      "ok": true,
+      "detail": "VB-E9XZ-CRCM"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Movies: films, showtimes and seat booking",
+      "ok": null,
+      "detail": "NOT BUILT in the backend yet: no films or shows to book. Cinemas are listed and can take bills and offers."
+    },
+    {
+      "section": "5. Support: disputes and refunds",
+      "name": "Customer raises a dispute on a payment",
+      "ok": true,
+      "detail": "DSP-JSMSK4"
+    },
+    {
+      "section": "5. Support: disputes and refunds",
+      "name": "Support sees both disputes",
+      "ok": true,
+      "detail": "DSP-JSMSK4, DSP-E943FT"
+    },
+    {
+      "section": "5. Support: disputes and refunds",
+      "name": "The Food & Dining manager sees only the restaurant’s dispute",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "5. Support: disputes and refunds",
+      "name": "Support resolves it with a ₹250 refund, borne by the restaurant",
+      "ok": true,
+      "detail": "refund"
+    },
+    {
+      "section": "5. Support: disputes and refunds",
+      "name": "Support declines the other with a reason",
+      "ok": true,
+      "detail": "rejected"
+    },
+    {
+      "section": "5. Support: disputes and refunds",
+      "name": "Support marks the refund as sent with the partner’s reference",
+      "ok": true,
+      "detail": "{\"reference\":\"VB-QNFQ-VG72\",\"kind\":\"redemption\",\"payee\":\"Saffron Courtyard\",\"cus"
+    },
+    {
+      "section": "5. Support: disputes and refunds",
+      "name": "The customer is told",
+      "ok": true,
+      "detail": "Refund sent"
+    },
+    {
+      "section": "5. Support: disputes and refunds",
+      "name": "The refund comes off what VIBE owes the restaurant",
+      "ok": true,
+      "detail": "₹3,746.74 → ₹3,496.74"
+    },
+    {
+      "section": "6. Settlements: VIBE pays the merchants",
+      "name": "Finance sees what each merchant is owed",
+      "ok": true,
+      "detail": "Saffron Courtyard ₹3,496.74, Smash Arena ₹882, Pulse Studio ₹2,645.12, Brew & Bloom Café ₹564.48"
+    },
+    {
+      "section": "6. Settlements: VIBE pays the merchants",
+      "name": "Pay run: one settlement per merchant that can be paid",
+      "ok": true,
+      "detail": "Saffron Courtyard ₹3,496.74, Smash Arena ₹882, Pulse Studio ₹2,645.12"
+    },
+    {
+      "section": "6. Settlements: VIBE pays the merchants",
+      "name": "Pay run: the café without verified KYC is held back with the reason",
+      "ok": true,
+      "detail": "Brew & Bloom Café: KYC and bank details are submitted. Verify them first."
+    },
+    {
+      "section": "6. Settlements: VIBE pays the merchants",
+      "name": "Finance downloads the bank file (account, IFSC, amount)",
+      "ok": true,
+      "detail": "3 rows"
+    },
+    {
+      "section": "6. Settlements: VIBE pays the merchants",
+      "name": "Finance marks each one paid with the bank reference (UTR)",
+      "ok": true,
+      "detail": "ST-261114-9J5E NEFT5652530431, ST-261114-4CW6 NEFT2009641698, ST-261114-CCD3 NEFT4470305227"
+    },
+    {
+      "section": "6. Settlements: VIBE pays the merchants",
+      "name": "The merchant sees the settlement as paid, with the bank reference",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "6. Settlements: VIBE pays the merchants",
+      "name": "The held café’s payment shows as not settled yet",
+      "ok": true,
+      "detail": "₹564.48"
+    },
+    {
+      "section": "7. Money checks (gateway → escrow → merchants)",
+      "name": "Gateway report: every payment matched to VIBE’s records",
+      "ok": true,
+      "detail": "7 lines matched, ₹8,910.63 paid to escrow"
+    },
+    {
+      "section": "7. Money checks (gateway → escrow → merchants)",
+      "name": "Escrow statement: gateway money in and every payout out matched",
+      "ok": true,
+      "detail": "4 lines matched"
+    },
+    {
+      "section": "7. Money checks (gateway → escrow → merchants)",
+      "name": "All three money checks agree",
+      "ok": true,
+      "detail": "escrow by books ₹1,886.77, bank ₹1,886.77"
+    },
+    {
+      "section": "7. Money checks (gateway → escrow → merchants)",
+      "name": "The accounts balance (trial balance)",
+      "ok": true,
+      "detail": "debits ₹25,875.86 = credits ₹25,875.86"
+    },
+    {
+      "section": "8. What the admin sees",
+      "name": "Overview: a card per category with today’s sales",
+      "ok": true,
+      "detail": "Food & Dining 4 sales ₹4,888, Fitness & Wellness 2 sales ₹4,039"
+    },
+    {
+      "section": "8. What the admin sees",
+      "name": "To do: the café’s KYC waiting for review is listed",
+      "ok": true,
+      "detail": "2 items"
+    },
+    {
+      "section": "8. What the admin sees",
+      "name": "Excel: the merchant download has every business",
+      "ok": true,
+      "detail": "77 rows"
+    }
+  ],
+  "facts": {
+    "categories": [
+      {
+        "name": "Food & Dining",
+        "merchants": 14,
+        "verified": 12
+      },
+      {
+        "name": "Shopping",
+        "merchants": 22,
+        "verified": 22
+      },
+      {
+        "name": "Fitness & Wellness",
+        "merchants": 11,
+        "verified": 11
+      },
+      {
+        "name": "Beauty & Personal Care",
+        "merchants": 5,
+        "verified": 5
+      },
+      {
+        "name": "Kids & Family",
+        "merchants": 15,
+        "verified": 15
+      },
+      {
+        "name": "Events & Experiences",
+        "merchants": 0,
+        "verified": 0
+      },
+      {
+        "name": "Movies",
+        "merchants": 10,
+        "verified": 10
+      },
+      {
+        "name": "VIBE Social",
+        "merchants": 0,
+        "verified": 0
+      },
+      {
+        "name": "Offers & Benefits",
+        "merchants": 0,
+        "verified": 0
+      }
+    ],
+    "gstBps": 1800,
+    "membershipPayment": "VB-4RXV-H7HT",
+    "membership": {
+      "from": "2026-10-16",
+      "to": "2026-11-14",
+      "registered": 8,
+      "registeredInPeriod": 8,
+      "membersNow": 5,
+      "autoRenewing": 5,
+      "cancelledStillValid": 0,
+      "lapsed": 1,
+      "neverJoined": 2,
+      "joined": 4,
+      "renewed": 0,
+      "granted": 0,
+      "feesInPeriod": 389600,
+      "paymentsInPeriod": 4,
+      "feesAllTime": 419500,
+      "savedInPeriod": 0,
+      "plans": [
+        {
+          "name": "Monthly",
+          "price": 29900,
+          "period": "month",
+          "onSale": true,
+          "membersNow": 4,
+          "paidInPeriod": 3,
+          "feesInPeriod": 89700
+        },
+        {
+          "name": "Yearly",
+          "price": 299900,
+          "period": "year",
+          "onSale": true,
+          "membersNow": 1,
+          "paidInPeriod": 1,
+          "feesInPeriod": 299900
+        }
+      ]
+    },
+    "disputedPayment": "VB-QNFQ-VG72",
+    "slotPayment": "VB-7TM5-G29W",
+    "orders": [
+      {
+        "what": "Dine-in bill (member offer)",
+        "where": "Saffron Courtyard",
+        "who": "Priya Sharma",
+        "ref": "VB-JU64-CBD6",
+        "amount": 105000
+      },
+      {
+        "what": "Bill raised by the merchant + VIBE coupon",
+        "where": "Saffron Courtyard",
+        "who": "Fatima Khan",
+        "ref": "VB-QNFQ-VG72",
+        "amount": 110000
+      },
+      {
+        "what": "Court booking (2 slots)",
+        "where": "Smash Arena",
+        "who": "Rahul Verma",
+        "ref": "VB-7TM5-G29W",
+        "amount": 102000
+      },
+      {
+        "what": "Gym membership",
+        "where": "Pulse Studio",
+        "who": "Sneha Iyer",
+        "ref": "VB-F83J-4X9V",
+        "amount": 301900
+      },
+      {
+        "what": "Event tickets (2)",
+        "where": "Biryani Masterclass (Saffron Courtyard)",
+        "who": "Arjun Rao",
+        "ref": "VB-5QM8-ARUJ",
+        "amount": 199800
+      },
+      {
+        "what": "Café bill (KYC not verified yet)",
+        "where": "Brew & Bloom Café",
+        "who": "Kiran Kumar",
+        "ref": "VB-E9XZ-CRCM",
+        "amount": 64000
+      }
+    ],
+    "disputes": [
+      "DSP-JSMSK4",
+      "DSP-E943FT"
+    ],
+    "due": [
+      {
+        "name": "Saffron Courtyard",
+        "payments": 3,
+        "gross": 424800,
+        "fees": 0,
+        "commission": 42480,
+        "gst": 7646,
+        "refunds": 25000,
+        "payout": 349674,
+        "kyc": "verified"
+      },
+      {
+        "name": "Smash Arena",
+        "payments": 1,
+        "gross": 102000,
+        "fees": 2000,
+        "commission": 10000,
+        "gst": 1800,
+        "refunds": 0,
+        "payout": 88200,
+        "kyc": "verified"
+      },
+      {
+        "name": "Pulse Studio",
+        "payments": 1,
+        "gross": 301900,
+        "fees": 2000,
+        "commission": 29990,
+        "gst": 5398,
+        "refunds": 0,
+        "payout": 264512,
+        "kyc": "verified"
+      },
+      {
+        "name": "Brew & Bloom Café",
+        "payments": 1,
+        "gross": 64000,
+        "fees": 0,
+        "commission": 6400,
+        "gst": 1152,
+        "refunds": 0,
+        "payout": 56448,
+        "kyc": "submitted"
+      }
+    ],
+    "payRun": {
+      "created": [
+        {
+          "id": "0a3301dc-255b-4dc8-9ae8-f424cc15ebab",
+          "reference": "ST-261114-9J5E",
+          "businessId": "1c5eee9b-98af-4427-a0dd-430eb115b4e3",
+          "businessName": "Saffron Courtyard",
+          "periodFrom": "2026-11-14T04:22:03.850356Z",
+          "periodTo": "2026-11-14T04:22:21.81785Z",
+          "paymentCount": 3,
+          "gross": 424800,
+          "vibeFees": 0,
+          "commissionBps": 1000,
+          "commission": 42480,
+          "payout": 349674,
+          "customerSavings": 55000,
+          "status": "pending",
+          "createdAt": "2026-11-14T04:22:21.809374Z",
+          "paidAt": null,
+          "payoutRef": null,
+          "note": null,
+          "gst": 7646,
+          "refundDeductions": 25000,
+          "adjustments": 0
+        },
+        {
+          "id": "9784c3a5-e74f-4f0b-b289-99e8517f7eb5",
+          "reference": "ST-261114-4CW6",
+          "businessId": "032c7546-23ea-4ccd-a24f-cdbec735c68e",
+          "businessName": "Smash Arena",
+          "periodFrom": "2026-11-14T04:22:10.907776Z",
+          "periodTo": "2026-11-14T04:22:21.883377Z",
+          "paymentCount": 1,
+          "gross": 102000,
+          "vibeFees": 2000,
+          "commissionBps": 1000,
+          "commission": 10000,
+          "payout": 88200,
+          "customerSavings": 0,
+          "status": "pending",
+          "createdAt": "2026-11-14T04:22:21.876017Z",
+          "paidAt": null,
+          "payoutRef": null,
+          "note": null,
+          "gst": 1800,
+          "refundDeductions": 0,
+          "adjustments": 0
+        },
+        {
+          "id": "14d1f84b-a9d5-4a05-a65f-003d80673899",
+          "reference": "ST-261114-CCD3",
+          "businessId": "456bd532-fa0e-4c69-a9ff-76d6c8a4b596",
+          "businessName": "Pulse Studio",
+          "periodFrom": "2026-11-14T04:22:14.358536Z",
+          "periodTo": "2026-11-14T04:22:21.918819Z",
+          "paymentCount": 1,
+          "gross": 301900,
+          "vibeFees": 2000,
+          "commissionBps": 1000,
+          "commission": 29990,
+          "payout": 264512,
+          "customerSavings": 0,
+          "status": "pending",
+          "createdAt": "2026-11-14T04:22:21.90668Z",
+          "paidAt": null,
+          "payoutRef": null,
+          "note": null,
+          "gst": 5398,
+          "refundDeductions": 0,
+          "adjustments": 0
+        }
+      ],
+      "held": [
+        {
+          "businessId": "fe8bafc2-a8b0-4a2e-94e3-41ee34458775",
+          "businessName": "Brew & Bloom Café",
+          "amount": 56448,
+          "reason": "KYC and bank details are submitted. Verify them first."
+        }
+      ],
+      "total": 702386
+    },
+    "payouts": [
+      {
+        "name": "Saffron Courtyard",
+        "ref": "ST-261114-9J5E",
+        "utr": "NEFT5652530431",
+        "amount": 349674
+      },
+      {
+        "name": "Smash Arena",
+        "ref": "ST-261114-4CW6",
+        "utr": "NEFT2009641698",
+        "amount": 88200
+      },
+      {
+        "name": "Pulse Studio",
+        "ref": "ST-261114-CCD3",
+        "utr": "NEFT4470305227",
+        "amount": 264512
+      }
+    ],
+    "escrow": {
+      "awaitingGatewayCount": 0,
+      "awaitingGatewayAmount": 0,
+      "awaitingGatewaySince": null,
+      "gatewayLineProblems": 0,
+      "payoutsAwaitingBank": 0,
+      "payoutsAwaitingBankAmount": 0,
+      "payoutsMatched": 1,
+      "payoutsMismatched": 0,
+      "merchantPayoutsPaid": 3,
+      "merchantPayoutsInBank": 3,
+      "merchantPayoutsNotInBank": 0,
+      "merchantPayoutsNotInBankAmount": 0,
+      "unknownCredits": 0,
+      "unknownDebits": 0,
+      "atGateway": -25000,
+      "escrowBooks": 188677,
+      "escrowBank": 188677,
+      "statementTo": "2026-11-14",
+      "exceptions": []
+    },
+    "overview": [
+      {
+        "name": "Food & Dining",
+        "sales": 4,
+        "collected": 488800,
+        "toSettle": 56448,
+        "waiting": 2
+      },
+      {
+        "name": "Shopping",
+        "sales": 0,
+        "collected": 0,
+        "toSettle": 0,
+        "waiting": 0
+      },
+      {
+        "name": "Fitness & Wellness",
+        "sales": 2,
+        "collected": 403900,
+        "toSettle": 0,
+        "waiting": 0
+      },
+      {
+        "name": "Beauty & Personal Care",
+        "sales": 0,
+        "collected": 0,
+        "toSettle": 0,
+        "waiting": 0
+      },
+      {
+        "name": "Kids & Family",
+        "sales": 0,
+        "collected": 0,
+        "toSettle": 0,
+        "waiting": 0
+      },
+      {
+        "name": "Events & Experiences",
+        "sales": 0,
+        "collected": 0,
+        "toSettle": 0,
+        "waiting": 0
+      },
+      {
+        "name": "Movies",
+        "sales": 0,
+        "collected": 0,
+        "toSettle": 0,
+        "waiting": 0
+      },
+      {
+        "name": "VIBE Social",
+        "sales": 0,
+        "collected": 0,
+        "toSettle": 0,
+        "waiting": 0
+      },
+      {
+        "name": "Offers & Benefits",
+        "sales": 0,
+        "collected": 0,
+        "toSettle": 0,
+        "waiting": 0
+      }
+    ]
+  }
+}

@@ -65,7 +65,7 @@ public class Reconciliation {
         return out;
     }
 
-    private static int col(List<String> header, String... names) {
+    static int col(List<String> header, String... names) {
         for (int i = 0; i < header.size(); i++) {
             String h = header.get(i).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
             for (String n : names) if (h.equals(n)) return i;

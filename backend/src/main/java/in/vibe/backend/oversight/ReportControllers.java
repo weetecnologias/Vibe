@@ -23,8 +23,10 @@ public class ReportControllers {
     private final Reports reports;
     private final Refunds refunds;
     private final AdminAccess access;
+    private final MembershipStats membership;
 
-    ReportControllers(Reports reports, Refunds refunds, AdminAccess access) {
+    ReportControllers(Reports reports, Refunds refunds, AdminAccess access, MembershipStats membership) {
+        this.membership = membership;
         this.reports = reports;
         this.refunds = refunds;
         this.access = access;
@@ -52,6 +54,13 @@ public class ReportControllers {
 
     @GetMapping("/v1/admin/reports/members.csv")
     ResponseEntity<byte[]> membersCsv() { return reports.membersCsv(); }
+
+    // ---------- VIBE Membership (VIBE-wide; under /members, so it needs the customers area) ----------
+    @GetMapping("/v1/admin/membership/summary")
+    MembershipStats.Summary membership(@RequestParam(required = false) String from, @RequestParam(required = false) String to) { return membership.summary(day(from), day(to)); }
+
+    @GetMapping("/v1/admin/membership/summary.csv")
+    ResponseEntity<byte[]> membershipCsv(@RequestParam(required = false) String from, @RequestParam(required = false) String to) { return membership.csv(day(from), day(to)); }
 
     // ---------- refunds ----------
     @GetMapping("/v1/admin/refunds")

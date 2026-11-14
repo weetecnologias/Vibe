@@ -74,7 +74,7 @@ public class SettlementControllers {
         ResponseEntity<byte[]> members(@RequestParam(required = false) String status, @RequestParam(required = false) String q) { return exports.members(status, q); }
 
         @GetMapping("/v1/admin/exports/customers")
-        ResponseEntity<byte[]> customers(@RequestParam(required = false) String q) { return exports.customers(q); }
+        ResponseEntity<byte[]> customers(@RequestParam(required = false) String q, @RequestParam(required = false) String membership) { return exports.customers(q, membership); }
 
         @GetMapping("/v1/admin/exports/settlements")
         ResponseEntity<byte[]> settlementList(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status) { return exports.settlementList(status, adminAccess.businessScope(StaffPrincipal.from(jwt), "b.id")); }

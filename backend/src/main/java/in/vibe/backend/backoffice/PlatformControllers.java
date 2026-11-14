@@ -185,7 +185,9 @@ public class PlatformControllers {
         AdminOversight.Overview overview() { return oversight.overview(); }
 
         @GetMapping("/customers")
-        AdminOversight.CustomerPage customers(@RequestParam(required = false) String q, @RequestParam(defaultValue = "25") int limit, @RequestParam(defaultValue = "0") int offset) { return oversight.customers(q, limit, offset); }
+        AdminOversight.CustomerPage customers(@RequestParam(required = false) String q, @RequestParam(required = false) String membership, @RequestParam(defaultValue = "25") int limit, @RequestParam(defaultValue = "0") int offset) {
+            return oversight.customers(q, membership, limit, offset);
+        }
 
         @GetMapping("/customers/{id}")
         AdminOversight.CustomerDetail customer(@PathVariable String id) { return oversight.customer(uuid(id)); }

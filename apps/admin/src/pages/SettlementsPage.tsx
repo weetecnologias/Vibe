@@ -9,6 +9,14 @@ import { useWorkspace } from '../workspace';
 
 type Tab = 'due' | 'pending' | 'paid';
 
+/** The weekly pay cycle: payments up to the end of last Sunday, India time, are paid the following week. */
+function endOfLastWeek(): string {
+  const now = new Date(Date.now() + 330 * 60_000); // India time, read through UTC fields
+  const daysSinceMonday = (now.getUTCDay() + 6) % 7;
+  const monday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday);
+  return new Date(monday - 330 * 60_000).toISOString(); // Monday 00:00 India time = the end of Sunday
+}
+
 /**
  * Paying merchants. Every confirmed payment at a business is owed to it, less VIBE's fee and commission. "To settle" shows what each business is owed;
  * drawing up a settlement fixes that list (a payment is never settled twice) and tells the merchant; recording the bank transfer marks it paid and tells them again.
@@ -26,6 +34,7 @@ export function SettlementsPage() {
   const { current } = useWorkspace();
   const [held, setHeld] = useState<PayRunHeld[]>([]);
   const [running, setRunning] = useState(false);
+  const [cutoff, setCutoff] = useState<'week' | 'now'>('week');
   const [runError, setRunError] = useState<string | null>(null);
   const totalDue = (due.data ?? []).reduce((n, d) => n + d.payout, 0);
   const totalShown = (list.data ?? []).reduce((n, s) => n + s.payout, 0);
@@ -37,7 +46,7 @@ export function SettlementsPage() {
     setRunning(true);
     setRunError(null);
     try {
-      const r = await client.post<PayRunResult>('/v1/admin/settlements/run', { businessIds: ready.map((d) => d.businessId) });
+      const r = await client.post<PayRunResult>('/v1/admin/settlements/run', { businessIds: ready.map((d) => d.businessId), upTo: cutoff === 'week' ? endOfLastWeek() : null });
       setHeld(r.held);
       setNotice(`Pay run created: ${r.created.length} settlement${r.created.length === 1 ? '' : 's'}, ${formatINR(r.total)}. Each business has been told. Next, download the bank file and pay them.`);
       setTab('pending');
@@ -76,6 +85,7 @@ export function SettlementsPage() {
             </div>
             <div className="row">
               <DownloadButton path="/v1/admin/exports/settlements-due" filename="vibe-to-settle.csv" label="Download Excel" />
+              <select aria-label="Pay payments up to" style={{ maxWidth: 230 }} value={cutoff} onChange={(e) => setCutoff(e.target.value as 'week' | 'now')}><option value="week">Payments up to last Sunday</option><option value="now">Every payment so far</option></select>
               <button className="btn primary" disabled={running || ready.length === 0} onClick={runPay}>{running ? 'Creating…' : `Create pay run (${ready.length})`}</button>
             </div>
           </div>

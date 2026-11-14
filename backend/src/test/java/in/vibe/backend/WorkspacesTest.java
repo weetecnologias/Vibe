@@ -78,6 +78,21 @@ class WorkspacesTest extends ApiTestSupport {
         mvc.perform(as(a, in(dine, get("/v1/admin/merchants")))).andExpect(jsonPath("$.total", is(1))).andExpect(jsonPath("$.rows[0].id", is(cafe.biz())))
                 .andExpect(jsonPath("$.rows[0].kycStatus", is("verified"))).andExpect(jsonPath("$.rows[0].owed", greaterThan(0)));
         mvc.perform(as(a, in(dine, get("/v1/admin/merchants")).param("kyc", "submitted"))).andExpect(jsonPath("$.total", is(0)));
+
+        // Merchants open on categories: each with its businesses, how many have verified KYC and bank details, and the money.
+        mvc.perform(as(a, get("/v1/admin/merchants/categories")))
+                .andExpect(jsonPath("$.rows[?(@.id=='" + dine + "')].merchants", hasItem(1))).andExpect(jsonPath("$.rows[?(@.id=='" + dine + "')].kycVerified", hasItem(1)))
+                .andExpect(jsonPath("$.rows[?(@.id=='" + dine + "')].received", hasItem(140000))).andExpect(jsonPath("$.rows[?(@.id=='" + sport + "')].kycNotSent", hasItem(1)));
+        mvc.perform(as(a, get("/v1/admin/merchants/categories").param("parent", dine))).andExpect(jsonPath("$.parentName", is(dineName))).andExpect(jsonPath("$.rows[0].id", is(cafes)))
+                .andExpect(jsonPath("$.total.merchants", is(1)));
+        // Open a category: its merchants only, with the category they sit under.
+        mvc.perform(as(a, get("/v1/admin/merchants").param("category", dine))).andExpect(jsonPath("$.total", is(1))).andExpect(jsonPath("$.rows[0].topCategory", is(dineName)))
+                .andExpect(jsonPath("$.rows[0].category", is(cafesName))).andExpect(jsonPath("$.rows[0].received", is(140000)));
+        String all = mvc.perform(as(a, get("/v1/admin/merchants.csv").param("category", dine))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(all.contains("XXXX9012") && all.contains("ABCPE1234F") && !all.contains("123456789012"), all);
+        // Payments a merchant received, and whether each one has been settled.
+        mvc.perform(as(a, get("/v1/admin/merchants/" + cafe.biz() + "/payments"))).andExpect(jsonPath("$.total", is(2))).andExpect(jsonPath("$.notSettled", is(2)))
+                .andExpect(jsonPath("$.rows[0].amount", is(70000))).andExpect(jsonPath("$.rows[0].settlementStatus").doesNotExist());
         mvc.perform(as(a, get("/v1/admin/merchants/" + cafe.biz()))).andExpect(jsonPath("$.categoryPath", is(dineName + " › " + cafesName))).andExpect(jsonPath("$.kyc.status", is("verified")))
                 .andExpect(jsonPath("$.kyc.bankAccountNo", is("123456789012"))).andExpect(jsonPath("$.money.unsettled.count", is(2))).andExpect(jsonPath("$.liveOffers", is(1)));
 
@@ -104,6 +119,10 @@ class WorkspacesTest extends ApiTestSupport {
         mvc.perform(as(a, in(dine, get("/v1/admin/settlements")).param("status", "pending"))).andExpect(jsonPath("$[*].businessId", hasItem(cafe.biz())))
                 .andExpect(jsonPath("$[*].businessId", not(hasItem(court.biz()))));
         // In Sport the court is held back until its KYC is verified, with the reason.
+        mvc.perform(as(a, get("/v1/admin/merchants/" + cafe.biz() + "/payments"))).andExpect(jsonPath("$.notSettled", is(0))).andExpect(jsonPath("$.rows[0].settlementStatus", is("pending")));
+        mvc.perform(as(a, get("/v1/admin/merchants/" + cafe.biz() + "/payments").param("settled", "no"))).andExpect(jsonPath("$.total", is(0)));
+        String paymentsCsv = mvc.perform(as(a, get("/v1/admin/merchants/" + cafe.biz() + "/payments.csv"))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(paymentsCsv.contains("Waiting for bank transfer"), paymentsCsv);
         mvc.perform(as(a, in(sport, post("/v1/admin/settlements/run")).content("{}"))).andExpect(jsonPath("$.created", empty())).andExpect(jsonPath("$.held[0].businessId", is(court.biz())))
                 .andExpect(jsonPath("$.held[0].reason", containsString("KYC")));
         mvc.perform(as(a, in(dine, get("/v1/admin/balances")))).andExpect(jsonPath("$.rows[0].awaitingPayout", greaterThan(0)));

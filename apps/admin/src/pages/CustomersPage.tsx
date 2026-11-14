@@ -61,7 +61,7 @@ export function CustomersPage() {
   );
 }
 
-function CustomerModal({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+export function CustomerModal({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
   const { client } = useAuth();
   const c = useAsync(() => client.get<CustomerDetail>(`/v1/admin/customers/${id}`), [client, id]);
   const plans = useAsync(() => client.get<Plan[]>('/v1/admin/plans'), [client]);

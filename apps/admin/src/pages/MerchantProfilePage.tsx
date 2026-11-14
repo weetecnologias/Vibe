@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 
-import { Badge, Loading, Notice, PageHead, bpsToPercent, formatINR, showDateTime, useAsync, useAuth, type MerchantProfile } from '@kit';
+import { Badge, DownloadButton, Loading, Notice, PageHead, bpsToPercent, formatINR, showDateTime, useAsync, useAuth, type MerchantPayments, type MerchantProfile } from '@kit';
 
 import { useAccess } from '../access';
 import { KycReview } from './KycPage';
 import { AgreementBadge, KycBadge } from './MerchantsPage';
 import { SettlementModal } from './SettlementsPage';
 
-type Tab = 'overview' | 'kyc' | 'agreement' | 'settlements';
-const TABS: { key: Tab; label: string }[] = [{ key: 'overview', label: 'Overview' }, { key: 'kyc', label: 'KYC and bank' }, { key: 'agreement', label: 'Agreement' }, { key: 'settlements', label: 'Settlements' }];
+type Tab = 'overview' | 'payments' | 'settlements' | 'kyc' | 'agreement';
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'overview', label: 'Overview' }, { key: 'payments', label: 'Payments received' }, { key: 'settlements', label: 'Settlements' }, { key: 'kyc', label: 'KYC and bank' }, { key: 'agreement', label: 'Agreement' },
+];
 
 /**
  * Everything about one business in one place: where it came from (its application), its KYC and bank details (checked and verified here),
@@ -96,6 +98,8 @@ export function MerchantProfilePage() {
             </div>
           ) : null}
 
+          {tab === 'payments' ? <PaymentsReceived businessId={m.id} name={m.name} onOpenSettlement={setOpen} canMoney={me.can('money')} /> : null}
+
           {tab === 'settlements' ? (
             <div className="table-wrap">
               <table>
@@ -120,5 +124,67 @@ export function MerchantProfilePage() {
         </>
       )}
     </>
+  );
+}
+
+const KIND: Record<string, string> = { redemption: 'Bill', tickets: 'Event tickets', movie: 'Movie tickets', slots: 'Booking', pass: 'Membership' };
+type Settled = '' | 'no' | 'pending' | 'paid';
+const SETTLED: { key: Settled; label: string }[] = [{ key: '', label: 'All' }, { key: 'no', label: 'Not settled yet' }, { key: 'pending', label: 'Waiting for bank transfer' }, { key: 'paid', label: 'Paid out' }];
+const PAGE = 50;
+
+/** Every payment the business received through VIBE, its share of each, and whether that share has been settled and paid. */
+function PaymentsReceived({ businessId, name, onOpenSettlement, canMoney }: { businessId: string; name: string; onOpenSettlement: (id: string) => void; canMoney: boolean }) {
+  const { client } = useAuth();
+  const [settled, setSettled] = useState<Settled>('');
+  const [offset, setOffset] = useState(0);
+  const p = useAsync(() => client.get<MerchantPayments>(`/v1/admin/merchants/${businessId}/payments?limit=${PAGE}&offset=${offset}${settled ? `&settled=${settled}` : ''}`), [client, businessId, settled, offset]);
+  const d = p.data;
+  const total = d?.total ?? 0;
+  return (
+    <div className="stack">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <span className="small">{d ? (d.notSettled ? <>{d.notSettled} payments not settled yet: <strong>{formatINR(d.notSettledAmount)}</strong> owed to {name}.</> : 'Every payment is in a settlement.') : ''}</span>
+        <DownloadButton small path={`/v1/admin/merchants/${businessId}/payments.csv${settled ? `?settled=${settled}` : ''}`} filename={`vibe-payments-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`} label="Download Excel" />
+      </div>
+      <div className="tabs" role="tablist" aria-label="Settled">
+        {SETTLED.map((t) => <button key={t.label} role="tab" aria-selected={settled === t.key} className={`tab${settled === t.key ? ' on' : ''}`} onClick={() => { setSettled(t.key); setOffset(0); }}>{t.label}</button>)}
+      </div>
+      {p.error ? <Notice tone="error">{p.error}</Notice> : null}
+      {p.loading && !d ? <Loading /> : (
+        <>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Transaction</th><th>Customer</th><th>Paid</th><th>VIBE keeps</th><th>Their share</th><th>Settled?</th></tr></thead>
+              <tbody>
+                {d?.rows.map((x) => (
+                  <tr key={x.reference}>
+                    <td><strong>{x.reference}</strong><div className="muted small">{showDateTime(x.paidAt)} · {KIND[x.kind] ?? x.kind}{x.what ? ` · ${x.what}` : ''}</div></td>
+                    <td className="small">{x.customerName}<div className="muted">VIBE ID {x.vibeId}</div></td>
+                    <td>{formatINR(x.amount)}</td>
+                    <td className="small">{formatINR(x.vibeFee + x.commission + x.gst)}{x.refund ? <div className="muted">refund − {formatINR(x.refund)}</div> : null}</td>
+                    <td><strong>{formatINR(x.payout)}</strong></td>
+                    <td>
+                      {x.refundedInFull ? <Badge>Refunded in full</Badge>
+                        : x.settlementStatus === 'paid' ? <><Badge tone="success">Paid out</Badge><div className="muted small">{x.settlementPaidAt ? showDateTime(x.settlementPaidAt) : ""} · {x.payoutRef}</div></>
+                        : x.settlementStatus === 'pending' ? <Badge tone="warning">Waiting for bank transfer</Badge>
+                        : <Badge>Not settled yet</Badge>}
+                      {x.settlementId && canMoney ? <div><button type="button" className="link-btn small" onClick={() => onOpenSettlement(x.settlementId!)}>{x.settlementRef}</button></div> : null}
+                    </td>
+                  </tr>
+                ))}
+                {d && d.rows.length === 0 ? <tr><td colSpan={6} className="muted">No payments here.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+          <div className="pager">
+            <span className="muted small">{total === 0 ? '' : `${offset + 1}–${Math.min(offset + PAGE, total)} of ${total}`}</span>
+            <div className="row">
+              <button className="btn sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>Previous</button>
+              <button className="btn sm" disabled={offset + PAGE >= total} onClick={() => setOffset(offset + PAGE)}>Next</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

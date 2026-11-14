@@ -39,6 +39,7 @@ describe('formatINR', () => {
     expect(formatINR(150000)).toBe('₹1,500');
     expect(formatINR(12345678900)).toBe('₹12,34,56,789');
     expect(formatINR(9950)).toBe('₹99.50');
+    expect(formatINR(-4862)).toBe('−₹48.62');
     expect(formatINR(0)).toBe('₹0');
     expect(formatINR(100000)).toBe('₹1,000');
   });

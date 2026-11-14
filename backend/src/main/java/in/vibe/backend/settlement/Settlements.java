@@ -166,7 +166,7 @@ public class Settlements {
         jdbc.sql("update settlements set status = 'paid', paid_at = now(), paid_by = :by, payout_ref = :r, note = :n where id = :id and status = 'pending'")
                 .param("by", who.id()).param("r", in.payoutRef().trim()).param("n", in.note() == null || in.note().isBlank() ? null : in.note().trim()).param("id", id).update();
         ledger.post("payout", "settlement", s.reference(), "Paid to " + s.businessName() + ", bank ref " + in.payoutRef().trim(),
-                List.of(Ledger.Line.dr(Ledger.merchant(UUID.fromString(s.businessId())), s.payout()), Ledger.Line.cr("gateway", s.payout())));
+                List.of(Ledger.Line.dr(Ledger.merchant(UUID.fromString(s.businessId())), s.payout()), Ledger.Line.cr("escrow_bank", s.payout())));
         audit.record(who, "paid", "settlement", id, s.reference() + " ref " + in.payoutRef().trim());
         staffNotifications.toBusiness(UUID.fromString(s.businessId()), "settlement_paid", "Paid: " + inr(s.payout()) + " for " + s.reference(),
                 "Bank reference " + in.payoutRef().trim() + ". It may take a working day to show in your account.", "/settlements");

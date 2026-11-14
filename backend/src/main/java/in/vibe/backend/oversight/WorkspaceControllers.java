@@ -53,14 +53,32 @@ public class WorkspaceControllers {
 
     @GetMapping("/v1/admin/merchants")
     Workspaces.MerchantPage merchants(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String q, @RequestParam(required = false) String kyc, @RequestParam(required = false) String agreement,
-                                      @RequestParam(required = false) Boolean live, @RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "0") int offset) {
-        return workspaces.merchants(StaffPrincipal.from(jwt), q, kyc, agreement, live, limit, offset);
+                                      @RequestParam(required = false) Boolean live, @RequestParam(required = false) String category, @RequestParam(defaultValue = "50") int limit,
+                                      @RequestParam(defaultValue = "0") int offset) {
+        return workspaces.merchants(StaffPrincipal.from(jwt), q, kyc, agreement, live, category, limit, offset);
     }
 
     @GetMapping("/v1/admin/merchants.csv")
     ResponseEntity<byte[]> merchantsCsv(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String q, @RequestParam(required = false) String kyc, @RequestParam(required = false) String agreement,
-                                        @RequestParam(required = false) Boolean live) {
-        return workspaces.merchantsCsv(StaffPrincipal.from(jwt), q, kyc, agreement, live);
+                                        @RequestParam(required = false) Boolean live, @RequestParam(required = false) String category) {
+        return workspaces.merchantsCsv(StaffPrincipal.from(jwt), q, kyc, agreement, live, category);
+    }
+
+    @GetMapping("/v1/admin/merchants/categories")
+    Workspaces.MerchantCategories merchantCategories(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String parent) { return workspaces.merchantCategories(StaffPrincipal.from(jwt), parent); }
+
+    @GetMapping("/v1/admin/merchants/categories.csv")
+    ResponseEntity<byte[]> merchantCategoriesCsv(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String parent) { return workspaces.merchantCategoriesCsv(StaffPrincipal.from(jwt), parent); }
+
+    @GetMapping("/v1/admin/merchants/{id}/payments")
+    Workspaces.MerchantPayments merchantPayments(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestParam(required = false) String settled,
+                                                 @RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "0") int offset) {
+        return workspaces.merchantPayments(StaffPrincipal.from(jwt), uuid(id), settled, limit, offset);
+    }
+
+    @GetMapping("/v1/admin/merchants/{id}/payments.csv")
+    ResponseEntity<byte[]> merchantPaymentsCsv(@AuthenticationPrincipal Jwt jwt, @PathVariable String id, @RequestParam(required = false) String settled) {
+        return workspaces.merchantPaymentsCsv(StaffPrincipal.from(jwt), uuid(id), settled);
     }
 
     @GetMapping("/v1/admin/merchants/{id}")

@@ -46,10 +46,12 @@ class DevSeed implements ApplicationRunner {
     private final tools.jackson.databind.json.JsonMapper json;
     private final in.vibe.backend.compliance.Agreements agreements;
     private final in.vibe.backend.finance.RateCards rateCards;
+    private final in.vibe.backend.backoffice.AdminTeam team;
 
     DevSeed(JdbcClient jdbc, StaffService staff, Categories categories, BusinessStore businesses, MenuAndOffers menuAndOffers, OfferReview offerReview, Coupons coupons, Events events,
             HomeContent home, Plans plans, @Value("${vibe.dev.seed-password}") String password, tools.jackson.databind.json.JsonMapper json,
-            in.vibe.backend.compliance.Agreements agreements, in.vibe.backend.finance.RateCards rateCards) {
+            in.vibe.backend.compliance.Agreements agreements, in.vibe.backend.finance.RateCards rateCards, in.vibe.backend.backoffice.AdminTeam team) {
+        this.team = team;
         this.json = json;
         this.agreements = agreements;
         this.rateCards = rateCards;
@@ -89,6 +91,55 @@ class DevSeed implements ApplicationRunner {
         jdbc.sql("insert into business_kyc (business_id, legal_name, pan, fssai, bank_account_name, bank_account_no, bank_ifsc, bank_name, status, reviewed_at, reviewed_by) "
                 + "select u.business_id, b.name, 'ABCPE1234F', case when c.slug = 'food' or c.slug like 'food.%' then '12345678901234' end, b.name, '123456789012', 'HDFC0001234', 'Sample Bank', 'verified', now(), :by "
                 + "from staff_users u join businesses b on b.id = u.business_id join categories c on c.id = b.primary_category_id where u.role = 'MERCHANT' and u.owner on conflict do nothing").param("by", admin.id()).update();
+    }
+
+    /** name@vibe.local for a business name: "Brew & Bloom Café" → brew.and.bloom.cafe@vibe.local. */
+    static String loginFor(String name) {
+        String plain = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return plain.toLowerCase(java.util.Locale.ROOT).replace("&", " and ").replace("'", "").replaceAll("[^a-z0-9]+", ".").replaceAll("^\\.|\\.$", "") + "@vibe.local";
+    }
+
+    /** An owner login for every seeded business, so each category and subcategory can be tried from the merchant side (development only). */
+    private void merchantLogins(StaffPrincipal admin, DemoCatalogue demo) {
+        java.util.Set<String> haveOne = java.util.Set.of("Saffron Courtyard", "Smash Arena", "Pulse Studio");
+        for (var e : new java.util.TreeMap<>(demo.byName).entrySet()) {
+            if (haveOne.contains(e.getKey())) continue;
+            staff.createMerchant(admin, e.getValue(), new StaffService.NewMerchant(loginFor(e.getKey()), e.getKey() + " owner", password));
+        }
+    }
+
+    /** VIBE's own team: the CEO (admin), finance, support, and a manager for each category that has businesses (development only). */
+    private void vibeTeam(StaffPrincipal admin) {
+        team.add(admin, new in.vibe.backend.backoffice.AdminTeam.NewMember("ceo@vibe.local", "VIBE CEO", password, "admin", List.of(), List.of()));
+        team.add(admin, new in.vibe.backend.backoffice.AdminTeam.NewMember("finance@vibe.local", "VIBE Finance", password, "staff", List.of("money", "reports"), List.of()));
+        team.add(admin, new in.vibe.backend.backoffice.AdminTeam.NewMember("support@vibe.local", "VIBE Support", password, "staff", List.of("customers", "money", "content"), List.of()));
+        for (var c : jdbc.sql("select id, slug, name from categories where parent_id is null and slug not in ('social', 'offers') order by sort_order").query((rs, i) -> new String[]{rs.getString(1), rs.getString(2), rs.getString(3)}).list()) {
+            team.add(admin, new in.vibe.backend.backoffice.AdminTeam.NewMember(c[1].replaceAll("[^a-z0-9]+", "-") + "-manager@vibe.local", c[2] + " manager", password, "staff",
+                    List.of("partners", "content", "money", "reports"), List.of(c[0])));
+        }
+    }
+
+    /** Customers to try membership with: members (monthly and yearly), one whose membership ended, and people who never joined (development only). */
+    private void testCustomers() {
+        String[][] people = {
+                {"9000000101", "Priya Sharma", "Banjara Hills", "month"}, {"9000000102", "Rahul Verma", "Gachibowli", "year"}, {"9000000103", "Sneha Iyer", "Madhapur", "month"},
+                {"9000000104", "Arjun Rao", "Kondapur", ""}, {"9000000105", "Fatima Khan", "Begumpet", ""}, {"9000000106", "Kiran Kumar", "Kukatpally", ""},
+                {"9000000107", "Ananya Reddy", "Hitech City", "lapsed"}};
+        int n = 0;
+        for (String[] p : people) {
+            String vibeId = String.valueOf(600101 + n++);
+            UUID id = jdbc.sql("insert into customers (id, phone, name, vibe_id, area) values (:id, :p, :n, :v, :a) on conflict (phone) do update set name = excluded.name returning id")
+                    .param("id", UUID.randomUUID()).param("p", p[0]).param("n", p[1]).param("v", vibeId).param("a", p[2]).query(UUID.class).single();
+            if (p[3].isEmpty()) continue;
+            String interval = "lapsed".equals(p[3]) ? "month" : p[3];
+            UUID plan = jdbc.sql("select id from membership_plans where interval = :i order by sort_order limit 1").param("i", interval).query(UUID.class).single();
+            long price = jdbc.sql("select price from membership_plans where id = :p").param("p", plan).query(Long.class).single();
+            String start = "lapsed".equals(p[3]) ? "now() - interval '40 days'" : "now() - interval '3 days'";
+            String end = "lapsed".equals(p[3]) ? "now() - interval '10 days'" : "year".equals(interval) ? "now() + interval '362 days'" : "now() + interval '27 days'";
+            jdbc.sql("insert into memberships (customer_id, status, valid_until, plan_id, member_no) values (:c, 'active', " + end + ", :p, :m)").param("c", id).param("p", plan).param("m", "VB " + vibeId + " 0001").update();
+            jdbc.sql("insert into membership_payments (id, customer_id, plan_id, amount, period_start, period_end, source, created_at) values (:id, :c, :p, :a, " + start + ", " + end + ", 'paid', " + start + ")")
+                    .param("id", UUID.randomUUID()).param("c", id).param("p", plan).param("a", price).update();
+        }
     }
 
     @Override
@@ -142,8 +193,14 @@ class DevSeed implements ApplicationRunner {
         staff.createMerchant(admin, demo.byName.get("Smash Arena"), new StaffService.NewMerchant("sports@vibe.local", "Smash Arena manager", password));
         staff.createMerchant(admin, demo.byName.get("Pulse Studio"), new StaffService.NewMerchant("gym@vibe.local", "Pulse Studio manager", password)); // monthly memberships and gym sessions
         staff.addTeamMember(merchant, new StaffService.TeamInput("cashier@vibe.local", "Saffron cashier", password, "cashier", List.of()));
+        merchantLogins(admin, demo);
+        vibeTeam(admin);
         jdbc.sql("update staff_users set must_change_password = false").update();
         complianceDefaults(admin);
+        testCustomers();
+        // Two businesses whose KYC isn't done, so the KYC queue and held payouts can be tried: one sent and waiting for VIBE, one not sent at all.
+        jdbc.sql("update business_kyc set status = 'submitted', reviewed_at = null, reviewed_by = null, submitted_at = now() where business_id = :b").param("b", demo.byName.get("Brew & Bloom Café")).update();
+        jdbc.sql("delete from business_kyc where business_id = :b").param("b", demo.byName.get("Coastal Curry House")).update();
         log.warn("DEV SEED loaded: admin@vibe.local and merchant@vibe.local with the dev seed password. Development only.");
         log.info("Seeded {} places across {} categories (merchant login: Saffron Courtyard)", demo.businessIds.size(), demo.categoryIds.size());
     }

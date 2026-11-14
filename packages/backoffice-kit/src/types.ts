@@ -334,10 +334,22 @@ export type WorkspaceOverview = { from: string; to: string; workspaceName: strin
 export type TodoType = 'application' | 'kyc' | 'offer' | 'promotion' | 'event' | 'dispute' | 'refund' | 'deletion';
 export type TodoItem = { type: TodoType; id: string; title: string; detail: string; category: string; since: string | null; link: string };
 export type TodoList = { counts: Partial<Record<TodoType, number>>; items: TodoItem[] };
+/** category: the business's own (sub)category; topCategory: the top-level one (Movies, Food & Dining...). received: everything customers paid through VIBE. */
 export type MerchantRow = {
-  id: string; name: string; area: string; category: string; live: boolean; joinedAt: string; kycStatus: KycStatus; agreementVersion: number | null; currentAgreement: number | null;
-  sales30d: number; owed: number; lastSaleAt: string | null;
+  id: string; name: string; area: string; category: string; topCategory: string; live: boolean; joinedAt: string; kycStatus: KycStatus; agreementVersion: number | null; currentAgreement: number | null;
+  sales30d: number; received: number; paidOut: number; awaitingPayout: number; owed: number; lastSaleAt: string | null; lastPaidAt: string | null;
 };
+export type MerchantCategory = {
+  id: string; name: string; hasChildren: boolean; merchants: number; live: number; kycVerified: number; kycToCheck: number; kycSentBack: number; kycNotSent: number; agreementMissing: number;
+  received: number; paidOut: number; awaitingPayout: number; owed: number;
+};
+export type MerchantCategories = { parentId: string | null; parentName: string | null; rows: MerchantCategory[]; total: MerchantCategory };
+/** settlementStatus null: not in a settlement yet; pending: waiting for the bank transfer; paid: paid out. */
+export type MerchantPayment = {
+  reference: string; paidAt: string; kind: string; what: string | null; customerName: string; vibeId: string; amount: number; vibeFee: number; commission: number; gst: number; refund: number;
+  refundedInFull: boolean; payout: number; settlementId: string | null; settlementRef: string | null; settlementStatus: 'pending' | 'paid' | null; settlementPaidAt: string | null; payoutRef: string | null;
+};
+export type MerchantPayments = { total: number; notSettled: number; notSettledAmount: number; rows: MerchantPayment[] };
 export type MerchantPage = { total: number; rows: MerchantRow[] };
 export type MerchantApplication = { id: string; status: string; contactName: string; email: string; phone: string; submittedAt: string; decidedAt: string | null; note: string | null };
 export type MerchantAgreementAcceptance = { version: number; title: string; acceptedAt: string; acceptedBy: string | null };
@@ -351,3 +363,11 @@ export type MerchantBalance = {
 export type MerchantBalances = { rows: MerchantBalance[]; total: MerchantBalance };
 export type PayRunHeld = { businessId: string; businessName: string; amount: number; reason: string };
 export type PayRunResult = { created: SettlementSummary[]; held: PayRunHeld[]; total: number };
+
+// ---------- VIBE Membership summary ----------
+export type MembershipPlanStat = { name: string; price: number; period: 'month' | 'year'; onSale: boolean; membersNow: number; paidInPeriod: number; feesInPeriod: number };
+/** membersNow = autoRenewing + cancelledStillValid. Fees are VIBE's own income, never settled to a business. */
+export type MembershipSummary = {
+  from: string; to: string; registered: number; registeredInPeriod: number; membersNow: number; autoRenewing: number; cancelledStillValid: number; lapsed: number; neverJoined: number;
+  joined: number; renewed: number; granted: number; feesInPeriod: number; paymentsInPeriod: number; feesAllTime: number; savedInPeriod: number; plans: MembershipPlanStat[];
+};

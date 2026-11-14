@@ -51,10 +51,12 @@ public class Exports {
     }
 
     /** Phone numbers stay masked in the file, as on screen. */
-    public ResponseEntity<byte[]> customers(String q) {
+    public ResponseEntity<byte[]> customers(String q) { return customers(q, null); }
+
+    public ResponseEntity<byte[]> customers(String q, String membership) {
         Csv csv = new Csv().row("VIBE ID", "Name", "Phone", "Area", "Joined", "Member", "Paid bills", "Total paid (Rs)");
         for (int off = 0; off < MAX_ROWS; off += PAGE) {
-            var page = oversight.customers(q, PAGE, off);
+            var page = oversight.customers(q, membership, PAGE, off);
             for (var c : page.items()) csv.row(c.vibeId(), c.name(), c.phoneMasked(), c.area(), c.joinedAt(), c.member() ? "Yes" : "No", c.paidRedemptions(), rupees(c.totalPaid()));
             if (page.items().size() < PAGE) break;
         }

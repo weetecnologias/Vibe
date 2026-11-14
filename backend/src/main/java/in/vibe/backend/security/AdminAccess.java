@@ -55,6 +55,7 @@ public class AdminAccess {
         String p = path.substring("/v1/admin".length());
         if (p.startsWith("/access") || p.startsWith("/workspaces") || p.startsWith("/todo")) return null;
         if (p.startsWith("/merchants")) return "partners";
+        if (p.startsWith("/escrow")) return "money";
         if (p.startsWith("/balances")) return "money";
         if (p.startsWith("/overview") || p.startsWith("/reports")) return "reports";
         if (p.contains("/adjustments") || p.startsWith("/rate-cards") || p.startsWith("/ledger") || p.startsWith("/reconciliation") || p.startsWith("/disputes")) return "money";

@@ -9,6 +9,7 @@ import { AccessContext } from './access';
 import { WorkspaceProvider, WorkspaceSwitcher, useWorkspace } from './workspace';
 import { BalancesPage } from './pages/BalancesPage';
 import { MerchantProfilePage } from './pages/MerchantProfilePage';
+import { MembershipPage } from './pages/MembershipPage';
 import { MerchantsPage } from './pages/MerchantsPage';
 import { TodoPage } from './pages/TodoPage';
 
@@ -23,7 +24,7 @@ import { DisputesPage } from './pages/DisputesPage';
 import { KycPage } from './pages/KycPage';
 import { LedgerPage } from './pages/LedgerPage';
 import { RatesPage } from './pages/RatesPage';
-import { ReconciliationPage } from './pages/ReconciliationPage';
+import { MoneyChecksPage } from './pages/MoneyChecksPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { DeletionsPage } from './pages/DeletionsPage';
 import { EventEditPage } from './pages/EventEditPage';
@@ -49,6 +50,7 @@ import { TransactionsPage } from './pages/TransactionsPage';
 type Page = { path: string; label: string; area: AdminArea | 'team' | 'any'; group: string; element: ReactElement; allOnly?: boolean; fullOnly?: boolean };
 const PAGES: Page[] = [
   { group: 'Daily', path: 'overview', label: 'Overview', area: 'reports', element: <OverviewPage /> },
+  { group: 'Daily', path: 'membership', label: 'VIBE Membership', area: 'customers', element: <MembershipPage /> },
   { group: 'Daily', path: 'todo', label: 'To do', area: 'any', element: <TodoPage /> },
   { group: 'Daily', path: 'reports', label: 'Reports', area: 'reports', element: <ReportsPage /> },
   { group: 'Partners', path: 'merchants', label: 'Merchants', area: 'partners', element: <MerchantsPage /> },
@@ -56,6 +58,7 @@ const PAGES: Page[] = [
   { group: 'Money', path: 'transactions', label: 'Sales and payments', area: 'money', element: <TransactionsPage /> },
   { group: 'Money', path: 'settlements', label: 'Settlements', area: 'money', element: <SettlementsPage /> },
   { group: 'Money', path: 'balances', label: 'Merchant balances', area: 'money', element: <BalancesPage /> },
+  { group: 'Money', path: 'reconciliation', label: 'Money checks', area: 'money', element: <MoneyChecksPage />, allOnly: true },
   { group: 'Money', path: 'refunds', label: 'Refunds', area: 'money', element: <RefundsPage /> },
   { group: 'Money', path: 'disputes', label: 'Disputes', area: 'money', element: <DisputesPage /> },
   { group: 'Content', path: 'offers', label: 'Offer review', area: 'content', element: <OfferReviewPage /> },
@@ -71,7 +74,6 @@ const PAGES: Page[] = [
   { group: 'Setup', path: 'coupons', label: 'Checkout coupons', area: 'catalogue', element: <CouponsPage />, allOnly: true },
   { group: 'Setup', path: 'rates', label: 'Rates and tax', area: 'money', element: <RatesPage />, allOnly: true },
   { group: 'Setup', path: 'agreement', label: 'Merchant agreement', area: 'partners', element: <AgreementsPage />, allOnly: true, fullOnly: true },
-  { group: 'Setup', path: 'reconciliation', label: 'Reconciliation', area: 'money', element: <ReconciliationPage />, allOnly: true, fullOnly: true },
   { group: 'Setup', path: 'ledger', label: 'Accounting ledger', area: 'money', element: <LedgerPage />, allOnly: true, fullOnly: true },
   { group: 'Setup', path: 'team', label: 'VIBE team', area: 'team', element: <TeamPage />, allOnly: true },
   { group: 'Setup', path: 'staff', label: 'All logins', area: 'team', element: <StaffPage />, allOnly: true },

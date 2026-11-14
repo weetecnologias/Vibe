@@ -7,11 +7,11 @@ import { useAccess } from '../access';
 import { useWorkspace } from '../workspace';
 
 const KIND: Record<string, string> = { redemption: 'bills', tickets: 'event tickets', movie: 'movie tickets', slots: 'bookings', pass: 'memberships', membership: 'VIBE memberships' };
-type Period = 'today' | '7d' | '30d' | 'month';
-const PERIODS: { key: Period; label: string }[] = [{ key: 'today', label: 'Today' }, { key: '7d', label: 'Last 7 days' }, { key: '30d', label: 'Last 30 days' }, { key: 'month', label: 'This month' }];
+export type Period = 'today' | '7d' | '30d' | 'month';
+export const PERIODS: { key: Period; label: string }[] = [{ key: 'today', label: 'Today' }, { key: '7d', label: 'Last 7 days' }, { key: '30d', label: 'Last 30 days' }, { key: 'month', label: 'This month' }];
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-function range(p: Period): { from: string; to: string } {
+export function range(p: Period): { from: string; to: string } {
   const now = new Date();
   const to = ymd(now);
   if (p === 'today') return { from: to, to };
@@ -64,6 +64,18 @@ export function OverviewPage() {
             <Link to="/todo" className="card" style={{ textDecoration: 'none', color: 'inherit' }}><span className="muted small">Waiting for VIBE</span><strong>{t.waiting}</strong><span className="muted small">Open the to-do list</span></Link>
           </div>
 
+          {current.id === null && vibe.data ? (
+            <div className="card stack">
+              <h2>Customers and VIBE Membership <span className="muted small" style={{ fontWeight: 400 }}>· membership fees are VIBE’s own income</span></h2>
+              <div className="kpis">
+                <div><span className="muted small">Customers</span><strong style={{ display: 'block', fontSize: 20 }}>{vibe.data.customers.toLocaleString('en-IN')}</strong><span className="muted small">{vibe.data.newCustomers7d} new this week</span></div>
+                <div><span className="muted small">Active members</span><strong style={{ display: 'block', fontSize: 20 }}>{vibe.data.activeMembers.toLocaleString('en-IN')}</strong><span className="muted small">{vibe.data.lapsedMembers} lapsed</span></div>
+                <div><span className="muted small">Membership sales, 30 days</span><strong style={{ display: 'block', fontSize: 20 }}>{formatINR(vibe.data.membershipRevenue30d)}</strong></div>
+                <div><span className="muted small">Members saved, 30 days</span><strong style={{ display: 'block', fontSize: 20 }}>{formatINR(vibe.data.savedByMembers30d)}</strong></div>
+              </div>
+              <div className="row"><Link className="btn sm primary" to="/membership">Open VIBE Membership</Link><Link className="btn sm" to="/customers">Customers</Link><Link className="btn sm" to="/reports">Reports</Link></div>
+            </div>
+          ) : null}
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <h2 style={{ margin: 0 }}>{current.id ? `Inside ${current.name}` : 'By category'}</h2>
             {current.id ? <button className="btn ghost sm" onClick={() => choose({ id: null, name: 'All of VIBE' })} hidden={!me.full && me.categories.length > 0}>Back to all of VIBE</button> : null}
@@ -73,18 +85,6 @@ export function OverviewPage() {
             {d.cards.length === 0 ? <p className="muted">No categories with businesses yet.</p> : null}
           </div>
 
-          {current.id === null && vibe.data ? (
-            <div className="card stack">
-              <h2>Customers and VIBE Membership</h2>
-              <div className="kpis">
-                <div><span className="muted small">Customers</span><strong style={{ display: 'block', fontSize: 20 }}>{vibe.data.customers.toLocaleString('en-IN')}</strong><span className="muted small">{vibe.data.newCustomers7d} new this week</span></div>
-                <div><span className="muted small">Active members</span><strong style={{ display: 'block', fontSize: 20 }}>{vibe.data.activeMembers.toLocaleString('en-IN')}</strong><span className="muted small">{vibe.data.lapsedMembers} lapsed</span></div>
-                <div><span className="muted small">Membership sales, 30 days</span><strong style={{ display: 'block', fontSize: 20 }}>{formatINR(vibe.data.membershipRevenue30d)}</strong></div>
-                <div><span className="muted small">Members saved, 30 days</span><strong style={{ display: 'block', fontSize: 20 }}>{formatINR(vibe.data.savedByMembers30d)}</strong></div>
-              </div>
-              <div className="row"><Link className="btn sm" to="/members">Members</Link><Link className="btn sm" to="/customers">Customers</Link><Link className="btn sm" to="/reports">Reports</Link></div>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </>

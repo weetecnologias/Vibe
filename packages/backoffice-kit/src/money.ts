@@ -20,8 +20,9 @@ export function paiseToRupees(paise: number | null | undefined): string {
   return frac === 0 ? String(whole) : `${whole}.${String(frac).padStart(2, '0')}`;
 }
 
-/** 150000 → "₹1,500", 9950 → "₹99.50" (Indian digit grouping). */
+/** 150000 → "₹1,500", 9950 → "₹99.50" (Indian digit grouping), -4862 → "−₹48.62". */
 export function formatINR(paise: number): string {
+  if (paise < 0) return `−${formatINR(-paise)}`;
   const whole = Math.floor(paise / 100);
   const frac = paise % 100;
   const s = String(whole);

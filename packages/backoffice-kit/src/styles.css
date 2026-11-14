@@ -218,3 +218,5 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .todo-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
 .todo-row:last-child { border-bottom: 0; }
 .badge { white-space: nowrap; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--pink-deep); cursor: pointer; text-align: left; }
+.link-btn:hover { text-decoration: underline; }

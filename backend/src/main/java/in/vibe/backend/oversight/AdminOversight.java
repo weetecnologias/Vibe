@@ -109,8 +109,14 @@ public class AdminOversight {
     }
 
     // ---------- customers ----------
-    public CustomerPage customers(String q, int limit, int offset) {
+    public CustomerPage customers(String q, int limit, int offset) { return customers(q, null, limit, offset); }
+
+    /** membership: "member" (holds one now), "never" (registered, never a member), "lapsed" (it ended); anything else is everyone. */
+    public CustomerPage customers(String q, String membership, int limit, int offset) {
         String where = " where true";
+        if ("member".equals(membership)) where += " and exists (select 1 from memberships m where m.customer_id = c.id and m.valid_until > now())";
+        else if ("never".equals(membership)) where += " and not exists (select 1 from memberships m where m.customer_id = c.id)";
+        else if ("lapsed".equals(membership)) where += " and exists (select 1 from memberships m where m.customer_id = c.id and m.valid_until <= now())";
         Map<String, Object> p = new HashMap<>();
         if (q != null && !q.isBlank()) {
             String t = q.trim();
