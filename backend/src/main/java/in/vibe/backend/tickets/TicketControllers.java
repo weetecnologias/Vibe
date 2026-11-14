@@ -29,8 +29,10 @@ public class TicketControllers {
     public static class CustomerTicketsApi {
         private final Ticketing ticketing;
         private final CheckoutOffers offers;
+        private final in.vibe.backend.movies.Movies movies;
 
-        CustomerTicketsApi(Ticketing ticketing, CheckoutOffers offers) {
+        CustomerTicketsApi(Ticketing ticketing, CheckoutOffers offers, in.vibe.backend.movies.Movies movies) {
+            this.movies = movies;
             this.ticketing = ticketing;
             this.offers = offers;
         }
@@ -41,10 +43,19 @@ public class TicketControllers {
         }
 
         @GetMapping("/v1/me/tickets")
-        List<Ticketing.Ticket> mine(@AuthenticationPrincipal Jwt jwt) { return ticketing.myTickets(CustomerPrincipal.from(jwt).id()); }
+        List<Ticketing.Ticket> mine(@AuthenticationPrincipal Jwt jwt) {
+            UUID me = CustomerPrincipal.from(jwt).id();
+            List<Ticketing.Ticket> all = new java.util.ArrayList<>(ticketing.myTickets(me));
+            all.addAll(movies.myTickets(me)); // movie seats show alongside event tickets
+            all.sort(java.util.Comparator.comparing(Ticketing.Ticket::startsAt));
+            return all;
+        }
 
         @GetMapping("/v1/tickets/{id}")
-        Ticketing.Ticket one(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) { return ticketing.myTicket(CustomerPrincipal.from(jwt).id(), uuid(id)); }
+        Ticketing.Ticket one(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
+            UUID me = CustomerPrincipal.from(jwt).id();
+            return movies.myTicket(me, uuid(id)).orElseGet(() -> ticketing.myTicket(me, uuid(id)));
+        }
 
         @GetMapping("/v1/payment-requests/{id}/offers")
         CheckoutOffers.Offers checkoutOffers(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) { return offers.offers(CustomerPrincipal.from(jwt).id(), uuid(id)); }

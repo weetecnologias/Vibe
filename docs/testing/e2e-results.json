@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-11-14T04:22:23.478Z",
+  "ranAt": "2026-11-14T10:29:25.445Z",
   "api": "http://localhost:8090",
   "results": [
     {
@@ -138,7 +138,7 @@
       "section": "3. Customers and VIBE Membership",
       "name": "Non-member buys VIBE Membership (₹299/month) and pays",
       "ok": true,
-      "detail": "VB-4RXV-H7HT"
+      "detail": "VB-96BU-98S4"
     },
     {
       "section": "3. Customers and VIBE Membership",
@@ -192,13 +192,13 @@
       "section": "4. Orders, payments and the merchant side",
       "name": "The same Pay tap repeated returns the same payment, not a new one",
       "ok": true,
-      "detail": "VB-JU64-CBD6"
+      "detail": "VB-RE6Z-2ZZT"
     },
     {
       "section": "4. Orders, payments and the merchant side",
       "name": "The same transaction ID is in the customer’s, the merchant’s and the admin’s records",
       "ok": true,
-      "detail": "VB-JU64-CBD6"
+      "detail": "VB-RE6Z-2ZZT"
     },
     {
       "section": "4. Orders, payments and the merchant side",
@@ -210,7 +210,7 @@
       "section": "4. Orders, payments and the merchant side",
       "name": "Pay at the counter: the customer shows a code, the merchant confirms it",
       "ok": true,
-      "detail": "code 104311 at Dragon Lane"
+      "detail": "code 191697 at Dragon Lane"
     },
     {
       "section": "4. Orders, payments and the merchant side",
@@ -222,7 +222,7 @@
       "section": "4. Orders, payments and the merchant side",
       "name": "Sports: the venue sees the booking on its day sheet",
       "ok": true,
-      "detail": "VBS-562X-ZHXK"
+      "detail": "VBS-XVR5-55K8"
     },
     {
       "section": "4. Orders, payments and the merchant side",
@@ -246,31 +246,121 @@
       "section": "4. Orders, payments and the merchant side",
       "name": "Events: the organiser sees the tickets sold",
       "ok": true,
-      "detail": "{\"eventId\":\"eae7c509-1ff0-4bcd-91ce-490276999b79\",\"title\":\"Biryani Masterclass\",\"startsAt\":\"2026-11-20T14:30:00Z\",\"statu"
+      "detail": "{\"eventId\":\"4cc6ebc4-ec53-46ab-b0b7-095ad9d76464\",\"title\":\"Biryani Masterclass\",\"startsAt\":\"2026-11-20T14:30:00Z\",\"statu"
     },
     {
       "section": "4. Orders, payments and the merchant side",
       "name": "Café with KYC waiting can still take a payment",
       "ok": true,
-      "detail": "VB-E9XZ-CRCM"
+      "detail": "VB-2FNM-8HW5"
     },
     {
       "section": "4. Orders, payments and the merchant side",
-      "name": "Movies: films, showtimes and seat booking",
-      "ok": null,
-      "detail": "NOT BUILT in the backend yet: no films or shows to book. Cinemas are listed and can take bills and offers."
+      "name": "Movies: films are listed",
+      "ok": true,
+      "detail": "The Monsoon Letters, Little Comet, Charminar Heist"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Movies: the cinemas showing it tomorrow, with times",
+      "ok": true,
+      "detail": "Galleria Cinemas 3 shows, Luxe Screens 1 shows"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Movies: two Prime seats held while paying",
+      "ok": true,
+      "detail": "Charminar Heist · D1, D2 · ₹560"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Movies: someone else can’t take a held seat",
+      "ok": true,
+      "detail": "seat_taken"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Movies: one QR ticket per seat",
+      "ok": true,
+      "detail": "seat D1 · Galleria Cinemas · Audi 2 · code DNM-9ZA"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Movies: the cinema sees the seats sold",
+      "ok": true,
+      "detail": "Charminar Heist 2 sold"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Movies: the door won’t let a ticket in a day early",
+      "ok": true,
+      "detail": "This show starts at Sun 15 Nov, 10:00 AM. Entry opens an hour before."
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: venues that take reservations, with their deposit",
+      "ok": true,
+      "detail": "Irani Chai Corner ₹300, Saffron Courtyard ₹500, Matcha Lab ₹400"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: a new plan is a draft until the deposit is paid",
+      "ok": true,
+      "detail": "draft · pay ₹500"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: nobody else sees a draft",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: paid, the plan is live for people it suits",
+      "ok": true,
+      "detail": "Dinner for two · ₹500 table deposit, paid by the host · comes off the bill"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: accepted, the table is booked",
+      "ok": true,
+      "detail": "Table for 2 · booked · ref VBM-F3GW-WW6F · free cancellation until 4:00 pm"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: the restaurant sees the booking for two",
+      "ok": true,
+      "detail": "VBM-F3GW-WW6F Priya and Rahul confirmed"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: VIBE’s monitor shows who booked, VIBE IDs and the transaction ID",
+      "ok": true,
+      "detail": "VBM-F3GW-WW6F · Priya S. (600101) with Rahul V. · VB-8Q26-S8HE"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: host applications wait for a VIBE check",
+      "ok": true,
+      "detail": "Rahul V. aadhaar ····4821"
+    },
+    {
+      "section": "4. Orders, payments and the merchant side",
+      "name": "Social: category managers can’t open Social",
+      "ok": true,
+      "detail": ""
     },
     {
       "section": "5. Support: disputes and refunds",
       "name": "Customer raises a dispute on a payment",
       "ok": true,
-      "detail": "DSP-JSMSK4"
+      "detail": "DSP-JAJNQV"
     },
     {
       "section": "5. Support: disputes and refunds",
       "name": "Support sees both disputes",
       "ok": true,
-      "detail": "DSP-JSMSK4, DSP-E943FT"
+      "detail": "DSP-JAJNQV, DSP-BV6LRF"
     },
     {
       "section": "5. Support: disputes and refunds",
@@ -294,7 +384,7 @@
       "section": "5. Support: disputes and refunds",
       "name": "Support marks the refund as sent with the partner’s reference",
       "ok": true,
-      "detail": "{\"reference\":\"VB-QNFQ-VG72\",\"kind\":\"redemption\",\"payee\":\"Saffron Courtyard\",\"cus"
+      "detail": "{\"reference\":\"VB-JUKL-R3SQ\",\"kind\":\"redemption\",\"payee\":\"Saffron Courtyard\",\"cus"
     },
     {
       "section": "5. Support: disputes and refunds",
@@ -306,19 +396,19 @@
       "section": "5. Support: disputes and refunds",
       "name": "The refund comes off what VIBE owes the restaurant",
       "ok": true,
-      "detail": "₹3,746.74 → ₹3,496.74"
+      "detail": "₹4,187.74 → ₹3,937.74"
     },
     {
       "section": "6. Settlements: VIBE pays the merchants",
       "name": "Finance sees what each merchant is owed",
       "ok": true,
-      "detail": "Saffron Courtyard ₹3,496.74, Smash Arena ₹882, Pulse Studio ₹2,645.12, Brew & Bloom Café ₹564.48"
+      "detail": "Saffron Courtyard ₹3,937.74, Smash Arena ₹882, Pulse Studio ₹2,645.12, Brew & Bloom Café ₹564.48, Galleria Cinemas ₹493.92"
     },
     {
       "section": "6. Settlements: VIBE pays the merchants",
       "name": "Pay run: one settlement per merchant that can be paid",
       "ok": true,
-      "detail": "Saffron Courtyard ₹3,496.74, Smash Arena ₹882, Pulse Studio ₹2,645.12"
+      "detail": "Saffron Courtyard ₹3,937.74, Smash Arena ₹882, Pulse Studio ₹2,645.12, Galleria Cinemas ₹493.92"
     },
     {
       "section": "6. Settlements: VIBE pays the merchants",
@@ -330,13 +420,13 @@
       "section": "6. Settlements: VIBE pays the merchants",
       "name": "Finance downloads the bank file (account, IFSC, amount)",
       "ok": true,
-      "detail": "3 rows"
+      "detail": "4 rows"
     },
     {
       "section": "6. Settlements: VIBE pays the merchants",
       "name": "Finance marks each one paid with the bank reference (UTR)",
       "ok": true,
-      "detail": "ST-261114-9J5E NEFT5652530431, ST-261114-4CW6 NEFT2009641698, ST-261114-CCD3 NEFT4470305227"
+      "detail": "ST-261114-QH34 NEFT9890340708, ST-261114-QFQF NEFT2962209991, ST-261114-976H NEFT7617105786, ST-261114-M7Q2 NEFT2735076915"
     },
     {
       "section": "6. Settlements: VIBE pays the merchants",
@@ -354,31 +444,31 @@
       "section": "7. Money checks (gateway → escrow → merchants)",
       "name": "Gateway report: every payment matched to VIBE’s records",
       "ok": true,
-      "detail": "7 lines matched, ₹8,910.63 paid to escrow"
+      "detail": "9 lines matched, ₹9,945.61 paid to escrow"
     },
     {
       "section": "7. Money checks (gateway → escrow → merchants)",
       "name": "Escrow statement: gateway money in and every payout out matched",
       "ok": true,
-      "detail": "4 lines matched"
+      "detail": "5 lines matched"
     },
     {
       "section": "7. Money checks (gateway → escrow → merchants)",
       "name": "All three money checks agree",
       "ok": true,
-      "detail": "escrow by books ₹1,886.77, bank ₹1,886.77"
+      "detail": "escrow by books ₹1,986.83, bank ₹1,986.83"
     },
     {
       "section": "7. Money checks (gateway → escrow → merchants)",
       "name": "The accounts balance (trial balance)",
       "ok": true,
-      "detail": "debits ₹25,875.86 = credits ₹25,875.86"
+      "detail": "debits ₹28,930.78 = credits ₹28,930.78"
     },
     {
       "section": "8. What the admin sees",
       "name": "Overview: a card per category with today’s sales",
       "ok": true,
-      "detail": "Food & Dining 4 sales ₹4,888, Fitness & Wellness 2 sales ₹4,039"
+      "detail": "Food & Dining 5 sales ₹5,388, Fitness & Wellness 2 sales ₹4,039, Movies 1 sales ₹560"
     },
     {
       "section": "8. What the admin sees",
@@ -442,7 +532,7 @@
       }
     ],
     "gstBps": 1800,
-    "membershipPayment": "VB-4RXV-H7HT",
+    "membershipPayment": "VB-96BU-98S4",
     "membership": {
       "from": "2026-10-16",
       "to": "2026-11-14",
@@ -481,66 +571,80 @@
         }
       ]
     },
-    "disputedPayment": "VB-QNFQ-VG72",
-    "slotPayment": "VB-7TM5-G29W",
+    "disputedPayment": "VB-JUKL-R3SQ",
+    "slotPayment": "VB-PE3Z-JLE6",
     "orders": [
       {
         "what": "Dine-in bill (member offer)",
         "where": "Saffron Courtyard",
         "who": "Priya Sharma",
-        "ref": "VB-JU64-CBD6",
+        "ref": "VB-RE6Z-2ZZT",
         "amount": 105000
       },
       {
         "what": "Bill raised by the merchant + VIBE coupon",
         "where": "Saffron Courtyard",
         "who": "Fatima Khan",
-        "ref": "VB-QNFQ-VG72",
+        "ref": "VB-JUKL-R3SQ",
         "amount": 110000
       },
       {
         "what": "Court booking (2 slots)",
         "where": "Smash Arena",
         "who": "Rahul Verma",
-        "ref": "VB-7TM5-G29W",
+        "ref": "VB-PE3Z-JLE6",
         "amount": 102000
       },
       {
         "what": "Gym membership",
         "where": "Pulse Studio",
         "who": "Sneha Iyer",
-        "ref": "VB-F83J-4X9V",
+        "ref": "VB-LE2T-VD6P",
         "amount": 301900
       },
       {
         "what": "Event tickets (2)",
         "where": "Biryani Masterclass (Saffron Courtyard)",
         "who": "Arjun Rao",
-        "ref": "VB-5QM8-ARUJ",
+        "ref": "VB-X8CK-YSEP",
         "amount": 199800
       },
       {
         "what": "Café bill (KYC not verified yet)",
         "where": "Brew & Bloom Café",
         "who": "Kiran Kumar",
-        "ref": "VB-E9XZ-CRCM",
+        "ref": "VB-2FNM-8HW5",
         "amount": 64000
+      },
+      {
+        "what": "Movie seats (2)",
+        "where": "Charminar Heist (Galleria Cinemas)",
+        "who": "Priya Sharma",
+        "ref": "VB-3XUB-Z2XU",
+        "amount": 56000
+      },
+      {
+        "what": "Social table deposit",
+        "where": "Saffron Courtyard",
+        "who": "Priya Sharma",
+        "ref": "VB-8Q26-S8HE",
+        "amount": 50000
       }
     ],
     "disputes": [
-      "DSP-JSMSK4",
-      "DSP-E943FT"
+      "DSP-JAJNQV",
+      "DSP-BV6LRF"
     ],
     "due": [
       {
         "name": "Saffron Courtyard",
-        "payments": 3,
-        "gross": 424800,
+        "payments": 4,
+        "gross": 474800,
         "fees": 0,
-        "commission": 42480,
-        "gst": 7646,
+        "commission": 47480,
+        "gst": 8546,
         "refunds": 25000,
-        "payout": 349674,
+        "payout": 393774,
         "kyc": "verified"
       },
       {
@@ -575,40 +679,51 @@
         "refunds": 0,
         "payout": 56448,
         "kyc": "submitted"
+      },
+      {
+        "name": "Galleria Cinemas",
+        "payments": 1,
+        "gross": 56000,
+        "fees": 0,
+        "commission": 5600,
+        "gst": 1008,
+        "refunds": 0,
+        "payout": 49392,
+        "kyc": "verified"
       }
     ],
     "payRun": {
       "created": [
         {
-          "id": "0a3301dc-255b-4dc8-9ae8-f424cc15ebab",
-          "reference": "ST-261114-9J5E",
-          "businessId": "1c5eee9b-98af-4427-a0dd-430eb115b4e3",
+          "id": "06ddf27a-914a-4e26-a149-6ccb26ad600e",
+          "reference": "ST-261114-QH34",
+          "businessId": "ab9b5623-08bf-4dee-bc28-9eeaed498564",
           "businessName": "Saffron Courtyard",
-          "periodFrom": "2026-11-14T04:22:03.850356Z",
-          "periodTo": "2026-11-14T04:22:21.81785Z",
-          "paymentCount": 3,
-          "gross": 424800,
+          "periodFrom": "2026-11-14T10:29:00.006971Z",
+          "periodTo": "2026-11-14T10:29:24.258721Z",
+          "paymentCount": 4,
+          "gross": 474800,
           "vibeFees": 0,
           "commissionBps": 1000,
-          "commission": 42480,
-          "payout": 349674,
+          "commission": 47480,
+          "payout": 393774,
           "customerSavings": 55000,
           "status": "pending",
-          "createdAt": "2026-11-14T04:22:21.809374Z",
+          "createdAt": "2026-11-14T10:29:24.251141Z",
           "paidAt": null,
           "payoutRef": null,
           "note": null,
-          "gst": 7646,
+          "gst": 8546,
           "refundDeductions": 25000,
           "adjustments": 0
         },
         {
-          "id": "9784c3a5-e74f-4f0b-b289-99e8517f7eb5",
-          "reference": "ST-261114-4CW6",
-          "businessId": "032c7546-23ea-4ccd-a24f-cdbec735c68e",
+          "id": "835f12fc-9435-49f6-9fc1-5f612f8ce84e",
+          "reference": "ST-261114-QFQF",
+          "businessId": "586dd674-e951-4afe-ba78-1aa18f785e39",
           "businessName": "Smash Arena",
-          "periodFrom": "2026-11-14T04:22:10.907776Z",
-          "periodTo": "2026-11-14T04:22:21.883377Z",
+          "periodFrom": "2026-11-14T10:29:06.969277Z",
+          "periodTo": "2026-11-14T10:29:24.304942Z",
           "paymentCount": 1,
           "gross": 102000,
           "vibeFees": 2000,
@@ -617,7 +732,7 @@
           "payout": 88200,
           "customerSavings": 0,
           "status": "pending",
-          "createdAt": "2026-11-14T04:22:21.876017Z",
+          "createdAt": "2026-11-14T10:29:24.298335Z",
           "paidAt": null,
           "payoutRef": null,
           "note": null,
@@ -626,12 +741,12 @@
           "adjustments": 0
         },
         {
-          "id": "14d1f84b-a9d5-4a05-a65f-003d80673899",
-          "reference": "ST-261114-CCD3",
-          "businessId": "456bd532-fa0e-4c69-a9ff-76d6c8a4b596",
+          "id": "68e3bbad-fed9-4046-b8dc-6883085d3378",
+          "reference": "ST-261114-976H",
+          "businessId": "cf3c507a-a719-48e4-831c-f35366771daa",
           "businessName": "Pulse Studio",
-          "periodFrom": "2026-11-14T04:22:14.358536Z",
-          "periodTo": "2026-11-14T04:22:21.918819Z",
+          "periodFrom": "2026-11-14T10:29:10.344265Z",
+          "periodTo": "2026-11-14T10:29:24.331021Z",
           "paymentCount": 1,
           "gross": 301900,
           "vibeFees": 2000,
@@ -640,43 +755,72 @@
           "payout": 264512,
           "customerSavings": 0,
           "status": "pending",
-          "createdAt": "2026-11-14T04:22:21.90668Z",
+          "createdAt": "2026-11-14T10:29:24.325178Z",
           "paidAt": null,
           "payoutRef": null,
           "note": null,
           "gst": 5398,
           "refundDeductions": 0,
           "adjustments": 0
+        },
+        {
+          "id": "5dcf310d-d579-4284-9fbc-688214d35768",
+          "reference": "ST-261114-M7Q2",
+          "businessId": "a1b6ca96-532c-4a2a-bb1f-bcc891ad9c12",
+          "businessName": "Galleria Cinemas",
+          "periodFrom": "2026-11-14T10:29:20.360278Z",
+          "periodTo": "2026-11-14T10:29:24.35647Z",
+          "paymentCount": 1,
+          "gross": 56000,
+          "vibeFees": 0,
+          "commissionBps": 1000,
+          "commission": 5600,
+          "payout": 49392,
+          "customerSavings": 0,
+          "status": "pending",
+          "createdAt": "2026-11-14T10:29:24.349526Z",
+          "paidAt": null,
+          "payoutRef": null,
+          "note": null,
+          "gst": 1008,
+          "refundDeductions": 0,
+          "adjustments": 0
         }
       ],
       "held": [
         {
-          "businessId": "fe8bafc2-a8b0-4a2e-94e3-41ee34458775",
+          "businessId": "95bc458c-96da-463b-870e-9d9e36d7a2ea",
           "businessName": "Brew & Bloom Café",
           "amount": 56448,
           "reason": "KYC and bank details are submitted. Verify them first."
         }
       ],
-      "total": 702386
+      "total": 795878
     },
     "payouts": [
       {
         "name": "Saffron Courtyard",
-        "ref": "ST-261114-9J5E",
-        "utr": "NEFT5652530431",
-        "amount": 349674
+        "ref": "ST-261114-QH34",
+        "utr": "NEFT9890340708",
+        "amount": 393774
       },
       {
         "name": "Smash Arena",
-        "ref": "ST-261114-4CW6",
-        "utr": "NEFT2009641698",
+        "ref": "ST-261114-QFQF",
+        "utr": "NEFT2962209991",
         "amount": 88200
       },
       {
         "name": "Pulse Studio",
-        "ref": "ST-261114-CCD3",
-        "utr": "NEFT4470305227",
+        "ref": "ST-261114-976H",
+        "utr": "NEFT7617105786",
         "amount": 264512
+      },
+      {
+        "name": "Galleria Cinemas",
+        "ref": "ST-261114-M7Q2",
+        "utr": "NEFT2735076915",
+        "amount": 49392
       }
     ],
     "escrow": {
@@ -688,23 +832,23 @@
       "payoutsAwaitingBankAmount": 0,
       "payoutsMatched": 1,
       "payoutsMismatched": 0,
-      "merchantPayoutsPaid": 3,
-      "merchantPayoutsInBank": 3,
+      "merchantPayoutsPaid": 4,
+      "merchantPayoutsInBank": 4,
       "merchantPayoutsNotInBank": 0,
       "merchantPayoutsNotInBankAmount": 0,
       "unknownCredits": 0,
       "unknownDebits": 0,
       "atGateway": -25000,
-      "escrowBooks": 188677,
-      "escrowBank": 188677,
+      "escrowBooks": 198683,
+      "escrowBank": 198683,
       "statementTo": "2026-11-14",
       "exceptions": []
     },
     "overview": [
       {
         "name": "Food & Dining",
-        "sales": 4,
-        "collected": 488800,
+        "sales": 5,
+        "collected": 538800,
         "toSettle": 56448,
         "waiting": 2
       },
@@ -745,8 +889,8 @@
       },
       {
         "name": "Movies",
-        "sales": 0,
-        "collected": 0,
+        "sales": 1,
+        "collected": 56000,
         "toSettle": 0,
         "waiting": 0
       },

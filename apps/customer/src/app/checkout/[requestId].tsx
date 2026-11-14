@@ -19,7 +19,7 @@ export default function Checkout() {
 
   const r = req.data;
   const title = r?.kind === 'tickets' ? 'Pay for tickets' : r?.kind === 'movie' ? 'Pay for your seats' : r?.kind === 'membership' ? 'Join VIBE Membership'
-    : r?.kind === 'slots' ? 'Pay for your booking' : r?.kind === 'pass' ? 'Pay for your membership' : 'Checkout';
+    : r?.kind === 'slots' ? 'Pay for your booking' : r?.kind === 'pass' ? 'Pay for your membership' : r?.kind === 'meetup' ? 'Pay the table deposit' : 'Checkout';
   const takesOffers = r?.kind === 'tickets' || r?.kind === 'movie' || r?.kind === 'slots' || r?.kind === 'pass';
 
   return (

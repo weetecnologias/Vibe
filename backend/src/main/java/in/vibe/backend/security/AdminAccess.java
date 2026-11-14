@@ -56,6 +56,7 @@ public class AdminAccess {
         if (p.startsWith("/access") || p.startsWith("/workspaces") || p.startsWith("/todo")) return null;
         if (p.startsWith("/merchants")) return "partners";
         if (p.startsWith("/escrow")) return "money";
+        if (p.startsWith("/social")) return "customers";
         if (p.startsWith("/balances")) return "money";
         if (p.startsWith("/overview") || p.startsWith("/reports")) return "reports";
         if (p.contains("/adjustments") || p.startsWith("/rate-cards") || p.startsWith("/ledger") || p.startsWith("/reconciliation") || p.startsWith("/disputes")) return "money";
@@ -63,7 +64,7 @@ public class AdminAccess {
         if (p.startsWith("/offers") || p.startsWith("/promotions") || p.startsWith("/events") || p.startsWith("/reviews")) return "content";
         if (p.startsWith("/customers") || p.startsWith("/members") || p.startsWith("/deletion-requests") || p.startsWith("/exports/members") || p.startsWith("/exports/customers")) return "customers";
         if (p.startsWith("/transactions") || p.startsWith("/settlements") || p.startsWith("/refunds") || p.startsWith("/exports")) return "money";
-        if (p.startsWith("/categories") || p.startsWith("/home") || p.startsWith("/plans") || p.startsWith("/coupons")) return "catalogue";
+        if (p.startsWith("/categories") || p.startsWith("/home") || p.startsWith("/plans") || p.startsWith("/coupons") || p.startsWith("/movies")) return "catalogue";
         if (p.startsWith("/audit")) return "audit";
         if (p.startsWith("/staff") || p.startsWith("/team")) return "team";
         return "full";

@@ -142,6 +142,75 @@ class DevSeed implements ApplicationRunner {
         }
     }
 
+    /** Venues that take Social meetup reservations, Social profiles for the test customers, one verified host and one waiting (development only). */
+    private void socialSeed(DemoCatalogue demo) {
+        String policy = "Deposit comes off your bill. No refund after the 3-hour cut-off.";
+        for (String[] v : new String[][]{{"Saffron Courtyard", "50000", null}, {"Irani Chai Corner", "30000", null}, {"Matcha Lab", "40000", null}, {"Brew & Bloom Café", "30000", null}, {"Smash Arena", null, "60000"}}) {
+            UUID b = demo.byName.get(v[0]);
+            if (b == null) continue;
+            jdbc.sql("insert into reservation_settings (business_id, enabled, table_fee, slot_fee, policy, meetups_per_hour) values (:b, true, :t, :s, :p, 2) on conflict (business_id) do update set enabled = true, table_fee = :t, slot_fee = :s, policy = :p")
+                    .param("b", b).param("t", v[1] == null ? null : Long.valueOf(v[1]), java.sql.Types.BIGINT).param("s", v[2] == null ? null : Long.valueOf(v[2]), java.sql.Types.BIGINT).param("p", policy).update();
+        }
+        String[][] profiles = {{"9876543210", "man", "women", "25-34"}, {"9000000101", "woman", "men", "25-34"}, {"9000000102", "man", "women", "25-34"}, {"9000000103", "woman", "anyone", "18-24"},
+                {"9000000104", "man", "anyone", "25-34"}, {"9000000105", "woman", "anyone", "35-44"}, {"9000000106", "man", "anyone", "25-34"}};
+        for (String[] p : profiles) {
+            jdbc.sql("insert into social_profiles (customer_id, member_id, gender, meet_preference, age_confirmed_18, age_band, guidelines_version, guidelines_accepted_at) "
+                            + "select id, gen_random_uuid(), :g, :m, true, :a, 1, now() from customers where phone = :ph on conflict do nothing")
+                    .param("g", p[1]).param("m", p[2]).param("a", p[3]).param("ph", p[0]).update();
+        }
+        jdbc.sql("insert into social_hosts (customer_id, status, legal_name, id_type, id_last4, date_of_birth, city, about, host_guidelines_accepted_at, reviewed_at) "
+                + "select id, 'approved', 'Priya Sharma', 'pan', '234F', date '1996-04-12', 'Hyderabad', 'Runs a Sunday book club in Banjara Hills.', now(), now() from customers where phone = '9000000101' on conflict do nothing").update();
+        jdbc.sql("insert into social_hosts (customer_id, status, legal_name, id_type, id_last4, date_of_birth, city, about, host_guidelines_accepted_at) "
+                + "select id, 'pending', 'Rahul Verma', 'aadhaar', '4821', date '1994-09-03', 'Hyderabad', 'Wants to host weekend badminton meetups.', now() from customers where phone = '9000000102' on conflict do nothing").update();
+    }
+
+    /** Fictional films, screens at two demo cinemas and four days of shows, so Movies can be tried end to end. */
+    private void movieSeed(DemoCatalogue demo) {
+        String[][] films = {
+                {"The Monsoon Letters", "UA", "142", "Drama,Romance", "Telugu,Hindi", "2D", "8.4", "0", "A postman in 1970s Hyderabad delivers letters that were never sent."},
+                {"Charminar Heist", "UA", "128", "Thriller,Action", "Telugu,Hindi,English", "2D,IMAX", "7.9", "0", "Four friends plan the impossible job in the old city."},
+                {"Little Comet", "U", "104", "Animation,Family", "English,Hindi", "2D,3D", "8.8", "0", "A small comet sets out to find its way home."},
+                {"Deccan Nights", "A", "156", "Crime,Drama", "Telugu", "2D,Dolby Atmos", null, "9", "A late-night cab driver is pulled into the city's underworld."},
+        };
+        java.util.List<UUID> filmIds = new java.util.ArrayList<>();
+        for (String[] f : films) {
+            UUID id = UUID.randomUUID();
+            filmIds.add(id);
+            jdbc.sql("insert into movies (id, title, certificate, duration_min, genres, languages, formats, rating, votes, release_date, synopsis, director, cast_names) "
+                            + "values (:id, :t, :c, :d, :g, :l, :f, :r, :v, current_date + cast(:rel as int), :s, 'A. Director', array['Lead Actor', 'Supporting Actor'])")
+                    .param("id", id).param("t", f[0]).param("c", f[1]).param("d", Integer.parseInt(f[2])).param("g", f[3].split(",")).param("l", f[4].split(",")).param("f", f[5].split(","))
+                    .param("r", f[6] == null ? null : new java.math.BigDecimal(f[6]), java.sql.Types.NUMERIC).param("v", f[6] == null ? 0 : 12400).param("rel", f[6] == null ? 9 : -Integer.parseInt(f[2]) % 20).param("s", f[8]).update();
+        }
+        String classes = "[{\"id\":\"recliner\",\"name\":\"Recliner\",\"price\":45000},{\"id\":\"prime\",\"name\":\"Prime\",\"price\":28000},{\"id\":\"classic\",\"name\":\"Classic\",\"price\":18000}]";
+        StringBuilder rows = new StringBuilder("[");
+        String[] labels = {"A", "B", "C", "D", "E", "F", "G", "H"};
+        for (int i = 0; i < labels.length; i++) {
+            String cls = i < 3 ? "classic" : i < 6 ? "prime" : "recliner";
+            String seats = i < 6 ? "1,2,3,4,null,5,6,7,8,9,10,null,11,12,13,14" : "1,2,null,3,4,null,5,6";
+            rows.append(i == 0 ? "" : ",").append("{\"label\":\"").append(labels[i]).append("\",\"classId\":\"").append(cls).append("\",\"seats\":[").append(seats).append("]}");
+        }
+        rows.append("]");
+        java.time.ZoneId ist = java.time.ZoneId.of("Asia/Kolkata");
+        int filmIndex = 0;
+        for (String[] c : new String[][]{{"Galleria Cinemas", "Audi 1"}, {"Galleria Cinemas", "Audi 2"}, {"Luxe Screens", "Screen 1"}}) {
+            UUID business = demo.byName.get(c[0]);
+            if (business == null) continue;
+            UUID screen = UUID.randomUUID();
+            jdbc.sql("insert into cinema_screens (id, business_id, name, classes, rows, seat_count) values (:id, :b, :n, cast(:c as jsonb), cast(:r as jsonb), 100)")
+                    .param("id", screen).param("b", business).param("n", c[1]).param("c", classes).param("r", rows.toString()).update();
+            for (int d = 0; d < 4; d++) {
+                for (int[] t : new int[][]{{10, 0}, {13, 30}, {17, 0}, {20, 30}}) {
+                    java.time.OffsetDateTime at = java.time.LocalDate.now(ist).plusDays(d).atTime(t[0], t[1]).atZone(ist).toOffsetDateTime();
+                    if (at.isBefore(java.time.OffsetDateTime.now().plusMinutes(30))) continue;
+                    int fi = filmIndex++ % 3; // the fourth film is coming soon
+                    String[] f = films[fi];
+                    jdbc.sql("insert into movie_shows (id, movie_id, screen_id, business_id, starts_at, language, format, classes) values (gen_random_uuid(), :m, :s, :b, :at, :l, :f, cast(:c as jsonb))")
+                            .param("m", filmIds.get(fi)).param("s", screen).param("b", business).param("at", at).param("l", f[4].split(",")[0]).param("f", f[5].split(",")[0]).param("c", classes).update();
+                }
+            }
+        }
+    }
+
     @Override
     public void run(ApplicationArguments args) {
         if (jdbc.sql("select count(*) from staff_users").query(Integer.class).single() > 0) return;
@@ -198,6 +267,8 @@ class DevSeed implements ApplicationRunner {
         jdbc.sql("update staff_users set must_change_password = false").update();
         complianceDefaults(admin);
         testCustomers();
+        socialSeed(demo);
+        movieSeed(demo);
         // Two businesses whose KYC isn't done, so the KYC queue and held payouts can be tried: one sent and waiting for VIBE, one not sent at all.
         jdbc.sql("update business_kyc set status = 'submitted', reviewed_at = null, reviewed_by = null, submitted_at = now() where business_id = :b").param("b", demo.byName.get("Brew & Bloom Café")).update();
         jdbc.sql("delete from business_kyc where business_id = :b").param("b", demo.byName.get("Coastal Curry House")).update();

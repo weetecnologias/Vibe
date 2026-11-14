@@ -97,8 +97,8 @@ public class TeamAccess {
         if (p.startsWith("/menu")) return "GET".equals(method) ? "bills|menu" : "menu";
         if (p.startsWith("/offers")) return "offers";
         if (p.startsWith("/promotions")) return "promotions";
-        if (p.startsWith("/events")) return "events";
-        if (p.startsWith("/reservation-settings")) return "reservations";
+        if (p.startsWith("/events") || p.startsWith("/cinema")) return "events"; // cinemas run their screens and shows with the events feature
+        if (p.startsWith("/reservation")) return "reservations"; // settings and the day's meetup reservations
         if (p.startsWith("/venue/plans") || p.startsWith("/venue/members")) return "memberships";
         if (p.startsWith("/venue/check-in")) return "bookings|memberships";
         if (p.startsWith("/venue")) return "bookings";
@@ -128,9 +128,9 @@ public class TeamAccess {
         if (p.startsWith("/bills")) return "bills";
         if (p.startsWith("/menu")) return "GET".equals(method) ? "bills|menu" : "menu"; // staff raising a bill pick items from the menu
         if (p.startsWith("/offers") || p.startsWith("/promotions")) return "offers";
-        if (p.startsWith("/events")) return "events";
+        if (p.startsWith("/events") || p.startsWith("/cinema")) return "events"; // cinemas run their screens and shows with the events feature
         if (p.startsWith("/business") || p.startsWith("/reviews")) return "profile";
-        if (p.startsWith("/reservation-settings")) return "reservations";
+        if (p.startsWith("/reservation")) return "reservations"; // settings and the day's meetup reservations
         if (p.startsWith("/settlements") || p.startsWith("/results")) return "money";
         if (p.startsWith("/venue")) return "bookings";
         if (p.startsWith("/team") || p.startsWith("/kyc") || p.startsWith("/agreement/accept")) return "team"; // the owner's alone

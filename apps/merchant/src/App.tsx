@@ -14,6 +14,7 @@ import { OffersPage } from './pages/OffersPage';
 import { PromotionsPage } from './pages/PromotionsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ReservationsPage } from './pages/ReservationsPage';
+import { CinemaPage } from './pages/CinemaPage';
 import { ResultsPage } from './pages/ResultsPage';
 import { ReviewsPage } from './pages/ReviewsPage';
 import { SettlementsPage } from './pages/SettlementsPage';
@@ -64,6 +65,7 @@ function SignedIn() {
   // Grouped by what the owner is doing: serving customers today, selling on VIBE, money, and the business itself. Each page shows only to people whose role includes it.
   const pages: Page[] = [
     // A sports or fitness venue opens on its court bookings; everyone else on bills.
+    { group: 'Today', path: 'cinema', label: 'Cinema', area: 'events', element: <CinemaPage />, when: has('events') && /movie/i.test(settings.topCategoryName ?? '') },
     { group: 'Today', path: 'bookings', label: has('bookings') ? (has('memberships') ? 'Bookings & members' : 'Bookings') : 'Members', area: 'bookings', element: <VenuePage />, when: !!settings.slotBooking && (has('bookings') || has('memberships')) },
     { group: 'Today', path: 'bills', label: 'Bills', area: 'bills', element: <BillsPage />, when: settings.payRedeem && has('bills') },
     { group: 'Sell on VIBE', path: 'offers', label: 'Offers', area: 'offers', element: <OffersPage />, when: settings.payRedeem && has('offers') },

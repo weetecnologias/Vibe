@@ -18,9 +18,10 @@ import java.util.UUID;
  */
 @Service
 public class ReservationSettings {
-    public record Settings(boolean enabled, Long tableFee, Long slotFee, String policy) {}
+    /** meetupsPerHour: how many VIBE Social meetups the venue takes in any one hour. */
+    public record Settings(boolean enabled, Long tableFee, Long slotFee, String policy, int meetupsPerHour) {}
 
-    public record Input(boolean enabled, @Min(1) Long tableFee, @Min(1) Long slotFee, @Size(max = 600) String policy) {}
+    public record Input(boolean enabled, @Min(1) Long tableFee, @Min(1) Long slotFee, @Size(max = 600) String policy, Integer meetupsPerHour) {}
 
     private final JdbcClient jdbc;
     private final AuditService audit;
@@ -33,8 +34,8 @@ public class ReservationSettings {
     public Settings get(UUID business) {
         return jdbc.sql("select * from reservation_settings where business_id = :b").param("b", business).query((rs, i) -> {
             Object t = rs.getObject("table_fee"), s = rs.getObject("slot_fee");
-            return new Settings(rs.getBoolean("enabled"), t == null ? null : ((Number) t).longValue(), s == null ? null : ((Number) s).longValue(), rs.getString("policy"));
-        }).optional().orElse(new Settings(false, null, null, ""));
+            return new Settings(rs.getBoolean("enabled"), t == null ? null : ((Number) t).longValue(), s == null ? null : ((Number) s).longValue(), rs.getString("policy"), rs.getInt("meetups_per_hour"));
+        }).optional().orElse(new Settings(false, null, null, "", 2));
     }
 
     @Transactional
@@ -45,9 +46,11 @@ public class ReservationSettings {
             if (in.tableFee() == null && in.slotFee() == null) throw ApiException.badRequest("fees", "Set a table fee, a slot fee, or both, before turning reservations on.");
             if (policy.length() < 10) throw ApiException.badRequest("policy", "Write the cancellation policy customers will see, for example when the fee is refunded.");
         }
-        jdbc.sql("insert into reservation_settings (business_id, enabled, table_fee, slot_fee, policy, updated_at) values (:b, :e, :t, :s, :p, now()) "
-                        + "on conflict (business_id) do update set enabled = :e, table_fee = :t, slot_fee = :s, policy = :p, updated_at = now()")
-                .param("b", b).param("e", in.enabled()).param("t", in.tableFee(), Types.BIGINT).param("s", in.slotFee(), Types.BIGINT).param("p", policy).update();
+        int perHour = in.meetupsPerHour() == null ? 2 : in.meetupsPerHour();
+        if (perHour < 1 || perHour > 20) throw ApiException.badRequest("meetups_per_hour", "Take between 1 and 20 meetups an hour.");
+        jdbc.sql("insert into reservation_settings (business_id, enabled, table_fee, slot_fee, policy, meetups_per_hour, updated_at) values (:b, :e, :t, :s, :p, :h, now()) "
+                        + "on conflict (business_id) do update set enabled = :e, table_fee = :t, slot_fee = :s, policy = :p, meetups_per_hour = :h, updated_at = now()")
+                .param("b", b).param("e", in.enabled()).param("t", in.tableFee(), Types.BIGINT).param("s", in.slotFee(), Types.BIGINT).param("p", policy).param("h", perHour).update();
         audit.record(who, "update", "reservation_settings", b, in.enabled() ? "on" : "off");
         return get(b);
     }

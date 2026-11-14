@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { api } from '@/api';
 import { Badge, Button, ErrorState, Icon, LoadingState, Notice, Screen, T, TopBar } from '@/components/ui';
@@ -102,6 +102,8 @@ export default function SeatScreen() {
             <T variant="small" color={colors.mutedGrey}>Screen this way</T>
           </View>
 
+          {/* Big screens have wide rows: below the smallest comfortable seat size the map scrolls sideways instead of squeezing or clipping. */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
           <View style={{ gap: 4, alignItems: 'center' }}>
             {data.rows.map((row, i) => {
               const cls = data.classes.find((c) => c.id === row.classId)!;
@@ -140,6 +142,7 @@ export default function SeatScreen() {
               );
             })}
           </View>
+          </ScrollView>
 
           <View style={styles.legend}>
             {([['Available', styles.seatFree], ['Selected', styles.seatOn], ['Sold', styles.seatTaken]] as const).map(([label, st]) => (

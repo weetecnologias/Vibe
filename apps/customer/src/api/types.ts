@@ -348,6 +348,13 @@ export type MeetPreference = 'men' | 'women' | 'anyone';
 
 /** The only personal details ever shown to other members. No phone, surname or exact age. */
 export type SocialProfile = {
+  /** The id other members see (never the customer id). Live backend only. */
+  memberId?: string;
+  /** False when the community guidelines changed since this member accepted them. */
+  guidelinesAccepted?: boolean;
+  status?: 'active' | 'suspended';
+  /** pending, approved, rejected or revoked when they applied to host. */
+  hostStatus?: string | null;
   firstName: string;
   gender: Gender;
   meetPreference: MeetPreference;
@@ -355,15 +362,28 @@ export type SocialProfile = {
   ageConfirmed18: boolean;
   ageBand: string | null;
 };
-export type SocialProfileInput = Pick<SocialProfile, 'gender' | 'meetPreference' | 'ageConfirmed18' | 'ageBand'>;
+export type SocialProfileInput = Pick<SocialProfile, 'gender' | 'meetPreference' | 'ageConfirmed18' | 'ageBand'> & { acceptGuidelines?: boolean };
+
+export type SocialGuidelines = { version: number; community: string[]; host: string[] };
+
+/** A VIBE venue that takes meetup reservations: KYC-verified, reservations on, a deposit set. */
+export type SocialVenue = { businessId: ID; name: string; area: string; kind: 'table' | 'slot'; deposit: Paise; policy: string; coverUrl: string | null; distanceKm: number };
+
+export type HostIdType = 'aadhaar' | 'pan' | 'passport' | 'driving_licence' | 'voter_id';
+export type HostApplication = {
+  status: 'pending' | 'approved' | 'rejected' | 'revoked'; legalName: string; idType: HostIdType; idLast4: string; dateOfBirth: string; city: string; about: string;
+  submittedAt: ISODate; reviewedAt: ISODate | null; reviewNote: string | null; member: boolean;
+};
+export type HostInput = { legalName: string; idType: HostIdType; idLast4: string; dateOfBirth: string; city?: string; about?: string; acceptHostGuidelines: boolean };
 
 /** What one member sees of another in one-on-one. */
 export type MemberCard = { id: ID; firstName: string; ageBand: string | null; gender: Gender; verified: boolean };
 
 export type OneOnOneKind = 'coffee' | 'sport' | 'food' | 'movie';
-export type OneOnOneStatus = 'open' | 'matched' | 'cancelled';
+/** draft = waiting for the creator's deposit (only they see it) · awaiting_payment = accepted, the guest pays their half · expired = nobody joined before the cut-off. */
+export type OneOnOneStatus = 'draft' | 'open' | 'awaiting_payment' | 'matched' | 'completed' | 'cancelled' | 'expired';
 /** My relationship to an invite. `host` = I posted it. */
-export type OneOnOneMyStatus = 'none' | 'requested' | 'confirmed' | 'host';
+export type OneOnOneMyStatus = 'none' | 'requested' | 'confirmed' | 'host' | 'pay';
 
 export type OneOnOneInvite = {
   id: ID;
@@ -394,6 +414,15 @@ export type OneOnOneInvite = {
   reservation: MeetReservation | null;
   /** What the host can still reserve here. Null when it is already reserved, too late, or not the host. */
   reservationOption: MeetReservationOption | null;
+  /** Live backend: who pays the venue's deposit, the total, my share, the free-cancellation cut-off and how long the table is held. */
+  payMode?: 'full' | 'split';
+  deposit?: Paise;
+  share?: Paise;
+  cancelBy?: ISODate;
+  holdUntil?: ISODate;
+  /** Something I have to pay now: the creator's deposit for a draft, or the guest's half once accepted. */
+  myPayment?: { paymentRequestId: ID; amount: Paise; payBy: ISODate } | null;
+  cancelledReason?: string | null;
 };
 
 export type MeetReservationKind = 'table' | 'slot' | 'movie';
@@ -425,6 +454,8 @@ export type OneOnOneInput = {
   startsAt: ISODate;
   openTo: MeetPreference;
   note?: string;
+  /** Who pays the venue's deposit: the creator in full, or split 50/50 when someone joins. */
+  payMode?: 'full' | 'split';
 };
 
 // ---------- Social: one-on-one chat (meeting details only) ----------

@@ -10,6 +10,8 @@ import { WorkspaceProvider, WorkspaceSwitcher, useWorkspace } from './workspace'
 import { BalancesPage } from './pages/BalancesPage';
 import { MerchantProfilePage } from './pages/MerchantProfilePage';
 import { MembershipPage } from './pages/MembershipPage';
+import { SocialPage } from './pages/SocialPage';
+import { FilmsPage } from './pages/FilmsPage';
 import { MerchantsPage } from './pages/MerchantsPage';
 import { TodoPage } from './pages/TodoPage';
 
@@ -64,9 +66,11 @@ const PAGES: Page[] = [
   { group: 'Content', path: 'offers', label: 'Offer review', area: 'content', element: <OfferReviewPage /> },
   { group: 'Content', path: 'promotions', label: 'Promotion review', area: 'content', element: <PromotionReviewPage /> },
   { group: 'Content', path: 'events', label: 'Events', area: 'content', element: <EventsPage /> },
+  { group: 'Content', path: 'films', label: 'Films', area: 'catalogue', element: <FilmsPage />, allOnly: true },
   { group: 'Content', path: 'reviews', label: 'Customer reviews', area: 'content', element: <ReviewsPage /> },
   { group: 'Customers', path: 'customers', label: 'Customers', area: 'customers', element: <CustomersPage />, allOnly: true },
   { group: 'Customers', path: 'members', label: 'Members', area: 'customers', element: <MembersPage />, allOnly: true },
+  { group: 'Customers', path: 'social', label: 'VIBE Social', area: 'customers', element: <SocialPage />, allOnly: true },
   { group: 'Customers', path: 'deletions', label: 'Deletion requests', area: 'customers', element: <DeletionsPage />, allOnly: true },
   { group: 'Setup', path: 'categories', label: 'Categories', area: 'catalogue', element: <CategoriesPage />, allOnly: true },
   { group: 'Setup', path: 'home', label: 'Home content', area: 'catalogue', element: <HomePage />, allOnly: true },

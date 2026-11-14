@@ -925,6 +925,23 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     },
 
     // ---- One-on-one (18+) ----
+    async getSocialGuidelines() {
+      return wait({ version: 1, community: ['You are 18 or older.', 'Meet only at the VIBE venue in the plan.', 'No contact details in chat.', 'Be respectful.', 'Cancel at least 3 hours before.', 'Report anything that feels wrong.'], host: ['Hosts are verified by VIBE.'] });
+    },
+    async getSocialVenues(kind) {
+      const cat = VENUE_CATEGORY[kind];
+      const opt = reservationOptions[kind];
+      if (!cat || !opt || opt.fee === null) fail(409, 'movies_soon', 'Movie dates open once cinemas take seat bookings on VIBE.');
+      const list = businesses.filter((b) => b.categoryIds.some((c) => c === cat || c.startsWith(cat + '.'))).sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 8);
+      return wait(list.map((b) => ({ businessId: b.id, name: b.name, area: b.area, kind: opt!.kind === 'slot' ? 'slot' as const : 'table' as const, deposit: opt!.fee!, policy: opt!.policy, coverUrl: b.coverUrl ?? null, distanceKm: b.distanceKm })));
+    },
+    async getHostApplication() {
+      return wait(null);
+    },
+    async applyToHost() {
+      return fail(409, 'demo', 'Hosting needs the live app: in demo mode nothing is sent to VIBE.');
+    },
+
     async getSocialProfile() {
       requireUser();
       return wait(socialProfile);
@@ -942,7 +959,7 @@ export function createDemoApi(opts: DemoOptions = {}): VibeApi {
     async getOneOnOnes(filter) {
       const { p } = requireSocial();
       const t = now();
-      const rank = { host: 0, confirmed: 1, requested: 2, none: 3 } as const;
+      const rank = { host: 0, pay: 1, confirmed: 1, requested: 2, none: 3 } as const;
       const list = oneOnOnes.filter((i) => visibleToMe(i, p) && (i.myStatus !== 'none' || matchesFilter(i, filter, t)))
         .sort((a, b) => rank[a.myStatus] - rank[b.myStatus] || Date.parse(a.startsAt) - Date.parse(b.startsAt));
       return wait(list.map(viewOf));

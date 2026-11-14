@@ -4,7 +4,8 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  api, type Gender, type MeetPreference, type MemberCard, type MeetReservation, type OneOnOneInput, type OneOnOneInvite, type OneOnOneKind, type SocialFilter, type SocialProfile,
+  api, type Gender, type HostApplication, type HostIdType, type MeetPreference, type MemberCard, type MeetReservation, type OneOnOneInput, type OneOnOneInvite, type OneOnOneKind,
+  type SocialFilter, type SocialProfile, type SocialVenue,
 } from '@/api';
 import { istAt, formatTime, relativeDay, startsInLabel } from '@/lib/dates';
 import { formatINR } from '@/lib/money';
@@ -33,8 +34,18 @@ export const KINDS: { key: OneOnOneKind; label: string; icon: IconName; example:
 const openToLabel = (p: MeetPreference) => (p === 'anyone' ? 'Open to anyone' : p === 'women' ? 'Women only' : 'Men only');
 const kindIcon = (k: OneOnOneKind) => KINDS.find((x) => x.key === k)?.icon ?? 'social';
 
-/** Which kind of VIBE business suits each activity. Places come only from the app's own listings. */
-const KIND_CATEGORY: Record<OneOnOneKind, string> = { coffee: 'food.cafes', sport: 'fitness.sports', food: 'food.restaurants', movie: 'movies.cinemas' };
+const PAY_MODES: { key: 'full' | 'split'; label: string }[] = [{ key: 'full', label: 'I’ll pay it all' }, { key: 'split', label: 'Split 50/50' }];
+const ID_TYPES: { key: HostIdType; label: string }[] = [
+  { key: 'aadhaar', label: 'Aadhaar' }, { key: 'pan', label: 'PAN' }, { key: 'passport', label: 'Passport' }, { key: 'driving_licence', label: 'Driving licence' }, { key: 'voter_id', label: 'Voter ID' },
+];
+/** The rules every reserved plan follows, said the same way everywhere. */
+const PLAN_RULES = [
+  'Your plan goes live once the deposit is paid. Until then only you can see it.',
+  'The table or slot is booked for you both the moment someone joins.',
+  'Nobody joins? It expires 3 hours before the start and the deposit is refunded.',
+  'Cancel free until 3 hours before the start. After that the deposit isn’t refunded.',
+  'The table is held until 30 minutes after the start. The deposit comes off your bill.',
+];
 
 // ---------- small pieces ----------
 function Avatar({ m, size = 40 }: { m: MemberCard; size?: number }) {
@@ -54,7 +65,7 @@ function Who({ m }: { m: MemberCard }) {
           <T variant="bodyStrong" color={colors.white}>{m.firstName}{m.ageBand ? `, ${m.ageBand}` : ''}</T>
           {m.verified ? <Icon name="shield" size={14} color={colors.pink} strokeWidth={2.2} /> : null}
         </View>
-        <T variant="small" color={colors.onDarkMuted}>{m.verified ? 'Phone verified' : 'Not yet verified'}</T>
+        <T variant="small" color={colors.onDarkMuted}>{m.verified ? 'VIBE verified host' : 'Phone verified'}</T>
       </View>
     </View>
   );
@@ -72,6 +83,28 @@ function Segmented<K extends string>({ options, value, onChange, label }: { opti
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+function Check({ on, onToggle, children }: { on: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} onPress={onToggle} style={styles.checkRow}>
+      <View style={[styles.box, on && { backgroundColor: colors.pink, borderColor: colors.pink }]}>{on ? <Icon name="check" size={14} color={colors.white} strokeWidth={3} /> : null}</View>
+      <T variant="caption" color={colors.white} style={{ flex: 1 }}>{children}</T>
+    </Pressable>
+  );
+}
+
+function Rules({ items }: { items: string[] }) {
+  return (
+    <View style={styles.rules}>
+      {items.map((t, n) => (
+        <View key={t} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+          <T variant="small" color={colors.pink} style={{ fontFamily: fonts.semibold, width: 16 }}>{n + 1}.</T>
+          <T variant="small" color="rgba(255,255,255,0.86)" style={{ flex: 1 }}>{t}</T>
+        </View>
+      ))}
     </View>
   );
 }
@@ -101,14 +134,16 @@ function ProfileSheet({ visible, initial, onClose, onSaved }: { visible: boolean
   const [adult, setAdult] = useState(initial?.ageConfirmed18 ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ready = !!gender && !!band && adult;
+  const guidelines = useAsync(() => (visible ? api.getSocialGuidelines() : Promise.resolve(null)), [visible]);
+  const [agreed, setAgreed] = useState(!!initial && initial.guidelinesAccepted !== false);
+  const ready = !!gender && !!band && adult && agreed;
 
   const save = async () => {
     if (!ready) return;
     setBusy(true);
     setError(null);
     try {
-      onSaved(await api.saveSocialProfile({ gender: gender!, meetPreference: pref, ageBand: band, ageConfirmed18: adult }));
+      onSaved(await api.saveSocialProfile({ gender: gender!, meetPreference: pref, ageBand: band, ageConfirmed18: adult, acceptGuidelines: agreed }));
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -136,12 +171,17 @@ function ProfileSheet({ visible, initial, onClose, onSaved }: { visible: boolean
         <T variant="label" color={colors.onDarkMuted}>Age range</T>
         <Segmented label="Age range" options={AGE_BANDS.map((b) => ({ key: b, label: b }))} value={band} onChange={setBand} />
       </View>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: adult }} aria-checked={adult} onPress={() => setAdult((a) => !a)} style={styles.checkRow}>
-        <View style={[styles.box, adult && { backgroundColor: colors.pink, borderColor: colors.pink }]}>{adult ? <Icon name="check" size={14} color={colors.white} strokeWidth={3} /> : null}</View>
-        <T variant="caption" color={colors.white} style={{ flex: 1 }}>I confirm I’m 18 or older and agree to the community guidelines.</T>
-      </Pressable>
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>Community guidelines</T>
+        {guidelines.data ? <Rules items={guidelines.data.community} /> : guidelines.error ? <T variant="small" color={colors.onDarkMuted}>{guidelines.error}</T> : <T variant="small" color={colors.onDarkMuted}>Loading the guidelines…</T>}
+      </View>
+      <Check on={adult} onToggle={() => setAdult((a) => !a)}>I confirm I’m 18 or older.</Check>
+      <Check on={agreed} onToggle={() => setAgreed((a) => !a)}>I’ve read and agree to the community guidelines.</Check>
+      {initial && initial.guidelinesAccepted === false ? (
+        <Notice tone="warning" icon="info"><T variant="small">The guidelines changed since you last agreed. Please read them and agree again to keep using one-on-ones.</T></Notice>
+      ) : null}
       <Notice tone="warning" icon="info">
-        <T variant="small">Age is self-declared for now. ID verification will be added once a KYC provider is connected.</T>
+        <T variant="small">Your age is self-declared. Hosts are checked by VIBE staff before they get the verified badge.</T>
       </Notice>
       {error ? <Notice tone="error"><T variant="caption">{error}</T></Notice> : null}
       <Button label="Save and continue" onPress={save} disabled={!ready} loading={busy} />
@@ -152,18 +192,19 @@ function ProfileSheet({ visible, initial, onClose, onSaved }: { visible: boolean
 // ---------- post an invite ----------
 function slots(now = Date.now()) {
   const out: { iso: string; label: string }[] = [];
-  const plan: [number, number][] = [[0, 18], [0, 20], [1, 7], [1, 13], [1, 18], [2, 7], [2, 18], [3, 10], [4, 17]];
+  const plan: [number, number][] = [[0, 18], [0, 20], [0, 21], [1, 8], [1, 13], [1, 18], [1, 20], [2, 8], [2, 18], [3, 10], [4, 17], [5, 19]];
   for (const [d, h] of plan) {
     const iso = istAt(d, h, 0, now);
-    if (Date.parse(iso) > now + 45 * 60_000) out.push({ iso, label: `${relativeDay(iso, now)} · ${formatTime(iso)}` });
+    if (Date.parse(iso) >= now + 4 * 3_600_000) out.push({ iso, label: `${relativeDay(iso, now)} · ${formatTime(iso)}` });
   }
-  return out.slice(0, 6);
+  return out.slice(0, 8);
 }
 
 function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: () => void; onPosted: (i: OneOnOneInvite) => void }) {
   const [kind, setKind] = useState<OneOnOneKind>('coffee');
   const [activity, setActivity] = useState('');
-  const [venue, setVenue] = useState<{ name: string; area: string; businessId: string } | null>(null);
+  const [venue, setVenue] = useState<SocialVenue | null>(null);
+  const [payMode, setPayMode] = useState<'full' | 'split'>('full');
   const [slot, setSlot] = useState<string | null>(null);
   const [openTo, setOpenTo] = useState<MeetPreference>('anyone');
   const [note, setNote] = useState('');
@@ -171,10 +212,8 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
   const [error, setError] = useState<string | null>(null);
   const times = useMemo(() => slots(), [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const venues = useAsync(async () => {
-    const list = await api.searchBusinesses({ categoryId: KIND_CATEGORY[kind], sort: 'nearest' });
-    return list.slice(0, 8).map((b) => ({ name: b.name, area: b.area, businessId: b.id }));
-  }, [kind]);
+  const venues = useAsync(() => (visible ? api.getSocialVenues(kind) : Promise.resolve([] as SocialVenue[])), [kind, visible]);
+  const myShare = venue ? (payMode === 'split' ? Math.ceil(venue.deposit / 2) : venue.deposit) : 0;
 
   const pickKind = (k: OneOnOneKind) => { setKind(k); setVenue(null); };
   const label = activity.trim() || KINDS.find((k) => k.key === kind)!.example;
@@ -183,10 +222,10 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
     if (!venue || !slot) return;
     setBusy(true);
     setError(null);
-    const input: OneOnOneInput = { kind, activity: label, venueBusinessId: venue.businessId, startsAt: slot, openTo, note: note.trim() || undefined };
+    const input: OneOnOneInput = { kind, activity: label, venueBusinessId: venue.businessId, startsAt: slot, openTo, note: note.trim() || undefined, payMode };
     try {
       onPosted(await api.createOneOnOne(input));
-      setActivity(''); setVenue(null); setSlot(null); setNote('');
+      setActivity(''); setVenue(null); setSlot(null); setNote(''); setPayMode('full');
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -210,13 +249,16 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
         />
       </View>
       <View style={{ gap: 8 }}>
-        <T variant="label" color={colors.onDarkMuted}>Where · VIBE recommended places</T>
+        <T variant="label" color={colors.onDarkMuted}>Where · venues that take reservations</T>
         {venues.loading && !venues.data ? <T variant="small" color={colors.onDarkMuted}>Finding places…</T> : null}
+        {venues.error ? <T variant="small" color={colors.onDarkMuted}>{venues.error}</T> : null}
+        {venues.data && venues.data.length === 0 ? <T variant="small" color={colors.onDarkMuted}>No venue takes reservations for this yet. Try another activity.</T> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {venues.data?.map((v) => (
-            <Chip key={v.name} label={`${v.name} · ${v.area}`} onDark selected={venue?.name === v.name} onPress={() => setVenue(v)} />
+            <Chip key={v.businessId} label={`${v.name} · ${v.area} · ${formatINR(v.deposit)}`} onDark selected={venue?.businessId === v.businessId} onPress={() => setVenue(v)} />
           ))}
         </View>
+        {venue ? <T variant="small" color={colors.onDarkMuted}>{venue.kind === 'slot' ? 'Slot' : 'Table'} deposit {formatINR(venue.deposit)} · it comes off the bill at {venue.name}.</T> : null}
       </View>
       <View style={{ gap: 8 }}>
         <T variant="label" color={colors.onDarkMuted}>When</T>
@@ -229,6 +271,15 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
         <Segmented label="Who can join" options={PREFS} value={openTo} onChange={setOpenTo} />
         <T variant="small" color={colors.onDarkMuted}>{PREFS.find((p) => p.key === openTo)!.hint}. Only people who match will see this invite.</T>
       </View>
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>Who pays the deposit</T>
+        <Segmented label="Who pays the deposit" options={PAY_MODES} value={payMode} onChange={setPayMode} />
+        <T variant="small" color={colors.onDarkMuted}>
+          {payMode === 'split'
+            ? `You pay ${venue ? formatINR(myShare) : 'half'} now. Whoever you accept pays their half within 30 minutes to book the table.`
+            : `You pay ${venue ? formatINR(myShare) : 'the deposit'} now. Whoever you accept joins free.`}
+        </T>
+      </View>
       <TextInput
         value={note}
         onChangeText={setNote}
@@ -239,8 +290,12 @@ function PostSheet({ visible, onClose, onPosted }: { visible: boolean; onClose: 
         accessibilityLabel="Note"
         style={[styles.input, { minHeight: 64, textAlignVertical: 'top', paddingTop: 12 }]}
       />
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>How reserved plans work</T>
+        <Rules items={PLAN_RULES} />
+      </View>
       {error ? <Notice tone="error"><T variant="caption">{error}</T></Notice> : null}
-      <Button label="Post invite" onPress={post} disabled={!venue || !slot} loading={busy} />
+      <Button label={venue ? `Reserve and pay ${formatINR(myShare)}` : 'Reserve and pay'} icon="lock" onPress={post} disabled={!venue || !slot} loading={busy} />
     </Sheet>
   );
 }
@@ -333,12 +388,17 @@ function ReservationCard({ r, mine }: { r: MeetReservation; mine: boolean }) {
 }
 
 // ---------- invite card ----------
-function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onReport, onChat, onReserve, onDemoAccept, onDemoRequest }: {
+function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onReport, onChat, onReserve, onPay, onDemoAccept, onDemoRequest }: {
   i: OneOnOneInvite; busy: boolean;
   onRequest: () => void; onWithdraw: () => void; onCancel: () => void; onRespond: (m: MemberCard, accept: boolean) => void;
-  onReport: () => void; onChat: () => void; onReserve: () => void; onDemoAccept?: () => void; onDemoRequest?: () => void;
+  onReport: () => void; onChat: () => void; onReserve: () => void; onPay: (paymentRequestId: string) => void; onDemoAccept?: () => void; onDemoRequest?: () => void;
 }) {
   const when = `${relativeDay(i.startsAt)} · ${formatTime(i.startsAt)}`;
+  const over = i.status === 'cancelled' || i.status === 'expired' || i.status === 'completed';
+  const live = i.status === 'open' || i.status === 'awaiting_payment' || i.status === 'matched';
+  const pay = i.myPayment ?? null;
+  const hostLine = i.status === 'draft' ? 'Not live yet' : i.status === 'awaiting_payment' ? 'Waiting for their half' : i.status === 'matched' ? 'Matched' : i.status === 'completed' ? 'Done'
+    : i.status === 'cancelled' ? 'Cancelled' : i.status === 'expired' ? 'Expired' : `${i.requests.length} request${i.requests.length === 1 ? '' : 's'}`;
   return (
     <View style={styles.card}>
       <Photo uri={i.coverUrl} seed={i.id} style={{ height: 120 }} scrim={0.25}>
@@ -346,13 +406,14 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
           <View style={styles.kindPill}><Icon name={kindIcon(i.kind)} size={13} color={colors.white} strokeWidth={2.2} /><T variant="small" color={colors.white} style={{ fontFamily: fonts.semibold }}>{KINDS.find((k) => k.key === i.kind)?.label}</T></View>
           <View style={{ gap: 6, alignItems: 'flex-end' }}>
             <Badge label={openToLabel(i.openTo)} tone={i.openTo === 'anyone' ? 'dark' : 'pink'} />
-            {i.reservation ? <Badge label="Reserved" tone="success" /> : null}
+            {i.reservation && !over ? <Badge label={i.status === 'matched' ? 'Table booked' : 'Reserved'} tone="success" /> : null}
+            {over ? <Badge label={i.status === 'completed' ? 'Done' : i.status === 'expired' ? 'Expired' : 'Cancelled'} tone="dark" /> : null}
           </View>
         </View>
       </Photo>
       <View style={{ padding: 14, gap: 10 }}>
         {i.myStatus === 'host' ? (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Badge label="Your invite" tone="pink" uppercase /><T variant="small" color={colors.onDarkMuted}>{i.status === 'matched' ? 'Matched' : `${i.requests.length} request${i.requests.length === 1 ? '' : 's'}`}</T></View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Badge label="Your invite" tone="pink" uppercase /><T variant="small" color={colors.onDarkMuted}>{hostLine}</T></View>
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Who m={i.host} />
@@ -371,7 +432,19 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
           <T variant="captionStrong" color={colors.white} style={{ textDecorationLine: 'underline' }}>View {i.venueName} on VIBE</T>
         </Pressable>
 
-        {i.reservation ? <ReservationCard r={i.reservation} mine={i.myStatus === 'host'} /> : null}
+        {i.reservation && !over ? <ReservationCard r={i.reservation} mine={i.myStatus === 'host'} /> : null}
+        {i.cancelBy && live && i.myStatus !== 'none' ? (
+          <Fact icon="clock" text={`Free cancellation until ${formatTime(i.cancelBy)}${i.holdUntil ? ` · table held until ${formatTime(i.holdUntil)}` : ''}`} />
+        ) : null}
+        {over && i.cancelledReason ? <Notice tone="warning" icon="info"><T variant="small">{i.cancelledReason}</T></Notice> : null}
+
+        {i.myStatus === 'pay' && pay ? (
+          <View style={{ gap: 8 }}>
+            <Notice tone="warning" icon="clock"><T variant="small">{i.host.firstName} accepted. Pay your half, {formatINR(pay.amount)}, by {formatTime(pay.payBy)} to book the table. If it isn’t paid by then, the plan reopens for others.</T></Notice>
+            <Button label={`Pay ${formatINR(pay.amount)} and book`} icon="lock" size="md" loading={busy} onPress={() => onPay(pay.paymentRequestId)} />
+            <Button label="Not for me" variant="outline" size="sm" onPress={onWithdraw} />
+          </View>
+        ) : null}
 
         {i.myStatus === 'none' ? <Button label="Ask to join" size="md" onPress={onRequest} loading={busy} /> : null}
 
@@ -385,7 +458,7 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
           </View>
         ) : null}
 
-        {i.myStatus === 'confirmed' && i.matchedWith ? (
+        {i.myStatus === 'confirmed' && i.matchedWith && !over ? (
           <View style={{ gap: 8 }}>
             <Notice tone="success" icon="check"><T variant="small">You’re meeting {i.matchedWith.firstName} {when.toLowerCase().startsWith('today') ? 'today' : 'on ' + relativeDay(i.startsAt)} at {i.venueName}. Meet inside the venue and tell a friend your plan.</T></Notice>
             <Button label="Open chat" icon="social" size="md" onPress={onChat} />
@@ -395,10 +468,19 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
 
         {i.myStatus === 'host' ? (
           <View style={{ gap: 8 }}>
+            {i.status === 'draft' && pay ? (
+              <>
+                <Notice tone="warning" icon="lock"><T variant="small">Only you can see this plan. Pay {formatINR(pay.amount)} by {formatTime(pay.payBy)} to put it live. Nobody joins? You get it back.</T></Notice>
+                <Button label={`Pay ${formatINR(pay.amount)} to go live`} icon="lock" size="md" loading={busy} onPress={() => onPay(pay.paymentRequestId)} />
+              </>
+            ) : null}
+            {i.status === 'awaiting_payment' && i.matchedWith ? (
+              <Notice tone="warning" icon="clock"><T variant="small">You accepted {i.matchedWith.firstName}. The table is booked as soon as they pay their half.</T></Notice>
+            ) : null}
             {i.status === 'matched' && i.matchedWith ? (
               <Notice tone="success" icon="check"><T variant="small">You’re meeting {i.matchedWith.firstName} ({i.matchedWith.ageBand}) at {i.venueName}.</T></Notice>
             ) : null}
-            {i.reservationOption ? (
+            {i.reservationOption && !pay ? (
               <Button
                 label={i.reservationOption.fee !== null ? `Reserve ${i.reservationOption.title.toLowerCase()} · ${formatINR(i.reservationOption.fee)}` : 'Reserve seats at the cinema'}
                 icon={i.reservationOption.kind === 'movie' ? 'film' : 'lock'}
@@ -417,7 +499,7 @@ function InviteCard({ i, busy, onRequest, onWithdraw, onCancel, onRespond, onRep
             ))}
             {i.status === 'open' && i.requests.length === 0 ? <T variant="small" color={colors.onDarkMuted}>No requests yet. Matching members can see your invite now.</T> : null}
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button label="Cancel invite" variant="outline" size="sm" style={{ flex: 1 }} onPress={onCancel} />
+              {!over ? <Button label={i.status === 'draft' ? 'Discard' : 'Cancel invite'} variant="outline" size="sm" style={{ flex: 1 }} onPress={onCancel} /> : null}
               {onDemoRequest && i.status === 'open' ? <Button label="Demo: someone asks" variant="light" size="sm" style={{ flex: 1.4 }} onPress={onDemoRequest} /> : null}
             </View>
           </View>
@@ -436,6 +518,105 @@ function Fact({ icon, text }: { icon: IconName; text: string }) {
   );
 }
 
+// ---------- become a host ----------
+function HostCard({ app, onOpen }: { app: HostApplication | null; onOpen: () => void }) {
+  const s = app?.status;
+  const title = s === 'approved' ? 'You’re a VIBE verified host' : s === 'pending' ? 'Host application with VIBE' : s === 'rejected' ? 'Host application not approved' : s === 'revoked' ? 'Hosting paused' : 'Become a host';
+  const text = s === 'approved' ? 'Your plans show the verified badge. Thank you for keeping meetups safe.'
+    : s === 'pending' ? 'Our team checks your details, usually within 2 working days.'
+      : s === 'rejected' || s === 'revoked' ? (app?.reviewNote ?? 'See the note from VIBE and apply again.')
+        : 'Verified hosts get a badge on every plan. Needs VIBE Membership and your ID details.';
+  return (
+    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={title} style={styles.hostCard}>
+      <Icon name="shield" size={20} color={colors.pink} strokeWidth={2.2} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <T variant="captionStrong" color={colors.white}>{title}</T>
+        <T variant="small" color={colors.onDarkMuted}>{text}</T>
+      </View>
+      <Icon name="chevronRight" size={18} color={colors.onDarkMuted} />
+    </Pressable>
+  );
+}
+
+function HostSheet({ visible, app, onClose }: { visible: boolean; app: HostApplication | null; onClose: () => void }) {
+  const guidelines = useAsync(() => (visible ? api.getSocialGuidelines() : Promise.resolve(null)), [visible]);
+  const [legalName, setLegalName] = useState(app?.legalName ?? '');
+  const [idType, setIdType] = useState<HostIdType | null>(app?.idType ?? null);
+  const [idLast4, setIdLast4] = useState('');
+  const [dob, setDob] = useState(app?.dateOfBirth ?? '');
+  const [city, setCity] = useState(app?.city ?? 'Hyderabad');
+  const [about, setAbout] = useState(app?.about ?? '');
+  const [agreed, setAgreed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const canApply = !app || app.status === 'rejected' || app.status === 'revoked';
+  const ready = legalName.trim().length >= 3 && !!idType && /^[0-9A-Za-z]{4}$/.test(idLast4) && /^\d{4}-\d{2}-\d{2}$/.test(dob) && agreed;
+
+  const apply = async () => {
+    if (!ready) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.applyToHost({ legalName: legalName.trim(), idType: idType!, idLast4: idLast4.toUpperCase(), dateOfBirth: dob, city: city.trim(), about: about.trim(), acceptHostGuidelines: true });
+      setSent(true);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Become a host">
+      <View style={{ gap: 8 }}>
+        <T variant="label" color={colors.onDarkMuted}>How it works</T>
+        <Rules items={['Be a VIBE member with a one-on-one profile.', 'Tell us your legal name, date of birth and ID. We keep only the last 4 characters of the ID.', 'VIBE staff check your details and approve you.', 'Your plans then carry the verified host badge.']} />
+      </View>
+      {sent || (app && !canApply) ? (
+        <Notice tone={app?.status === 'approved' ? 'success' : 'warning'} icon={app?.status === 'approved' ? 'check' : 'clock'}>
+          <T variant="small">{app?.status === 'approved' ? 'You’re approved. Your plans show the verified host badge.' : 'Application sent. Our team checks it, usually within 2 working days. We’ll notify you.'}</T>
+        </Notice>
+      ) : (
+        <>
+          {app?.reviewNote ? <Notice tone="warning" icon="info"><T variant="small">Note from VIBE: {app.reviewNote}</T></Notice> : null}
+          <View style={{ gap: 8 }}>
+            <T variant="label" color={colors.onDarkMuted}>Legal name, as on your ID</T>
+            <TextInput value={legalName} onChangeText={setLegalName} maxLength={80} accessibilityLabel="Legal name" style={styles.input} placeholderTextColor={colors.onDarkSubtle} placeholder="Full name" />
+          </View>
+          <View style={{ gap: 8 }}>
+            <T variant="label" color={colors.onDarkMuted}>ID type</T>
+            <Segmented label="ID type" options={ID_TYPES} value={idType} onChange={setIdType} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1, gap: 8 }}>
+              <T variant="label" color={colors.onDarkMuted}>Last 4 of ID</T>
+              <TextInput value={idLast4} onChangeText={(v) => setIdLast4(v.replace(/[^0-9A-Za-z]/g, '').slice(0, 4))} autoCapitalize="characters" accessibilityLabel="Last 4 characters of your ID" style={styles.input} placeholderTextColor={colors.onDarkSubtle} placeholder="1234" />
+            </View>
+            <View style={{ flex: 1.4, gap: 8 }}>
+              <T variant="label" color={colors.onDarkMuted}>Date of birth</T>
+              <TextInput value={dob} onChangeText={setDob} maxLength={10} accessibilityLabel="Date of birth, year-month-day" style={styles.input} placeholderTextColor={colors.onDarkSubtle} placeholder="YYYY-MM-DD" />
+            </View>
+          </View>
+          <View style={{ gap: 8 }}>
+            <T variant="label" color={colors.onDarkMuted}>City</T>
+            <TextInput value={city} onChangeText={setCity} maxLength={60} accessibilityLabel="City" style={styles.input} />
+          </View>
+          <TextInput value={about} onChangeText={setAbout} maxLength={300} multiline accessibilityLabel="About you" placeholder="A line about the plans you’d host (optional)" placeholderTextColor={colors.onDarkSubtle}
+            style={[styles.input, { minHeight: 64, textAlignVertical: 'top', paddingTop: 12 }]} />
+          <View style={{ gap: 8 }}>
+            <T variant="label" color={colors.onDarkMuted}>Host guidelines</T>
+            {guidelines.data ? <Rules items={guidelines.data.host} /> : <T variant="small" color={colors.onDarkMuted}>Loading the guidelines…</T>}
+          </View>
+          <Check on={agreed} onToggle={() => setAgreed((a) => !a)}>I’ve read and agree to the host guidelines, and my details are true.</Check>
+          {error ? <Notice tone="error"><T variant="caption">{error}</T></Notice> : null}
+          <Button label="Send for review" icon="shield" onPress={apply} disabled={!ready} loading={busy} />
+        </>
+      )}
+    </Sheet>
+  );
+}
+
 // ---------- section ----------
 type ReportTarget = { type: 'user'; id: string; name: string; hostId: string };
 
@@ -451,6 +632,8 @@ export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }:
   const [chatInvite, setChatInvite] = useState<OneOnOneInvite | null>(null);
   const [reserveId, setReserveId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [hosting, setHosting] = useState(false);
+  const host = useAsync(() => (p ? api.getHostApplication() : Promise.resolve(null)), [p?.gender, hosting]);
   // Coming back from paying: show the reservation.
   useFocusEffect(useCallback(() => { invites.reload(); }, [invites.reload])); // eslint-disable-line react-hooks/exhaustive-deps
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
@@ -523,6 +706,10 @@ export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }:
             </View>
             <Button label="Change" variant="light" size="sm" onPress={() => setEditing(true)} />
           </View>
+          {p.guidelinesAccepted === false ? (
+            <View style={{ paddingHorizontal: 20 }}><Notice tone="warning" icon="info"><T variant="small">The community guidelines changed. Tap Change to read and agree to them again.</T></Notice></View>
+          ) : null}
+          <HostCard app={host.data ?? null} onOpen={() => setHosting(true)} />
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}>
             <Chip label="All" onDark selected={kind === 'all'} onPress={() => setKind('all')} />
@@ -546,6 +733,7 @@ export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }:
                   onWithdraw={() => run(i.id, () => api.cancelOneOnOne(i.id).then(() => api.getOneOnOnes(filter)).then((l) => { invites.setData(() => l); }))}
                   onCancel={() => (i.reservation ? setCancelId(i.id) : cancelInvite(i))}
                   onReserve={() => setReserveId(i.id)}
+                  onPay={(id) => router.push(`/checkout/${id}`)}
                   onRespond={(m, accept) => run(i.id, () => api.respondOneOnOne(i.id, m.id, accept), accept ? `You’re meeting ${m.firstName}. You’ll both see the plan here.` : undefined)}
                   onReport={() => onReport({ type: 'user', id: i.host.id, name: i.host.firstName, hostId: i.host.id })}
                   onChat={() => setChatInvite(i)}
@@ -568,13 +756,19 @@ export function OneOnOneSection({ filter, signedIn, onRequireSignIn, onReport }:
         onClose={() => setEditing(false)}
         onSaved={(np) => { profile.setData(() => np); setEditing(false); }}
       />
+      <HostSheet key={host.data ? `${host.data.status}-${host.data.submittedAt}` : 'host-new'} visible={hosting} app={host.data ?? null} onClose={() => setHosting(false)} />
       <ReserveSheet key={reserveId ?? 'none'} invite={reserving} onClose={() => setReserveId(null)} />
       <CancelReservedSheet invite={cancelling} onClose={() => setCancelId(null)} onConfirm={() => { const c = cancelling; setCancelId(null); if (c) cancelInvite(c); }} />
       {chatInvite ? <MatchChat key={chatInvite.id} invite={chatInvite} onClose={() => setChatInvite(null)} onChanged={() => invites.reload()} /> : null}
       <PostSheet
         visible={posting}
         onClose={() => setPosting(false)}
-        onPosted={(inv) => { replace(inv); setPosting(false); setNotice({ tone: 'success', text: 'Invite posted. Matching members can ask to join now.' }); if (inv.reservationOption) setReserveId(inv.id); }}
+        onPosted={(inv) => {
+          replace(inv); setPosting(false);
+          if (inv.myPayment) { setNotice({ tone: 'success', text: 'Plan saved. It goes live as soon as the deposit is paid.' }); router.push(`/checkout/${inv.myPayment.paymentRequestId}`); return; }
+          setNotice({ tone: 'success', text: 'Invite posted. Matching members can ask to join now.' });
+          if (inv.reservationOption) setReserveId(inv.id);
+        }}
       />
     </View>
   );
@@ -599,5 +793,7 @@ const styles = StyleSheet.create({
   reserveIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.pink, alignItems: 'center', justifyContent: 'center' },
   booked: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, backgroundColor: colors.nearBlack, borderWidth: 1, borderColor: colors.pink },
   setup: { marginHorizontal: 20, padding: 18, borderRadius: 20, borderWidth: 1.5, borderColor: colors.pink, gap: 10 },
+  rules: { padding: 12, borderRadius: 14, backgroundColor: colors.darkSurface, gap: 6 },
+  hostCard: { marginHorizontal: 20, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.darkSurface, backgroundColor: colors.nearBlack, flexDirection: 'row', alignItems: 'center', gap: 12 },
   prefRow: { marginHorizontal: 20, padding: 12, borderRadius: 16, backgroundColor: colors.darkSurface, flexDirection: 'row', alignItems: 'center', gap: 10 },
 });

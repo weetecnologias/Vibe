@@ -63,7 +63,7 @@ final class DemoCatalogue {
     private static final Map<String, List<String>> FEATURES = Map.ofEntries(
             Map.entry("food", List.of("bills", "offers", "menu", "reservations", "events", "promotions")), // restaurants host workshops and live nights
             Map.entry("shopping", List.of("bills", "offers", "menu", "promotions")),
-            Map.entry("fitness", List.of("bills", "offers", "menu", "bookings", "memberships", "promotions")),
+            Map.entry("fitness", List.of("bills", "offers", "menu", "bookings", "memberships", "reservations", "promotions")),
             Map.entry("beauty", List.of("bills", "offers", "menu", "reservations", "promotions")),
             Map.entry("kids", List.of("bills", "offers", "menu", "bookings", "promotions")),
             Map.entry("events", List.of("events", "promotions")),

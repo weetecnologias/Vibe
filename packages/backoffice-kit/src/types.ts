@@ -173,7 +173,40 @@ export type EventInput = {
 };
 
 // ---------- reservation settings ----------
-export type ReservationSettings = { enabled: boolean; tableFee: number | null; slotFee: number | null; policy: string };
+export type ReservationSettings = { enabled: boolean; tableFee: number | null; slotFee: number | null; policy: string; meetupsPerHour?: number };
+/** A VIBE Social table or slot for two at the merchant's place. pending = waiting for someone to join; confirmed = booked. */
+export type MeetupReservation = {
+  reference: string; startsAt: string; holdUntil: string; party: number; guests: string; activity: string;
+  status: 'pending' | 'confirmed' | 'arrived' | 'no_show' | 'released'; deposit: number; depositPaid: number; payMode: 'full' | 'split';
+};
+
+// ---------- VIBE Social: the admin monitor ----------
+export type SocialPerson = { name: string; vibeId: string };
+export type SocialOverview = {
+  members: number; suspended: number; hostsApproved: number; hostsPending: number; meetups: Record<string, number>; upcomingBooked: number; reportsOpen: number; contactShared: number;
+  depositsCollected: number; depositsRefunded: number; venuesTakingMeetups: number;
+};
+export type SocialMeetupRow = {
+  id: string; reference: string; createdAt: string; startsAt: string; venue: string; area: string; kind: string; activity: string; host: SocialPerson; partner: SocialPerson | null;
+  payMode: 'full' | 'split'; deposit: number; status: string; reservationStatus: string; hostPayment: string | null; hostPaymentStatus: string | null; partnerPayment: string | null; partnerPaymentStatus: string | null;
+  requests: number; reports: number; cancelledBy: string | null; cancelReason: string | null;
+};
+export type SocialMeetupPage = { total: number; rows: SocialMeetupRow[] };
+export type SocialReportRow = {
+  id: string; reporter: SocialPerson; targetType: string; targetId: string; target: string | null; reason: string; note: string | null; status: string; resolution: string | null; createdAt: string;
+  targetCustomerId: string | null;
+};
+export type SocialMeetupDetail = {
+  meetup: SocialMeetupRow; requests: { person: SocialPerson; status: string; at: string }[]; chat: { from: string; text: string; at: string }[] | null; chatNote: string | null; reports: SocialReportRow[];
+};
+export type SocialHostRow = {
+  customerId: string; person: SocialPerson; phoneMasked: string; member: boolean; status: string; legalName: string; idType: string; idLast4: string; dateOfBirth: string; city: string | null;
+  about: string | null; submittedAt: string; reviewedAt: string | null; reviewNote: string | null;
+};
+export type SocialMemberRow = {
+  customerId: string; person: SocialPerson; gender: string; ageBand: string | null; status: string; suspendedReason: string | null; host: boolean; hosted: number; joined: number; reportsAgainst: number;
+  joinedSocial: string;
+};
 
 // ---------- Pay & Redeem: the merchant's bills screen ----------
 export type BillStatus = 'awaiting_bill' | 'bill_ready' | 'paid' | 'expired' | 'cancelled' | 'code_issued' | 'redeemed';
@@ -371,3 +404,24 @@ export type MembershipSummary = {
   from: string; to: string; registered: number; registeredInPeriod: number; membersNow: number; autoRenewing: number; cancelledStillValid: number; lapsed: number; neverJoined: number;
   joined: number; renewed: number; granted: number; feesInPeriod: number; paymentsInPeriod: number; feesAllTime: number; savedInPeriod: number; plans: MembershipPlanStat[];
 };
+
+// ---------- Movies: VIBE's film list, the cinema's screens and shows ----------
+export type FilmFormat = '2D' | '3D' | 'IMAX' | 'Dolby Atmos';
+export type Film = {
+  id: string; title: string; certificate: 'U' | 'UA' | 'A'; durationMin: number; genres: string[]; languages: string[]; formats: FilmFormat[]; rating: number | null; votes: number;
+  posterUrl: string | null; releaseDate: string; status: 'now_showing' | 'coming_soon'; synopsis?: string; director?: string; cast?: string[];
+};
+export type FilmRow = { film: Film; archived: boolean; upcomingShows: number };
+export type FilmInput = {
+  title: string; certificate: string; durationMin: number; genres: string[]; languages: string[]; formats: string[]; rating: number | null; votes: number | null; posterUrl: string | null;
+  releaseDate: string; synopsis: string; director: string; cast: string[]; archived: boolean;
+};
+export type SeatClassDef = { id: string; name: string; price: number };
+/** seats: seat numbers, null where there's an aisle. */
+export type ScreenRow = { label: string; classId: string; seats: (number | null)[] };
+export type CinemaScreen = { id: string; name: string; classes: SeatClassDef[]; rows: ScreenRow[]; seatCount: number; active: boolean };
+export type CinemaShow = {
+  id: string; movieId: string; movieTitle: string; screenId: string; screenName: string; startsAt: string; endsAt: string; language: string; format: string;
+  status: 'scheduled' | 'cancelled'; capacity: number; sold: number; checkedIn: number; revenue: number;
+};
+export type MovieCheckIn = { result: 'admitted' | 'already' | 'wrong_cinema' | 'too_early' | 'cancelled'; message: string; movieTitle: string; startsAt: string; screen: string; seat: string; bookingId: string; checkedInAt: string | null };

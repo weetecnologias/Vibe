@@ -244,10 +244,54 @@ async function main() {
   orders.push({ what: 'Café bill (KYC not verified yet)', where: 'Brew & Bloom Café', who: me.kiran.name, ref: p6.reference, amount: p6.amount });
   check('Café with KYC waiting can still take a payment', !!p6.reference, p6.reference);
 
-  // 4h. Movies
-  const movies = (await api('GET', '/v1/movies', c.priya)).data;
-  const movieList = Array.isArray(movies) ? movies : movies?.items ?? [];
-  note('Movies: films, showtimes and seat booking', movieList.length === 0 ? 'NOT BUILT in the backend yet: no films or shows to book. Cinemas are listed and can take bills and offers.' : `${movieList.length} films`);
+  // 4h. Movies: a film, the cinemas showing it tomorrow, seats, payment, QR tickets and the door.
+  const movieList = (await api('GET', '/v1/movies?status=now_showing', c.priya)).data;
+  check('Movies: films are listed', movieList.length >= 3, movieList.map((m) => m.title).join(', '));
+  const film = movieList.find((m) => m.title === 'Charminar Heist') ?? movieList[0];
+  const cinemas = (await api('GET', `/v1/movies/${film.id}/showtimes?date=${tomorrow()}`, c.priya)).data;
+  check('Movies: the cinemas showing it tomorrow, with times', cinemas.length > 0 && cinemas[0].shows.length > 0, cinemas.map((x) => `${x.cinema.name} ${x.shows.length} shows`).join(', '));
+  const showId = cinemas[0].shows[0].id;
+  const seatMap = (await api('GET', `/v1/shows/${showId}/seats`, c.priya)).data;
+  const freeSeats = seatMap.rows.filter((r) => r.classId === 'prime').flatMap((r) => r.seats).filter((x) => x && x.status === 'available').slice(0, 2).map((x) => x.id);
+  const mh = await api('POST', `/v1/shows/${showId}/holds`, c.priya, { seatIds: freeSeats });
+  check('Movies: two Prime seats held while paying', mh.status === 201, `${film.title} · ${freeSeats.join(', ')} · ${rupees(mh.data?.total ?? 0)}`);
+  const taken = await api('POST', `/v1/shows/${showId}/holds`, c.rahul, { seatIds: [freeSeats[0]] });
+  check('Movies: someone else can’t take a held seat', taken.status === 409, taken.data?.code ?? '');
+  const p7 = await pay(c.priya, mh.data.paymentRequestId);
+  orders.push({ what: 'Movie seats (2)', where: `${film.title} (${cinemas[0].cinema.name})`, who: me.priya.name, ref: p7.reference, amount: p7.amount });
+  const mp = (await api('GET', `/v1/payments/${p7.reference}`, c.priya)).data;
+  const mt = (await api('GET', `/v1/tickets/${mp.ticketIds[0]}`, c.priya)).data;
+  check('Movies: one QR ticket per seat', mp.ticketIds.length === 2 && !!mt.qrToken, `seat ${mt.seatLabel} · ${mt.venue} · code ${mt.admissionCode}`);
+  const cinemaLogin = await staff(cinemas[0].cinema.name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') + '@vibe.local');
+  const cshows = (await api('GET', `/v1/merchant/cinema/shows?from=${tomorrow()}&days=1`, cinemaLogin)).data;
+  check('Movies: the cinema sees the seats sold', cshows?.some?.((x) => x.id === showId && x.sold >= 2), (cshows ?? []).filter((x) => x.sold).map((x) => `${x.movieTitle} ${x.sold} sold`).join(', '));
+  const door = (await api('POST', '/v1/merchant/cinema/check-in', cinemaLogin, { code: mt.admissionCode })).data;
+  check('Movies: the door won’t let a ticket in a day early', door?.result === 'too_early', door?.message ?? '');
+
+  // 4i. Social: a one-on-one at a café books a table first.
+  const tmrw7 = new Date(`${tomorrow()}T19:00:00+05:30`).toISOString();
+  const venuesForCoffee = (await api('GET', '/v1/social/venues?kind=food', c.priya)).data;
+  const saffronVenue = venuesForCoffee.find((v) => v.name === 'Saffron Courtyard');
+  check('Social: venues that take reservations, with their deposit', !!saffronVenue, venuesForCoffee.map((v) => `${v.name} ${rupees(v.deposit)}`).join(', '));
+  const plan = await api('POST', '/v1/social/one-on-ones', c.priya, { kind: 'food', activity: 'Dinner for two', venueBusinessId: saffronVenue.businessId, startsAt: tmrw7, openTo: 'men', payMode: 'full' });
+  check('Social: a new plan is a draft until the deposit is paid', plan.status === 201 && plan.data.status === 'draft', `${plan.data?.status} · pay ${rupees(plan.data?.myPayment?.amount ?? 0)}`);
+  const hidden = (await api('GET', '/v1/social/one-on-ones', c.rahul)).data;
+  check('Social: nobody else sees a draft', !hidden.some((x) => x.id === plan.data.id));
+  const p8 = await pay(c.priya, plan.data.myPayment.paymentRequestId);
+  orders.push({ what: 'Social table deposit', where: 'Saffron Courtyard', who: me.priya.name, ref: p8.reference, amount: p8.amount });
+  const seen = (await api('GET', '/v1/social/one-on-ones', c.rahul)).data.find((x) => x.id === plan.data.id);
+  check('Social: paid, the plan is live for people it suits', seen?.status === 'open', seen ? `${seen.activity} · ${seen.costNote}` : 'not visible');
+  await api('POST', `/v1/social/one-on-ones/${plan.data.id}/requests`, c.rahul);
+  const rahulMember = (await api('GET', '/v1/social/profile', c.rahul)).data.memberId;
+  const acc = (await api('POST', `/v1/social/one-on-ones/${plan.data.id}/requests/${rahulMember}/respond`, c.priya, { accept: true })).data;
+  check('Social: accepted, the table is booked', acc.status === 'matched' && acc.reservation?.title?.includes('booked'), `${acc.reservation?.title} · ref ${acc.reservation?.reference} · free cancellation until ${new Date(acc.cancelBy).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' })}`);
+  const resv = (await api('GET', `/v1/merchant/reservations?day=${tomorrow()}`, saffronLogin)).data;
+  check('Social: the restaurant sees the booking for two', resv.some((r) => r.reference === acc.reservation.reference && r.status === 'confirmed'), resv.map((r) => `${r.reference} ${r.guests} ${r.status}`).join(', '));
+  const mon = (await api('GET', `/v1/admin/social/meetups?q=${me.priya.vibeId}`, admin)).data;
+  check('Social: VIBE’s monitor shows who booked, VIBE IDs and the transaction ID', mon.rows.some((r) => r.hostPayment === p8.reference && r.partner?.vibeId === me.rahul.vibeId), `${mon.rows[0]?.reference} · ${mon.rows[0]?.host.name} (${mon.rows[0]?.host.vibeId}) with ${mon.rows[0]?.partner?.name} · ${mon.rows[0]?.hostPayment}`);
+  const hosts = (await api('GET', '/v1/admin/social/hosts?status=pending', admin)).data;
+  check('Social: host applications wait for a VIBE check', hosts.some((h) => h.person.vibeId === me.rahul.vibeId), hosts.map((h) => `${h.person.name} ${h.idType} ····${h.idLast4}`).join(', '));
+  check('Social: category managers can’t open Social', (await api('GET', '/v1/admin/social/overview', food)).status === 403);
   facts.orders = orders;
 
   // ------------------------------------------------------------------ support

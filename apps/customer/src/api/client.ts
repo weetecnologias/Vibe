@@ -1,5 +1,5 @@
 import type {
-  AppNotification, AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
+  AppNotification, HostApplication, HostInput, OneOnOneKind, SocialGuidelines, SocialVenue, AuthResult, BusinessDetail, CheckoutOffers, CheckoutRequest, CinemaShows, MovieDetail, MovieShows, MovieSummary, Page, SeatHold, SeatMap, BusinessQuery, BusinessSummary, CategoryNode, EventDetail, EventKind, EventSummary,
   Dispute, DisputeReason, HomeFeed, ID, NearbyOffer, NearbyOfferQuery, Promotion, RedeemMode, SlotBooking, SlotGrid, SlotPick, VenuePass, VenuePlan, VenueSport, Membership, MembershipPlan, OfferDetail, OfferEligibility, OfferSummary, OfferView, OtpChallenge, Payment, PaymentMethod,
   ChatSendInput, ChatSendResult, OneOnOneChat, OneOnOneInput, OneOnOneInvite, PaymentKind, PaymentRequest, PaymentStart, Redemption, SocialFilter, SocialProfile, SocialProfileInput, ReportInput, ReservationItem, SocialActivity, SocialGroup, Ticket, TicketReservation, User,
 } from './types';
@@ -121,6 +121,11 @@ export interface VibeApi {
 
   // Social: one-on-one meetups (18+). The backend only returns invites that match both people's preferences.
   getSocialProfile(): Promise<SocialProfile | null>;
+  getSocialGuidelines(): Promise<SocialGuidelines>;
+  /** Venues that take meetup reservations for this kind of plan. */
+  getSocialVenues(kind: OneOnOneKind): Promise<SocialVenue[]>;
+  getHostApplication(): Promise<HostApplication | null>;
+  applyToHost(input: HostInput): Promise<HostApplication>;
   saveSocialProfile(input: SocialProfileInput): Promise<SocialProfile>;
   /** Filters apply to open invites only; my own plans are always returned. */
   getOneOnOnes(filter?: SocialFilter): Promise<OneOnOneInvite[]>;
@@ -263,6 +268,10 @@ export function createHttpApi(baseUrl: string, tokens: TokenSource): VibeApi {
     getSocialProfile: () =>
       call<SocialProfile | null>('GET', '/social/profile').catch((e) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
     saveSocialProfile: (input) => call('PUT', '/social/profile', input),
+    getSocialGuidelines: () => call('GET', '/social/guidelines'),
+    getSocialVenues: (kind) => call('GET', `/social/venues?kind=${kind}`),
+    getHostApplication: () => call<HostApplication | null>('GET', '/social/host').catch((e) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
+    applyToHost: (input) => call('POST', '/social/host', input),
     getOneOnOnes: (f) => call('GET', `/social/one-on-ones${qs({ when: f?.when, nearMe: f?.nearMe })}`),
     createOneOnOne: (input) => call('POST', '/social/one-on-ones', input),
     requestOneOnOne: (id) => call('POST', `/social/one-on-ones/${id}/requests`),

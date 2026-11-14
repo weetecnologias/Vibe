@@ -546,7 +546,7 @@ public class Redemptions {
     }
 
     /** Indian grouping for messages: 1,300 and 1,00,000, with paise only when there are some. */
-    static String rupees(long paise) {
+    public static String rupees(long paise) {
         String whole = String.valueOf(Math.abs(paise) / 100);
         if (whole.length() > 3) {
             String head = whole.substring(0, whole.length() - 3), tail = whole.substring(whole.length() - 3);
