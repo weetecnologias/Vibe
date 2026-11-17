@@ -257,7 +257,7 @@ class DevSeed implements ApplicationRunner {
         // A code anyone can use on a bill at a restaurant, salon or shop, funded by VIBE.
         coupons.create(admin, new Coupons.Input("SAVE100", "₹100 off bills of ₹1,000 or more", "On any bill paid through VIBE. VIBE pays for it; the business is paid in full.", false, List.of("bill"), "flat", null, 10000L, null, 100000L, false, null, List.of("One use per bill."), from, to, true));
         // The VIBE member offer at checkout on court and class bookings, memberships and tickets.
-        coupons.create(admin, new Coupons.Input("MEMBER5", "VIBE members: 5% off", "On bookings, memberships, event tickets and bills paid through VIBE. Up to ₹300 off.", true, List.of("slots", "pass", "tickets", "bill"), "percentage", 500, null, 30000L, null, false, null, List.of("For active VIBE members."), from, to, true));
+        coupons.create(admin, new Coupons.Input("MEMBER5", "VIBE members: 5% off", "On bookings, memberships, movie seats, event tickets and bills paid through VIBE. Up to ₹300 off.", true, List.of("slots", "pass", "tickets", "movie", "bill"), "percentage", 500, null, 30000L, null, false, null, List.of("For active VIBE members."), from, to, true));
         // A sports venue login, to try court bookings from the merchant side.
         staff.createMerchant(admin, demo.byName.get("Smash Arena"), new StaffService.NewMerchant("sports@vibe.local", "Smash Arena manager", password));
         staff.createMerchant(admin, demo.byName.get("Pulse Studio"), new StaffService.NewMerchant("gym@vibe.local", "Pulse Studio manager", password)); // monthly memberships and gym sessions

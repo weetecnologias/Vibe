@@ -54,7 +54,7 @@ public class CheckoutOffers {
     }
 
     /** Order kinds that take VIBE coupons and member offers at checkout. */
-    static final java.util.Set<String> KINDS = java.util.Set.of("tickets", "slots", "pass", "redemption");
+    static final java.util.Set<String> KINDS = java.util.Set.of("tickets", "movie", "slots", "pass", "redemption");
 
     /** A bill at a restaurant, salon or shop is "redemption" as a payment and "bill" as a coupon kind. */
     private static String couponKind(String paymentKind) { return "redemption".equals(paymentKind) ? "bill" : paymentKind; }
@@ -173,7 +173,7 @@ public class CheckoutOffers {
 
     private Pr editable(UUID customer, UUID prId) {
         Pr pr = pr(customer, prId, true);
-        if (!KINDS.contains(pr.kind())) throw ApiException.conflict("not_applicable", "Offers at checkout are for bills, tickets, bookings and memberships.");
+        if (!KINDS.contains(pr.kind())) throw ApiException.conflict("not_applicable", "Offers at checkout are for bills, tickets, movie seats, bookings and memberships.");
         if (!"open".equals(pr.status())) throw ApiException.conflict("not_open", "This order can’t be changed any more.");
         if (pr.expiresAt().isBefore(OffsetDateTime.now(clock))) throw new ApiException(HttpStatus.GONE, "expired", "Your hold was released. Choose again.");
         if (jdbc.sql("select count(*) from payments where payment_request_id = :id and status in ('pending', 'verified')").param("id", prId).query(Integer.class).single() > 0) {

@@ -68,6 +68,10 @@ class MoviesTest extends ApiTestSupport {
 
         // Paid: one QR ticket per seat, shown with the customer's other tickets.
         String pr = JsonPath.read(hold, "$.paymentRequestId");
+        // Offers at checkout work for movie seats too: WELCOME50 takes ₹50 off the ₹600 (VIBE pays it; the cinema is paid in full).
+        mvc.perform(as(c, get("/v1/payment-requests/" + pr + "/offers"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.available[?(@.code=='WELCOME50')].eligible", hasItem(true)));
+        mvc.perform(as(c, post("/v1/payment-requests/" + pr + "/offer")).content("{\"code\":\"WELCOME50\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.payable", is(55000)));
         String ref = JsonPath.read(mvc.perform(as(c, post("/v1/payment-requests/" + pr + "/payments")).header("Idempotency-Key", "mv-" + uniq() + uniq()).content("{\"method\":\"upi\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.reference");
         String paid = mvc.perform(as(c, get("/v1/payments/" + ref))).andExpect(jsonPath("$.status", is("verified"))).andExpect(jsonPath("$.kind", is("movie")))
