@@ -114,7 +114,7 @@ cd backend
 mvn spring-boot:test-run -Dspring-boot.run.profiles=dev
 ```
 
-This starts a throwaway PostgreSQL in Docker, applies the migrations, loads **fictional dev data** (only with the `dev` profile) and serves on http://localhost:8090 (set `PORT` to change it). Data disappears when you stop it. Wait for the log line `DEV SEED loaded` (a few seconds after the server starts) before signing in.
+This starts PostgreSQL in Docker (container `vibe-dev-postgres`), applies the migrations, loads **fictional dev data** the first time (only with the `dev` profile) and serves on http://localhost:8090 (set `PORT` to change it). **Data is kept between restarts** in the Docker volume `vibe-dev-pgdata`: sign-ins, orders, payments and anything added in the dashboards are still there next time, and new migrations are applied on start. On the first start, wait for the log line `DEV SEED loaded` before signing in. To start over with fresh dev data, stop the backend and run `docker volume rm vibe-dev-pgdata`. If a restart fails with a name conflict, the last run's database is still shutting down: wait a few seconds and start again. Tests never use this volume; each test run gets its own throwaway database.
 
 Dev sign-in accounts: `admin@vibe.local` and `merchant@vibe.local` (merchant of *Saffron Courtyard*), password `vibe-dev-only` (override with `VIBE_DEV_PASSWORD`). These exist only with the `dev` profile.
 
@@ -124,7 +124,7 @@ To use your own PostgreSQL instead, create a database and run with `VIBE_DB_URL`
 
 The dev seed creates an owner login for every seeded business (name@vibe.local, for example brew.and.bloom.cafe@vibe.local), VIBE’s team (ceo@, finance@, support@ and a manager per category, e.g. food-manager@vibe.local), and customers with and without membership (phones 9000000101–107, code 123456). Two businesses are left with KYC undone to show the KYC queue and held payouts. The full list is in [docs/testing/TEST-ACCOUNTS.md](../docs/testing/TEST-ACCOUNTS.md).
 
-`node scripts/e2e/walkthrough.mjs` (against a freshly started dev backend) plays customers, merchants and VIBE’s team through the real API: roles, membership, orders in each kind of business, a dispute and refund, the pay run, the bank file and the money checks. It writes [docs/testing/E2E-REPORT.md](../docs/testing/E2E-REPORT.md).
+`node scripts/e2e/walkthrough.mjs` (against fresh dev data: run `docker volume rm vibe-dev-pgdata` and start the backend first, because the walkthrough expects untouched test accounts) plays customers, merchants and VIBE’s team through the real API: roles, membership, orders in each kind of business, a dispute and refund, the pay run, the bank file and the money checks. It writes [docs/testing/E2E-REPORT.md](../docs/testing/E2E-REPORT.md).
 
 ## Tests
 
@@ -161,4 +161,4 @@ Production must never run the `dev` profile.
 
 Dev customer: sign in to the customer app with `98765 43210` and the code `123456`.
 
-Dev data: the `dev` profile loads the customer app's demo catalogue (`src/main/resources/dev/demo-catalogue.json`, exported from `apps/customer/src/api/demo/catalog.ts`): every category, about 70 fictional places with menus and photos, their offers (approved, running for 90 days) and events. The database is rebuilt on every restart, so sign-ins, redemptions ("used today") and anything added in the dashboards start fresh each time. It also adds Social profiles for the test customers (Priya 9000000101 is an approved host, Rahul 9000000102 is waiting for a check), meetup deposits at Saffron Courtyard, Irani Chai Corner, Matcha Lab and Smash Arena, four fictional films and four days of shows on two screens at Galleria Cinemas and one at Luxe Screens.
+Dev data: the `dev` profile loads the customer app's demo catalogue (`src/main/resources/dev/demo-catalogue.json`, exported from `apps/customer/src/api/demo/catalog.ts`): every category, about 70 fictional places with menus and photos, their offers (approved, running for 90 days) and events. The seed loads only into an empty database; after that the data is kept across restarts (see Run it). Dates in the seed are relative to the day it loaded, so after a few days the seeded film shows are in the past: cinemas can schedule new ones, or reset the volume for fresh dev data. It also adds Social profiles for the test customers (Priya 9000000101 is an approved host, Rahul 9000000102 is waiting for a check), meetup deposits at Saffron Courtyard, Irani Chai Corner, Matcha Lab and Smash Arena, four fictional films and four days of shows on two screens at Galleria Cinemas and one at Luxe Screens.
