@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
+import { isWaiting } from '../waiting';
 import { Badge, Loading, Notice, PageHead, formatINR, showDateTime, useAsync, useAuth, type BillBoard, type CinemaShow, type MeetupReservation, type MerchantResults, type MerchantSettings } from '@kit';
 
 type Alert = { id: string; kind: string; title: string; body: string; link: string | null; createdAt: string; read: boolean };
@@ -11,7 +13,7 @@ const todayIST = () => new Date(Date.now() + 5.5 * 3_600_000).toISOString().slic
  * The merchant's home: today at a glance, what needs doing, money owed and paid, recent alerts and quick actions. Each part loads only when this
  * person can open the page behind it, so a cashier sees bills and alerts, and an owner sees everything.
  */
-export function DashboardPage({ open, settings }: { open: Set<string>; settings: MerchantSettings }) {
+export function DashboardPage({ open, settings, waiting }: { open: Set<string>; settings: MerchantSettings; waiting: number | null }) {
   const { client } = useAuth();
   const has = (path: string) => open.has(path);
   const none = Promise.resolve(null);
@@ -21,9 +23,17 @@ export function DashboardPage({ open, settings }: { open: Set<string>; settings:
   const shows = useAsync(() => (has('cinema') ? client.get<CinemaShow[]>(`/v1/merchant/cinema/shows?from=${todayIST()}&days=1`) : none), [client]);
   const alerts = useAsync(() => client.get<{ unread: number; items: Alert[] }>('/v1/staff/notifications?limit=6'), [client]);
 
+  // Keeps itself up to date while it's open: the day's numbers every 15 seconds, money every minute.
+  useEffect(() => {
+    const fast = setInterval(() => { if (!document.hidden) { bills.reload(); reservations.reload(); shows.reload(); alerts.reload(); } }, 15_000);
+    const slow = setInterval(() => { if (!document.hidden) results.reload(); }, 60_000);
+    return () => { clearInterval(fast); clearInterval(slow); };
+  }, [bills.reload, reservations.reload, shows.reload, alerts.reload, results.reload]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const r = results.data;
   const today = r?.lastDays?.[r.lastDays.length - 1];
-  const waitingBills = bills.data?.rows.filter((b) => b.status === 'awaiting_bill' || b.status === 'code_issued').length ?? 0;
+  // The live count from the top bar when there is one (checked every few seconds), else this page's own.
+  const waitingBills = waiting ?? bills.data?.rows.filter(isWaiting).length ?? 0;
   const booked = (reservations.data ?? []).filter((x) => x.status === 'confirmed');
   const liveShows = (shows.data ?? []).filter((x) => x.status === 'scheduled');
 

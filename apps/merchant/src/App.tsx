@@ -22,6 +22,7 @@ import { SettlementsPage } from './pages/SettlementsPage';
 import { TeamPage } from './pages/TeamPage';
 import { VenuePage } from './pages/VenuePage';
 import { SettingsContext } from './settings';
+import { useWaitingBills } from './waiting';
 
 export function App() {
   const { staff } = useAuth();
@@ -45,6 +46,11 @@ type Page = { path: string; label: string; area: string | 'team'; element: React
 function SignedIn() {
   const { client, signOut } = useAuth();
   const s = useAsync(() => client.get<MerchantSettings>('/v1/merchant/settings'), [client]);
+  // Customers waiting at Bills and codes, kept live for the menu, the top bar and the dashboard (only for people who handle bills).
+  const sd = s.data;
+  const handlesBills = !!sd && sd.payRedeem && (!sd.features || sd.features.includes('bills')) && (!!sd.owner || (sd.permissions ?? []).includes('bills'))
+    && !(sd.agreement?.required && !sd.agreement.accepted);
+  const waiting = useWaitingBills(handlesBills);
 
   // Don't show any menu until we know what this person may do, so a cashier never sees pages they can't open.
   if (!s.data) {
@@ -84,19 +90,19 @@ function SignedIn() {
   ].filter((p) => p.when !== false && (p.area === 'any' || can(p.area)));
   const open = new Set(pages.map((p) => p.path));
   const dashboard = pages.find((p) => p.path === 'dashboard')!;
-  dashboard.element = <DashboardPage open={open} settings={settings} />;
+  dashboard.element = <DashboardPage open={open} settings={settings} waiting={waiting} />;
 
   const nav: NavItem[] = [];
   for (const p of pages) {
     if (p.group && !nav.some((n) => 'heading' in n && n.heading === p.group)) nav.push({ heading: p.group });
-    nav.push({ to: `/${p.path}`, label: p.label });
+    nav.push({ to: `/${p.path}`, label: p.label, badge: p.path === 'bills' && waiting ? waiting : undefined });
   }
   const home = '/dashboard';
 
   return (
     <SettingsContext.Provider value={settings}>
       <Routes>
-        <Route element={<Shell title={settings.topCategoryName ? `for ${settings.topCategoryName}` : 'Merchant'} nav={nav} topbar={<TopBar settings={settings} bills={open.has('bills')} />} />}>
+        <Route element={<Shell title={settings.topCategoryName ? `for ${settings.topCategoryName}` : 'Merchant'} nav={nav} topbar={<TopBar settings={settings} bills={open.has('bills')} waiting={waiting} />} />}>
           <Route index element={<Navigate to={home} replace />} />
           {pages.map((p) => <Route key={p.path} path={p.path} element={p.element} />)}
           {can('events') && has('events') ? <Route path="events/:id" element={<EventEditPage />} /> : null}
@@ -109,7 +115,7 @@ function SignedIn() {
 }
 
 /** Across the top of every page: the business and its Merchant ID on the left; bills, raising a bill and alerts on the right. */
-function TopBar({ settings, bills }: { settings: MerchantSettings; bills: boolean }) {
+function TopBar({ settings, bills, waiting }: { settings: MerchantSettings; bills: boolean; waiting: number | null }) {
   return (
     <>
       <div className="who">
@@ -120,7 +126,11 @@ function TopBar({ settings, bills }: { settings: MerchantSettings; bills: boolea
         </span>
       </div>
       <div className="actions">
-        {bills ? <Link to="/bills" className="btn ghost sm">Bills and codes</Link> : null}
+        {bills ? (
+          <Link to="/bills" className="btn ghost sm" aria-label={waiting ? `Bills and codes, ${waiting} waiting` : 'Bills and codes'}>
+            Bills and codes{waiting ? <span className="wait-count">{waiting} waiting</span> : null}
+          </Link>
+        ) : null}
         {bills ? <Link to="/bills?raise=1" className="btn primary sm">Raise a bill</Link> : null}
         <NotificationBell />
       </div>
