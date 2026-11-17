@@ -35,7 +35,7 @@ h2 { font-size: 18px; margin: 0; }
 
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
 /* Grid children default to their content width; without this a wide table stretches the whole page instead of scrolling in its own box. */
-.shell > main { min-width: 0; }
+.shell > main, .main-col { min-width: 0; }
 .side { background: var(--near-black); color: var(--white); padding: 20px 14px; display: flex; flex-direction: column; gap: 22px; position: sticky; top: 0; height: 100vh; }
 .side nav { display: grid; gap: 4px; }
 .side nav a { color: rgba(255, 255, 255, 0.78); text-decoration: none; padding: 10px 12px; border-radius: 10px; font-weight: 500; }
@@ -44,7 +44,13 @@ h2 { font-size: 18px; margin: 0; }
 .side-foot { margin-top: auto; display: grid; gap: 4px; }
 .side-foot .muted { color: rgba(255, 255, 255, 0.6); }
 .main { padding: 28px 32px 60px; max-width: 1180px; width: 100%; }
-@media (max-width: 860px) {
+/* Tablets keep the menu on the left, a little narrower. */
+@media (max-width: 860px) and (min-width: 641px) {
+  .shell { grid-template-columns: 200px 1fr; }
+  .main { padding: 22px 20px 52px; }
+}
+/* Phones: one column, the menu folds behind the Menu button at the top left. */
+@media (max-width: 640px) {
   .shell { grid-template-columns: 1fr; }
   .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
   .side nav { display: flex; flex-wrap: wrap; }
@@ -183,7 +189,7 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .choice.on { border-color: var(--pink, #E80069); background: #FDE6F0; color: #C8005A; }
 
 /* ---------- menu: category switcher, badges, folding on narrow screens ---------- */
-.side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.side-top { display: flex; align-items: center; justify-content: flex-start; gap: 10px; }
 .menu-toggle { display: none; }
 .nav-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: rgba(255, 255, 255, 0.16); color: var(--white); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
 .side nav a { display: flex; align-items: center; gap: 8px; }
@@ -192,7 +198,7 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .ws-switch label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
 .ws-switch select { background: #221f27; color: var(--white); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; padding: 10px 12px; font: inherit; font-weight: 600; }
 .ws-switch .ws-path { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
-@media (max-width: 860px) {
+@media (max-width: 640px) {
   .side { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 12px; padding: 12px 16px; }
   .menu-toggle { display: inline-flex; }
   .side > nav, .side > .side-foot, .side > .ws-switch, .side > .bell { display: none; }
@@ -220,3 +226,28 @@ input:disabled { background: var(--soft-white); color: var(--muted); }
 .badge { white-space: nowrap; }
 .link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--pink-deep); cursor: pointer; text-align: left; }
 .link-btn:hover { text-decoration: underline; }
+
+/* ---------- the merchant's top bar: who you are, Merchant ID, quick actions and alerts ---------- */
+.topbar { position: sticky; top: 0; z-index: 25; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 32px; background: var(--white); border-bottom: 1px solid var(--hairline); }
+.topbar .who { display: grid; gap: 2px; min-width: 0; }
+.topbar .who strong { font-family: Sora, Inter, system-ui, sans-serif; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar .mid { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.topbar .mid code { font-family: inherit; font-weight: 700; color: var(--near-black); background: var(--soft-white); border: 1px solid var(--hairline); border-radius: 8px; padding: 1px 8px; letter-spacing: 0.02em; }
+.topbar .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.topbar .actions .btn { white-space: nowrap; }
+.topbar .bell-btn { width: auto; background: var(--near-black); }
+.topbar .bell-panel { left: auto; right: 0; }
+@media (max-width: 860px) { .topbar { padding: 10px 20px; } }
+@media (max-width: 640px) { .topbar { position: static; padding: 10px 16px; } .topbar .actions .btn { flex: 1; } }
+
+/* ---------- merchant dashboard ---------- */
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.dash-card { display: grid; gap: 4px; padding: 14px 16px; background: var(--white); border: 1px solid var(--hairline); border-radius: 16px; text-decoration: none; color: inherit; }
+a.dash-card:hover { border-color: var(--pink); }
+.dash-card strong { font-family: Sora, Inter, system-ui, sans-serif; font-size: 22px; }
+.dash-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .dash-two { grid-template-columns: 1fr; } }
+.todo-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 12px; text-decoration: none; color: inherit; background: var(--white); }
+.todo-item:hover { border-color: var(--pink); }
+.todo-item .dot { width: 8px; height: 8px; border-radius: 4px; background: var(--pink); flex: none; }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; }

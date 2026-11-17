@@ -138,7 +138,7 @@ export function SettlementsPage() {
                   {list.data?.map((s) => (
                     <tr key={s.id}>
                       <td><strong>{s.reference}</strong><div className="muted small">{showDateTime(s.createdAt)}</div></td>
-                      <td>{s.businessName}</td>
+                      <td>{s.businessName}{s.merchantId ? <div className="muted small">{s.merchantId}</div> : null}</td>
                       <td className="small">{showDateTime(s.periodFrom)}<div className="muted">to {showDateTime(s.periodTo)}</div></td>
                       <td>{s.paymentCount}</td>
                       <td><strong>{formatINR(s.payout)}</strong><div className="muted small">commission {formatINR(s.commission)}</div></td>

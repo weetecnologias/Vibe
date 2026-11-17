@@ -30,10 +30,10 @@ public class Exports {
     public ResponseEntity<byte[]> transactions(String status, String kind, String q) { return transactions(status, kind, q, ""); }
 
     public ResponseEntity<byte[]> transactions(String status, String kind, String q, String scope) {
-        Csv csv = new Csv().row("Transaction ID", "Type", "Status", "Method", "Amount (Rs)", "Customer saved (Rs)", "Customer", "VIBE ID", "Paid to", "Payment partner", "Started", "Confirmed", "Refund", "Refund (Rs)");
+        Csv csv = new Csv().row("Transaction ID", "Type", "Status", "Method", "Amount (Rs)", "Customer saved (Rs)", "Customer", "VIBE ID", "Paid to", "Merchant ID", "Payment partner", "Started", "Confirmed", "Refund", "Refund (Rs)");
         for (int off = 0; off < MAX_ROWS; off += PAGE) {
             var page = oversight.transactions(status, kind, q, PAGE, off, scope);
-            for (var r : page.items()) csv.row(r.reference(), kind(r.kind()), r.status(), r.method(), rupees(r.amount()), rupees(r.savings()), r.customerName(), r.vibeId(), r.payee(), r.provider(), r.createdAt(), r.verifiedAt(),
+            for (var r : page.items()) csv.row(r.reference(), kind(r.kind()), r.status(), r.method(), rupees(r.amount()), rupees(r.savings()), r.customerName(), r.vibeId(), r.payee(), r.payeeMerchantId() == null ? "" : r.payeeMerchantId(), r.provider(), r.createdAt(), r.verifiedAt(),
                     r.refundStatus() == null ? "" : r.refundStatus(), r.refundAmount() == null ? "" : rupees(r.refundAmount()));
             if (page.items().size() < PAGE) break;
         }

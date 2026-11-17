@@ -40,7 +40,7 @@ public class Settlements {
 
     public record Summary(String id, String reference, String businessId, String businessName, OffsetDateTime periodFrom, OffsetDateTime periodTo, int paymentCount, long gross, long vibeFees,
                           int commissionBps, long commission, long payout, long customerSavings, String status, OffsetDateTime createdAt, OffsetDateTime paidAt, String payoutRef, String note,
-                          long gst, long refundDeductions, long adjustments) {}
+                          long gst, long refundDeductions, long adjustments, String merchantId) {}
 
     public record Item(String paymentReference, OffsetDateTime paidAt, String customerName, String vibeId, String billRef, String offerTitle, long amount, long vibeFee, long commission, long payout,
                        long customerSaved, long gst, long refundShare) {}
@@ -179,7 +179,7 @@ public class Settlements {
         StringBuilder w = new StringBuilder(" where true").append(scope);
         if (status != null && !status.isBlank()) w.append(" and s.status = :st");
         if (business != null) w.append(" and s.business_id = :b");
-        JdbcClient.StatementSpec q = jdbc.sql("select s.*, b.name bname from settlements s join businesses b on b.id = s.business_id" + w + " order by s.created_at desc limit 500");
+        JdbcClient.StatementSpec q = jdbc.sql("select s.*, b.name bname, b.merchant_id from settlements s join businesses b on b.id = s.business_id" + w + " order by s.created_at desc limit 500");
         if (status != null && !status.isBlank()) q.param("st", status);
         if (business != null) q.param("b", business);
         return q.query(Settlements::map).list();
@@ -198,7 +198,7 @@ public class Settlements {
     }
 
     private Summary summary(UUID id, UUID business) {
-        JdbcClient.StatementSpec q = jdbc.sql("select s.*, b.name bname from settlements s join businesses b on b.id = s.business_id where s.id = :id" + (business == null ? "" : " and s.business_id = :b")).param("id", id);
+        JdbcClient.StatementSpec q = jdbc.sql("select s.*, b.name bname, b.merchant_id from settlements s join businesses b on b.id = s.business_id where s.id = :id" + (business == null ? "" : " and s.business_id = :b")).param("id", id);
         if (business != null) q.param("b", business);
         return q.query(Settlements::map).optional().orElseThrow(() -> ApiException.notFound("Settlement not found."));
     }
@@ -207,7 +207,7 @@ public class Settlements {
         return new Summary(rs.getString("id"), rs.getString("reference"), rs.getString("business_id"), rs.getString("bname"), rs.getObject("period_from", OffsetDateTime.class),
                 rs.getObject("period_to", OffsetDateTime.class), rs.getInt("payment_count"), rs.getLong("gross"), rs.getLong("vibe_fees"), rs.getInt("commission_bps"), rs.getLong("commission"),
                 rs.getLong("payout"), rs.getLong("customer_savings"), rs.getString("status"), rs.getObject("created_at", OffsetDateTime.class), rs.getObject("paid_at", OffsetDateTime.class),
-                rs.getString("payout_ref"), rs.getString("note"), rs.getLong("gst"), rs.getLong("refund_deductions"), rs.getLong("adjustments"));
+                rs.getString("payout_ref"), rs.getString("note"), rs.getLong("gst"), rs.getLong("refund_deductions"), rs.getLong("adjustments"), rs.getString("merchant_id"));
     }
 
     // ---------- commercial terms ----------

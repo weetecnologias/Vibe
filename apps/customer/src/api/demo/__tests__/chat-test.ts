@@ -117,7 +117,9 @@ describe('one-on-one chat', () => {
   it('closes after the meetup is over', async () => {
     const { api, advance, matched } = setup();
     await matched();
-    advance(9 * 86_400_000);
+    // The demo dates its meetups from the real clock ("next Sunday"), so jump to a day after this one starts rather than a fixed number of days.
+    const invite = (await api.getOneOnOnes({})).find((i) => i.id === 'oo-badminton')!;
+    advance(Date.parse(invite.startsAt) - NOW + 86_400_000);
     const chat = await api.getOneOnOneChat('oo-badminton');
     expect(chat).toMatchObject({ status: 'closed', closedReason: 'ended' });
   });

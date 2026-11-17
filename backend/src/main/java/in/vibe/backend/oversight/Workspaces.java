@@ -50,7 +50,7 @@ public class Workspaces {
 
     /** agreementVersion: the merchant agreement version this business last accepted; currentAgreement: the one in force (null if none published). */
     /** category: the business's own (sub)category; topCategory: the top-level one it sits under (Movies, Food and dining...). received: everything paid through VIBE. */
-    public record MerchantRow(String id, String name, String area, String category, String topCategory, boolean live, OffsetDateTime joinedAt, String kycStatus, Integer agreementVersion,
+    public record MerchantRow(String id, String merchantId, String name, String area, String category, String topCategory, boolean live, OffsetDateTime joinedAt, String kycStatus, Integer agreementVersion,
                               Integer currentAgreement, long sales30d, long received, long paidOut, long awaitingPayout, long owed, OffsetDateTime lastSaleAt, OffsetDateTime lastPaidAt) {}
 
     public record MerchantPage(int total, List<MerchantRow> rows) {}
@@ -213,7 +213,7 @@ public class Workspaces {
     private static final String TOP_CATEGORY = "(with recursive up as (select id, parent_id, name from categories where id = b.primary_category_id "
             + "union all select c2.id, c2.parent_id, c2.name from categories c2 join up on c2.id = up.parent_id) select name from up where parent_id is null limit 1)";
 
-    private static final String MERCHANT_SELECT = "select b.id, b.name, b.area, c.name cname, " + TOP_CATEGORY + " top, b.active, b.created_at, coalesce(k.status, 'not_submitted') kyc, "
+    private static final String MERCHANT_SELECT = "select b.id, b.merchant_id, b.name, b.area, c.name cname, " + TOP_CATEGORY + " top, b.active, b.created_at, coalesce(k.status, 'not_submitted') kyc, "
             + "(select max(v.version) from agreement_acceptances aa join agreement_versions v on v.id = aa.version_id where aa.business_id = b.id) agreed, "
             + "(select coalesce(sum(p.amount + pr.vibe_funded), 0) from payments p join payment_requests pr on pr.id = p.payment_request_id where pr.business_id = b.id and p.status = 'verified' and p.verified_at > :m) sales30, "
             + "(select max(s.paid_at) from settlements s where s.business_id = b.id and s.status = 'paid') last_paid "
@@ -235,7 +235,7 @@ public class Workspaces {
         Integer current = currentAgreement();
         StringBuilder w = new StringBuilder(" where true").append(access.businessScope(who, "b.id"));
         Map<String, Object> p = new HashMap<>();
-        if (q != null && !q.isBlank()) { w.append(" and (b.name ilike :q or b.area ilike :q)"); p.put("q", "%" + q.trim().replace("%", "") + "%"); }
+        if (q != null && !q.isBlank()) { w.append(" and (b.name ilike :q or b.area ilike :q or b.merchant_id ilike :q)"); p.put("q", "%" + q.trim().replace("%", "") + "%"); }
         if (kycStatus != null && !kycStatus.isBlank()) { w.append(" and coalesce(k.status, 'not_submitted') = :k"); p.put("k", kycStatus); }
         if ("missing".equals(agreement) && current != null) w.append(" and not exists (select 1 from agreement_acceptances aa join agreement_versions v on v.id = aa.version_id where aa.business_id = b.id and v.version = ").append(current).append(")");
         if (live != null) { w.append(" and b.active = :live"); p.put("live", live); }
@@ -253,7 +253,7 @@ public class Workspaces {
     private MerchantRow merchantRow(java.sql.ResultSet rs, Integer current, Map<String, Balance> money) throws java.sql.SQLException {
         int agreed = rs.getInt("agreed"); // versions start at 1, so 0 means none accepted
         Balance b = money.get(rs.getString("id"));
-        return new MerchantRow(rs.getString("id"), rs.getString("name"), rs.getString("area"), rs.getString("cname"), rs.getString("top"), rs.getBoolean("active"), rs.getObject("created_at", OffsetDateTime.class),
+        return new MerchantRow(rs.getString("id"), rs.getString("merchant_id"), rs.getString("name"), rs.getString("area"), rs.getString("cname"), rs.getString("top"), rs.getBoolean("active"), rs.getObject("created_at", OffsetDateTime.class),
                 rs.getString("kyc"), agreed == 0 ? null : agreed, current, rs.getLong("sales30"), b == null ? 0 : b.gross(), b == null ? 0 : b.paidOut(), b == null ? 0 : b.awaitingPayout(),
                 b == null ? 0 : b.owed(), b == null ? null : b.lastSaleAt(), rs.getObject("last_paid", OffsetDateTime.class));
     }
@@ -265,7 +265,7 @@ public class Workspaces {
     /** Everything about each business on one row: category, contact, KYC (legal and tax ids), bank (account number masked), agreement and money. */
     public ResponseEntity<byte[]> merchantsCsv(StaffPrincipal who, String q, String kycStatus, String agreement, Boolean live, String category) {
         MerchantPage page = merchants(who, q, kycStatus, agreement, live, category, 2000, 0);
-        Csv csv = new Csv().row("Business", "Category", "Subcategory", "Area", "Live", "Joined", "Contact", "Email", "Phone", "KYC and bank", "Legal name", "PAN", "GSTIN", "FSSAI", "Account holder", "Bank",
+        Csv csv = new Csv().row("Merchant ID", "Business", "Category", "Subcategory", "Area", "Live", "Joined", "Contact", "Email", "Phone", "KYC and bank", "Legal name", "PAN", "GSTIN", "FSSAI", "Account holder", "Bank",
                 "IFSC", "Account (last 4)", "Agreement accepted", "Agreement in force", "Received through VIBE (Rs)", "Sales last 30 days (Rs)", "Paid out (Rs)", "Waiting for bank transfer (Rs)",
                 "VIBE owes them now (Rs)", "Last sale", "Last payout");
         for (MerchantRow r : page.rows()) {
@@ -273,7 +273,7 @@ public class Workspaces {
             String[] contact = jdbc.sql("select contact_name, email, phone from merchant_applications where business_id = :b order by created_at desc limit 1").param("b", UUID.fromString(r.id()))
                     .query((rs, i) -> new String[]{rs.getString(1), rs.getString(2), rs.getString(3)}).optional().orElse(new String[]{"", "", ""});
             String acct = k.bankAccountNo() == null ? "" : k.bankAccountNo().replaceAll("\\D", "");
-            csv.row(r.name(), r.topCategory(), r.category(), r.area(), r.live() ? "Yes" : "No", day(r.joinedAt()), contact[0], contact[1], contact[2], kycLabel(r.kycStatus()), nz(k.legalName()), nz(k.pan()),
+            csv.row(r.merchantId(), r.name(), r.topCategory(), r.category(), r.area(), r.live() ? "Yes" : "No", day(r.joinedAt()), contact[0], contact[1], contact[2], kycLabel(r.kycStatus()), nz(k.legalName()), nz(k.pan()),
                     nz(k.gstin()), nz(k.fssai()), nz(k.bankAccountName()), nz(k.bankName()), nz(k.bankIfsc()), acct.length() >= 4 ? "XXXX" + acct.substring(acct.length() - 4) : "",
                     r.agreementVersion() == null ? "None" : "v" + r.agreementVersion(), r.currentAgreement() == null ? "" : "v" + r.currentAgreement(), Csv.rupees(r.received()), Csv.rupees(r.sales30d()),
                     Csv.rupees(r.paidOut()), Csv.rupees(r.awaitingPayout()), Csv.rupees(r.owed()), day(r.lastSaleAt()), day(r.lastPaidAt()));

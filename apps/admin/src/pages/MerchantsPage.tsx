@@ -122,7 +122,7 @@ function MerchantList({ category, name, onBack, onCategory }: { category: string
         {KYC_TABS.map((t) => <button key={t.label} role="tab" aria-selected={kyc === t.key} className={`tab${kyc === t.key ? ' on' : ''}`} onClick={() => { setKyc(t.key); reset(); }}>{t.label}</button>)}
       </div>
       <form className="row" style={{ marginBottom: 14 }} onSubmit={(e) => { e.preventDefault(); reset(); setTerm(q.trim()); }}>
-        <input style={{ maxWidth: 280 }} placeholder="Search name or area" aria-label="Search merchants" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input style={{ maxWidth: 280 }} placeholder="Name, area or Merchant ID (VM-…)" aria-label="Search merchants" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn">Search</button>
         <label className="check"><input type="checkbox" checked={owedOnly} onChange={(e) => setOwedOnly(e.target.checked)} /> VIBE owes them money</label>
         <label className="check"><input type="checkbox" checked={missing} onChange={(e) => { setMissing(e.target.checked); reset(); }} /> Agreement not accepted</label>
@@ -137,7 +137,7 @@ function MerchantList({ category, name, onBack, onCategory }: { category: string
               <tbody>
                 {rows.map((m) => (
                   <tr key={m.id} className={m.live ? '' : 'dim'}>
-                    <td><Link to={`/merchants/${m.id}`}><strong>{m.name}</strong></Link><div className="muted small">{category || m.topCategory === m.category ? m.category : `${m.topCategory} › ${m.category}`} · {m.area}{m.live ? '' : ' · hidden'}</div></td>
+                    <td><Link to={`/merchants/${m.id}`}><strong>{m.name}</strong></Link>{m.merchantId ? <div className="small"><code>{m.merchantId}</code></div> : null}<div className="muted small">{category || m.topCategory === m.category ? m.category : `${m.topCategory} › ${m.category}`} · {m.area}{m.live ? '' : ' · hidden'}</div></td>
                     <td><KycBadge status={m.kycStatus} /></td>
                     <td><AgreementBadge m={m} /></td>
                     <td>{formatINR(m.received)}<div className="muted small">{formatINR(m.sales30d)} in 30 days</div></td>

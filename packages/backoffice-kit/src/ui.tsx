@@ -27,10 +27,11 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
 export type NavItem = { to: string; label: string; badge?: number } | { heading: string };
 
 /**
- * The dashboard frame: menu on the left, page on the right. `switcher` sits above the menu (the admin's category picker). On a narrow screen the
- * menu folds behind a Menu button instead of wrapping across the top of the page.
+ * The dashboard frame: menu on the left, page on the right. `switcher` sits above the menu (the admin's category picker). `topbar` (the merchant
+ * dashboard) is a bar across the top of the page for who you are and quick actions; it brings its own alerts bell, so the menu doesn't show one.
+ * The menu stays on the left down to tablet width; on a phone it folds behind a Menu button at the top left.
  */
-export function Shell({ title, nav, switcher }: { title: string; nav: NavItem[]; switcher?: ReactNode }) {
+export function Shell({ title, nav, switcher, topbar }: { title: string; nav: NavItem[]; switcher?: ReactNode; topbar?: ReactNode }) {
   const { staff, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -39,19 +40,22 @@ export function Shell({ title, nav, switcher }: { title: string; nav: NavItem[];
     <div className="shell">
       <aside className={`side${open ? ' open' : ''}`}>
         <div className="side-top">
+          <button type="button" className="btn ghost sm menu-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '✕ Close' : '☰ Menu'}</button>
           <div className="brand"><span className="brand-vibe">VIBE</span> <span>{title}</span></div>
-          <button type="button" className="btn ghost sm menu-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Close' : 'Menu'}</button>
         </div>
         {switcher}
-        <NotificationBell />
-        <nav>{nav.map((n) => ('heading' in n ? <div key={n.heading} className="nav-heading">{n.heading}</div> : <NavLink key={n.to} to={n.to} className={({ isActive }) => (isActive ? 'active' : '')}>{n.label}{n.badge ? <span className="nav-badge">{n.badge}</span> : null}</NavLink>))}</nav>
+        {topbar ? null : <NotificationBell />}
+        <nav>{nav.map((n, i) => ('heading' in n ? <div key={`h-${i}-${n.heading}`} className="nav-heading">{n.heading}</div> : <NavLink key={n.to} to={n.to} className={({ isActive }) => (isActive ? 'active' : '')}>{n.label}{n.badge ? <span className="nav-badge">{n.badge}</span> : null}</NavLink>))}</nav>
         <div className="side-foot">
           <div className="small">{staff?.name}</div>
           <div className="small muted">{staff?.email}</div>
           <button className="btn ghost" onClick={signOut}>Sign out</button>
         </div>
       </aside>
-      <main className="main"><Outlet /></main>
+      <div className="main-col">
+        {topbar ? <div className="topbar">{topbar}</div> : null}
+        <main className="main"><Outlet /></main>
+      </div>
     </div>
   );
 }

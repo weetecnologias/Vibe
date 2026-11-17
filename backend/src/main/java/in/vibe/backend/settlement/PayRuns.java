@@ -79,15 +79,15 @@ public class PayRuns {
      */
     public ResponseEntity<byte[]> bankFile(StaffPrincipal who) {
         List<Settlements.Summary> pending = settlements.list("pending", null, access.businessScope(who, "b.id"));
-        Csv csv = new Csv().row("Reference", "Business", "Account holder", "Account number", "IFSC", "Bank", "Amount (Rs)", "Payments from", "Payments to", "KYC");
+        Csv csv = new Csv().row("Reference", "Merchant ID", "Business", "Account holder", "Account number", "IFSC", "Bank", "Amount (Rs)", "Payments from", "Payments to", "KYC");
         long total = 0;
         for (Settlements.Summary s : pending) {
             Kyc.View k = kyc.get(UUID.fromString(s.businessId()));
-            csv.row(s.reference(), s.businessName(), nz(k.bankAccountName()), nz(k.bankAccountNo()), nz(k.bankIfsc()), nz(k.bankName()), Csv.rupees(s.payout()),
+            csv.row(s.reference(), s.merchantId(), s.businessName(), nz(k.bankAccountName()), nz(k.bankAccountNo()), nz(k.bankIfsc()), nz(k.bankName()), Csv.rupees(s.payout()),
                     s.periodFrom() == null ? "" : s.periodFrom().atZoneSameInstant(IST).toLocalDate(), s.periodTo() == null ? "" : s.periodTo().atZoneSameInstant(IST).toLocalDate(), k.status().replace('_', ' '));
             total += s.payout();
         }
-        csv.row().row("Total", "", "", "", "", "", Csv.rupees(total));
+        csv.row().row("Total", "", "", "", "", "", "", Csv.rupees(total));
         audit.record(who, "bank_file", "settlement", null, pending.size() + " settlements, ₹" + total / 100);
         return csv.download("vibe-bank-file-" + LocalDate.now(IST) + ".csv");
     }

@@ -143,7 +143,8 @@ public class PlatformControllers {
          * areas: the parts of the dashboard the owner can give a team member, already cut down to those features.
          */
         public record Settings(boolean payRedeem, String menuLabel, boolean owner, String staffRole, List<String> permissions, Map<String, String> areas, boolean acceptsVibePayments, boolean slotBooking,
-                               List<String> features, String businessName, String categoryName, String topCategoryName, in.vibe.backend.compliance.Agreements.Status agreement, String kycStatus) {}
+                               List<String> features, String businessName, String categoryName, String topCategoryName, in.vibe.backend.compliance.Agreements.Status agreement, String kycStatus,
+                               String merchantId) {}
 
         /** Whether this kind of business uses Pay & Redeem bills and what its item list is called (set by VIBE on the category), and what this person may do. */
         @GetMapping
@@ -158,9 +159,10 @@ public class PlatformControllers {
             boolean slots = p.explicit() ? p.has("bookings") || p.has("memberships")
                     : jdbc.sql("select exists (select 1 from venue_resources where business_id = :b) or exists (select 1 from venue_plans where business_id = :b) or exists (select 1 from businesses z join categories c on c.id = z.primary_category_id where z.id = :b and (c.slug like 'fitness%' or c.slug like 'kids.sports%'))")
                     .param("b", who.requireBusiness()).query(Boolean.class).single();
-            String name = jdbc.sql("select name from businesses where id = :b").param("b", who.requireBusiness()).query(String.class).single();
+            String[] biz = jdbc.sql("select name, merchant_id from businesses where id = :b").param("b", who.requireBusiness()).query((rs, i) -> new String[]{rs.getString(1), rs.getString(2)}).single();
+            String name = biz[0];
             return new Settings(r.payRedeem(), r.menuLabel(), a.owner(), a.staffRole(), a.permissions(), in.vibe.backend.security.TeamAccess.areasFor(p.features()), accepts, slots,
-                    p.features(), name, p.categoryName(), p.topCategoryName(), agreements.status(who.requireBusiness()), kyc.status(who.requireBusiness()));
+                    p.features(), name, p.categoryName(), p.topCategoryName(), agreements.status(who.requireBusiness()), kyc.status(who.requireBusiness()), biz[1]);
         }
     }
 

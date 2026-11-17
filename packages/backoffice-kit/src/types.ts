@@ -240,7 +240,7 @@ export type CustomerDetail = {
   redemptions: { id: string; businessName: string; offerTitle: string; status: string; payable: number | null; at: string }[];
   payments: { reference: string; kind: string; status: string; payee: string; amount: number; savings: number; at: string }[];
 };
-export type TransactionRow = { reference: string; kind: string; status: string; method: string; amount: number; savings: number; customerName: string; vibeId: string; payee: string; provider: string; createdAt: string; verifiedAt: string | null; refundStatus: 'due' | 'refunded' | null; refundAmount: number | null };
+export type TransactionRow = { reference: string; kind: string; status: string; method: string; amount: number; savings: number; customerName: string; vibeId: string; payee: string; provider: string; createdAt: string; verifiedAt: string | null; refundStatus: 'due' | 'refunded' | null; refundAmount: number | null; payeeMerchantId?: string | null };
 export type TransactionPage = { items: TransactionRow[]; total: number; totals: { count: number; verifiedAmount: number; savings: number } };
 export type TransactionDetail = {
   row: TransactionRow; failureReason: string | null; providerPaymentId: string | null; billRef: string | null; raisedBy: string | null; lines: { label: string; amount: number }[];
@@ -274,6 +274,8 @@ export type MerchantSettings = {
   features?: MerchantFeature[]; businessName?: string; categoryName?: string; topCategoryName?: string;
   /** VIBE's merchant agreement: required once published, and until the owner accepts it nothing else in the dashboard works. */
   agreement?: AgreementStatus; kycStatus?: KycStatus;
+  /** This business's own ID on VIBE, like a customer's VIBE ID (VM- and 6 digits). */
+  merchantId?: string;
 };
 export type TeamMember = { id: string; email: string; name: string; active: boolean; owner: boolean; mustChangePassword: boolean; staffRole: StaffRole | null; permissions: string[] };
 
@@ -283,7 +285,7 @@ export type SettlementDue = { businessId: string; businessName: string; area: st
 export type SettlementSummary = {
   id: string; reference: string; businessId: string; businessName: string; periodFrom: string; periodTo: string; paymentCount: number; gross: number; vibeFees: number; commissionBps: number;
   commission: number; payout: number; customerSavings: number; status: 'pending' | 'paid'; createdAt: string; paidAt: string | null; payoutRef: string | null; note: string | null;
-  gst: number; refundDeductions: number; adjustments: number;
+  gst: number; refundDeductions: number; adjustments: number; merchantId?: string;
 };
 export type SettlementItem = { paymentReference: string; paidAt: string; customerName: string; vibeId: string; billRef: string; offerTitle: string | null; amount: number; vibeFee: number; commission: number; payout: number; customerSaved: number; gst: number; refundShare: number };
 export type SettlementDetail = { summary: SettlementSummary; items: SettlementItem[]; adjustments: AdjustmentRow[] };
@@ -369,7 +371,7 @@ export type TodoItem = { type: TodoType; id: string; title: string; detail: stri
 export type TodoList = { counts: Partial<Record<TodoType, number>>; items: TodoItem[] };
 /** category: the business's own (sub)category; topCategory: the top-level one (Movies, Food & Dining...). received: everything customers paid through VIBE. */
 export type MerchantRow = {
-  id: string; name: string; area: string; category: string; topCategory: string; live: boolean; joinedAt: string; kycStatus: KycStatus; agreementVersion: number | null; currentAgreement: number | null;
+  id: string; merchantId?: string; name: string; area: string; category: string; topCategory: string; live: boolean; joinedAt: string; kycStatus: KycStatus; agreementVersion: number | null; currentAgreement: number | null;
   sales30d: number; received: number; paidOut: number; awaitingPayout: number; owed: number; lastSaleAt: string | null; lastPaidAt: string | null;
 };
 export type MerchantCategory = {

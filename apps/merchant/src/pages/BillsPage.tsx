@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import {
   Badge, Field, Loading, Modal, Notice, PageHead, errorText, formatINR, rupeesToPaise, useAsync, useAuth,
@@ -35,7 +36,10 @@ export function BillsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [howTo, setHowTo] = useState(false);
-  const [starting, setStarting] = useState(false);
+  // The top bar's Raise a bill button opens this page with ?raise=1.
+  const [params, setParams] = useSearchParams();
+  const [starting, setStarting] = useState(params.get('raise') === '1');
+  useEffect(() => { if (params.get('raise') === '1') { setStarting(true); setParams({}, { replace: true }); } }, [params, setParams]);
   const waiting = (board.data?.rows ?? []).filter((r) => r.status === 'awaiting_bill');
 
   // New customers appear and payments land without anyone pressing refresh.

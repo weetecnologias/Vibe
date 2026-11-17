@@ -36,7 +36,7 @@ export function MerchantProfilePage() {
         <>
           <PageHead
             title={m.name}
-            sub={`${d.categoryPath} · ${m.area}`}
+            sub={`${m.merchantId ? `Merchant ID ${m.merchantId} · ` : ''}${d.categoryPath} · ${m.area}`}
             actions={<>{m.live ? <Badge tone="success">Live in the app</Badge> : <Badge>Hidden</Badge>}<Link className="btn" to={`/businesses/${m.id}`} style={{ textDecoration: 'none' }}>Edit listing and logins</Link></>}
           />
           <div className="strip" style={{ marginBottom: 14 }}>

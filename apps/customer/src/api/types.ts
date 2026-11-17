@@ -181,6 +181,8 @@ export type Payment = {
   amount: Paise;
   savings: Paise;
   payeeName: string;
+  /** The business's Merchant ID on VIBE (live backend only). */
+  payeeMerchantId?: string | null;
   providerPaymentId: string | null;
   verifiedAt: ISODate | null;
   failureReason: string | null;

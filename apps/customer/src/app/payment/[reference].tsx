@@ -115,6 +115,7 @@ export default function PaymentStatus() {
           <KV k="Partner payment ID" v={p.providerPaymentId ?? 'Awaiting'} />
           <KV k="Paid with" v={METHOD[p.method]} />
           <KV k="Paid to" v={p.payeeName} />
+          {p.payeeMerchantId ? <KV k="Merchant ID" v={p.payeeMerchantId} /> : null}
           {p.lines.map((l, i) => <KV key={i} k={l.label} v={formatINR(l.amount, { decimals: 'always' })} />)}
           {p.savings > 0 ? <KV k={p.offerTitle ?? 'Member offer'} v={formatINR(-p.savings, { decimals: 'always' })} pink /> : null}
           {/* Whatever the lines and saving don't explain is the VIBE fee plus any taxes and charges on top of the bill. */}
